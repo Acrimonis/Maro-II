@@ -324,6 +324,8 @@ internal class TrackDirectionOverlay(
     private val geoA = GeoPoint(0.0, 0.0)
     private val geoB = GeoPoint(0.0, 0.0)
     private val screen = android.graphics.Point()
+    private val visibleChevrons = casingAppearance?.let { VisibleChevronBuffer() }
+    private val cullMargin = 48f
 
     override fun draw(c: Canvas, osmv: MapView, shadow: Boolean) {
         if (shadow || points.size < 2) return
@@ -342,7 +344,7 @@ internal class TrackDirectionOverlay(
 
         val viewW = c.width.toFloat()
         val viewH = c.height.toFloat()
-        val margin = 48f
+        val margin = cullMargin
 
         val resolver = colorResolver
         if (resolver != null) {
@@ -422,25 +424,48 @@ internal class TrackDirectionOverlay(
         // tip rather than tucking it under.
         val casing = casingAppearance
         if (casing != null) {
+            val projection = osmv.projection
+            requireNotNull(visibleChevrons).prepare(points, anchors, c.width.toFloat(), c.height.toFloat(), cullMargin) { point, out ->
+                geoA.latitude = point.lat
+                geoA.longitude = point.lon
+                projection.toPixels(geoA, screen)
+                out.x = screen.x.toFloat()
+                out.y = screen.y.toFloat()
+            }
             // The offset is read from the line's own width, not the tempered core the coloured V's
             // metrics came from: the rim belongs to the selection, so the line and its arrowheads wear
             // one weight.
             val offset = dpToPx(chevronCasingOffset(casing.strokeWidth, metrics.strokeWidth), density)
             val darkV = chevronV(offset, chevronLen, halfW, dpToPx(CHEVRON_CAP_OVERLAP_DP, density))
-            forEachVisibleChevron(c, osmv, anchors) { _, x, y, bearing ->
+            forEachBufferedChevron(anchors) { _, x, y, bearing ->
                 drawChevron(c, x, y, bearing, darkV, strokeWidth, casing.argb)
             }
+            forEachBufferedChevron(anchors) { anchor, x, y, bearing ->
+                drawChevron(c, x, y, bearing, colouredV, strokeWidth, resolver(anchor).argb)
+            }
+        } else {
+            // One-pass paths retain their original allocation-free projection walk.
+            forEachVisibleChevron(c, osmv, anchors) { anchor, x, y, bearing ->
+                drawChevron(c, x, y, bearing, colouredV, strokeWidth, resolver(anchor).argb)
+            }
         }
-        forEachVisibleChevron(c, osmv, anchors) { anchor, x, y, bearing ->
-            drawChevron(c, x, y, bearing, colouredV, strokeWidth, resolver(anchor).argb)
+    }
+
+    private inline fun forEachBufferedChevron(
+        anchors: List<ArrowAnchor>,
+        drawAt: (anchor: ArrowAnchor, x: Float, y: Float, bearingDeg: Float) -> Unit
+    ) {
+        val projected = requireNotNull(visibleChevrons)
+        for (index in 0 until projected.count) {
+            val anchor = anchors[projected.anchorIndex(index)]
+            drawAt(anchor, projected.x(index), projected.y(index), anchor.bearingDeg)
         }
     }
 
     /**
      * Walks [anchors] in projected screen space and hands each on-screen chevron's anchor, position
-     * and bearing to [drawAt], skipping the ones outside the view. The casing pass and the coloured
-     * pass share this walk rather than each repeating the projection, and it allocates nothing: the
-     * projection reuses the same GeoPoints and Point the iteration loop has always used.
+     * and bearing to [drawAt], skipping the ones outside the view. Single-pass paths use this walk;
+     * casing plus colour uses [visibleChevrons] to project once while preserving two paint passes.
      */
     private inline fun forEachVisibleChevron(
         c: Canvas,
@@ -451,7 +476,7 @@ internal class TrackDirectionOverlay(
         val projection = osmv.projection
         val viewW = c.width.toFloat()
         val viewH = c.height.toFloat()
-        val margin = 48f
+        val margin = cullMargin
 
         for (anchor in anchors) {
             val a = points[anchor.segmentIndex]

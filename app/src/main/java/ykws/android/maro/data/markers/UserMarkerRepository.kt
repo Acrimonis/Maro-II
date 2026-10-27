@@ -7,6 +7,9 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.builtins.ListSerializer
@@ -56,6 +59,9 @@ class UserMarkerRepository(
 
     /** Serializes load-modify-save cycles — two writers (UI VM + service) share the file. */
     private val writeMutex = Mutex()
+    private val _revision = MutableStateFlow(0L)
+    /** Published only after a successful write, shared by local and service-side refresh readers. */
+    val revision: StateFlow<Long> = _revision.asStateFlow()
 
     private val markersFile: File get() = File(markersDir, MARKERS_FILE_NAME)
     private val backupFile: File get() = File(markersDir, MARKERS_BACKUP_NAME)
@@ -145,6 +151,7 @@ class UserMarkerRepository(
         }
         lastKnownGood = markers
         mainFileCorrupt = false
+        _revision.value += 1
         _markerChanges.tryEmit(Unit)
     }
 

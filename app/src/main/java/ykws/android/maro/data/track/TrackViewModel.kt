@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import ykws.android.maro.MaroApp
@@ -408,13 +410,12 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun mergeTracks(trackIds: Set<String>, mergedName: String, keepOriginals: Boolean) {
         viewModelScope.launch {
-            val tracks = trackIds.mapNotNull { repository.load(it) }
-                .filter { it.endTimeMs != null && it.trackPoints.isNotEmpty() }
-                .sortedBy { it.startTimeMs }
-            if (tracks.size < 2) return@launch
-
-            val merger = TrackMerger()
-            val merged = merger.merge(tracks, mergedName)
+            val merged = withContext(Dispatchers.Default) {
+                val tracks = trackIds.mapNotNull { repository.load(it) }
+                    .filter { it.endTimeMs != null && it.trackPoints.isNotEmpty() }
+                    .sortedBy { it.startTimeMs }
+                if (tracks.size < 2) null else TrackMerger().merge(tracks, mergedName)
+            } ?: return@launch
 
             repository.save(merged)
             renderFocus.markTouched(merged.id)
@@ -425,10 +426,8 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
             reassignMarkersToTrack(trackIds, merged.id)
 
             if (!keepOriginals) {
-                trackIds.forEach { id ->
-                    invalidateTrackCache(id)
-                    repository.delete(id, excludeActiveTrackId = _uiState.value.currentTrackId)
-                }
+                trackIds.forEach(::invalidateTrackCache)
+                repository.deleteAll(trackIds, excludeActiveTrackId = _uiState.value.currentTrackId)
             }
 
             refreshSummaries()
@@ -500,7 +499,7 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
 
     /**
      * Import tracks from a GPX file or ZIP archive.
-     * Saves each imported track via [TrackRepository.saveOrReplace]: UPDATE keeps the
+     * Saves imported tracks via [TrackRepository.saveAll]: UPDATE keeps the
      * matched id (replacing in place), NEW/foreign imports get fresh ids — and a NEW import's
      * bundled markers arrive under fresh ids too, so the `update` branch below only ever fires for
      * a SKIP or matched UPDATE import, the two paths that deliberately keep a marker's id.
@@ -516,8 +515,9 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         val existingIds = summaries.map { it.id }.toSet()
         val existingIdByName = summaries.associate { it.name to it.id }
         val batch = GpxImporter.import(input, extension, existingNames, existingIds, existingIdByName, mode)
+        repository.saveAll(batch.tracks)
         for (track in batch.tracks) {
-            repository.saveOrReplace(track)
+            invalidateTrackCache(track.id)
             // Imported tracks join the session boost so they render without selecting or pinning.
             renderFocus.markTouched(track.id)
         }

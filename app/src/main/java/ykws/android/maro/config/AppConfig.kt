@@ -1345,6 +1345,10 @@ object AppConfig {
     var trackNameMaxLength: Int = 254
         private set
 
+    /** Bound on the recorder's copied tail; configured by `tracking.pointChunkSize`. */
+    var trackingPointChunkSize: Int = 256
+        private set
+
     // ── Power management — screen hold ───────────────────────────────
     // Bounds, default and developer constants only. The value the user picks lives in
     // SettingsManager prefs; these define the slider range and the fallbacks.
@@ -1844,6 +1848,9 @@ object AppConfig {
     /** Minimum side of a tappable control's hit area. Default 48. Set via `ui.touch.min`. */
     var uiTouchMin: Float = 48f; private set
 
+    /** Maximum pixels in each cache transfer buffer; configured by raster.bufferPixels. */
+    var rasterBufferPixels: Int = 262144; private set
+
     /**
      * Hash of the colours **one** raster step is painted from, folded into [RasterCache.Key] by
      * `RasterCache.keyFor` — taken per step, so touching one raster's palette misses that raster
@@ -1978,6 +1985,7 @@ object AppConfig {
             // resolver — its one reader — and the unreadable-key channel is reset for this load.
             pathProps = props
             unreadableColourKeysSeen.clear()
+            props.getProperty("raster.bufferPixels")?.toIntOrNull()?.let { rasterBufferPixels = it.coerceAtLeast(1) }
 
             props.getProperty("zoneAutoRevealDistanceM")?.toFloatOrNull()?.let {
                 zoneAutoRevealDistanceM = it.coerceIn(50f, 500f)
@@ -2089,6 +2097,9 @@ object AppConfig {
             }
             props.getProperty("track.name.maxLength")?.toIntOrNull()?.let {
                 trackNameMaxLength = it.coerceIn(8, 254)
+            }
+            props.getProperty("tracking.pointChunkSize")?.toIntOrNull()?.let {
+                trackingPointChunkSize = it.coerceAtLeast(1)
             }
 
             // ── Power management — screen hold ──────────────────────────────

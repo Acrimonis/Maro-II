@@ -13,7 +13,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewModelScope
+import ykws.android.maro.data.track.TrackRecordingService
 import kotlinx.coroutines.Dispatchers
+import ykws.android.maro.data.RetryingInitializer
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -133,21 +135,27 @@ class NavigationViewModel(
      *  reads the persisted values, then bridged to [SettingsManager.settings] after init. */
     val settings: StateFlow<AppSettings> = MutableStateFlow(initialAppSettings)
 
+    private val settingsInitialization = RetryingInitializer()
+    private val coastlineInitialization = RetryingInitializer()
+    private val zonesInitialization = RetryingInitializer()
+
     /** Initialise the cache directory and load coastline via cache-aside pattern. */
     fun initCache(context: Context) {
         // Bridge: forward every emission from the manager's flow to our public flow.
-        viewModelScope.launch {
+        settingsInitialization.start(viewModelScope) {
             settingsManager.settings.collect { updated ->
                 (settings as MutableStateFlow<AppSettings>).value = updated
             }
         }
 
-        repository.setCacheDir(context)
         // Also load regulated zones off the main thread (best-effort — gracefully degrades if no
         // asset). The load is `suspend` and does its own IO, so it runs in its own coroutine and the
         // zone flows below read whatever it publishes.
-        viewModelScope.launch { regulatedZonesRepository.load(context) }
-        viewModelScope.launch {
+        zonesInitialization.start(viewModelScope, ready = { regulatedZonesRepository.zoneSet.value != null }) {
+            regulatedZonesRepository.load(context)
+        }
+        coastlineInitialization.start(viewModelScope, ready = { repository.state.value is CoastlineState.Ready }) {
+            repository.setCacheDir(context)
             repository.loadCoastline()
 
             // Only fall back to coastline centroid if no persisted position was ever saved
@@ -254,8 +262,10 @@ class NavigationViewModel(
 
     /** Repository for prebaked regulated zone data (loaded from APK assets). */
     private val regulatedZonesRepository: RegulatedZonesRepository = RegulatedZonesRepository()
+    /** The same zone set drives navigation indexes and the map overlay. */
+    val regulatedZones = regulatedZonesRepository.zoneSet
 
-    /** Speed zone spatial index — built once when both data sources are ready. */
+    /** Speed zone spatial index — built from each regulated-zone snapshot. */
     private val _speedZoneIndex = MutableStateFlow<SpeedZoneIndex?>(null)
     /** The built speed-zone index, null until both data sources are ready — the history seed waits on this. */
     val speedZoneIndexState: StateFlow<SpeedZoneIndex?> = _speedZoneIndex.asStateFlow()
@@ -907,6 +917,14 @@ class NavigationViewModel(
         // ── GPS mode collectors (rules 1–3) ─────────────────────────────────
         // enabled = GPS toggle AND app foreground. flatMapLatest tears down the
         // location/compass listeners the instant either turns off.
+        recordingFixesWhileDisplayPaused(
+            TrackRecordingService.recordingFixes,
+            settings.map { it.gpsMode }, _gpsActive, TrackRecordingService.isRecording
+        ).onEach { fix ->
+            // Preserve water broadcasts without another LocationManager listener.
+            _boatIsWater.value = repository.isOnWater(fix.position.latitude, fix.position.longitude)
+        }.launchIn(viewModelScope)
+
         val enabled = combine(
             settings.map { it.gpsMode }.distinctUntilChanged(),
             _gpsActive
@@ -1070,6 +1088,12 @@ class NavigationViewModel(
                 } else {
                     displayPositionJob?.cancel()
                     displayPositionJob = null
+                    gpsSignalWatchdogJob?.cancel()
+                    gpsSignalWatchdogJob = null
+                    deadReckoningJob?.cancel()
+                    deadReckoningJob = null
+                    _isEstimating.value = false
+                    _forceReconnect.value = false
                     _displayPosition.value = null
                 }
             }
@@ -1092,21 +1116,16 @@ class NavigationViewModel(
             }
             .launchIn(viewModelScope)
 
-        // ── Speed zone index: build once when both data sources are ready ─────
-        combine(
-            regulatedZonesRepository.zoneSet,
-            repository.state.map { (it as? CoastlineState.Ready)?.data?.zone300 }
-                .distinctUntilChanged()
-        ) { zoneSet, _ ->
+        // Build complete indexes on the worker, then publish on the ViewModel lane.
+        regulatedZonesRepository.zoneSet.map { zoneSet ->
             val zones = SpeedZoneBuilder.build(zoneSet)
-            _speedZones.value = zones
             val zoneCount = zoneSet?.zones?.size ?: 0
             val speedCount = zones.size
             Log.d(TAG, "SpeedZoneIndex: zoneSet has $zoneCount total zones, $speedCount speed zones")
             if (zoneSet != null) {
                 Log.d(TAG, "SpeedZoneIndex: sample raw zones: ${zoneSet.zones.take(5).joinToString { "name='${it.name}' speed=${it.speedLimitKn} source=${it.source}" }}")
             }
-            if (zones.isNotEmpty()) {
+            val index = if (zones.isNotEmpty()) {
                 Log.d(TAG, "SpeedZoneIndex: building index with ${zones.size} zones")
                 zones.forEachIndexed { i, sz ->
                     Log.d(TAG, "SpeedZoneIndex:   zone[$i] id='${sz.id}' name='${sz.name}' speed=${sz.speedLimitKn}kn vertices=${sz.outerRing.size} source=${sz.source}")
@@ -1117,9 +1136,13 @@ class NavigationViewModel(
                 Log.w(TAG, "SpeedZoneIndex: no speed zones found (zoneSet=${zoneSet != null})")
                 null
             }
+            zones to index
         }
-            .distinctUntilChanged()
-            .onEach { idx -> _speedZoneIndex.value = idx }
+            .flowOn(Dispatchers.Default)
+            .onEach { (zones, index) ->
+                _speedZones.value = zones
+                _speedZoneIndex.value = index
+            }
             .launchIn(viewModelScope)
 
         // ── Non-speed regulated zone index for REGULATED re-display proximity ─────
@@ -1131,9 +1154,11 @@ class NavigationViewModel(
                     ?: emptyList()
             }
             .distinctUntilChanged()
-            .onEach { list ->
-                _nonSpeedIndex.value = if (list.isNotEmpty()) ykws.android.maro.spatial.NonSpeedZoneIndex(list) else null
+            .map { list ->
+                if (list.isNotEmpty()) ykws.android.maro.spatial.NonSpeedZoneIndex(list) else null
             }
+            .flowOn(Dispatchers.Default)
+            .onEach { index -> _nonSpeedIndex.value = index }
             .launchIn(viewModelScope)
 
         // Leaving GPS mode → clear GPS-derived state so demo pans freely (north-up) and a
@@ -1184,7 +1209,7 @@ class NavigationViewModel(
      */
     private fun startDeadReckoning() {
         // Defense-in-depth: don't extrapolate when the adaptive policy says stationary.
-        if (_acquisitionMode.value == AcquisitionMode.IDLE) return
+        if (!_gpsActive.value || _acquisitionMode.value == AcquisitionMode.IDLE) return
         deadReckoningJob?.cancel()
         val state = deadReckoningState ?: return
         _isEstimating.value = true

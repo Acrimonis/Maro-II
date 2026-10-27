@@ -40,10 +40,24 @@ object DepthBitmap {
         grid: DepthGrid,
         emodnetCutoffM: Float = 0f,
         nodataColor: Int = 0xFFCCCCCC.toInt(),
-        onProgress: ((Int) -> Unit)? = null
+        onProgress: ((Int) -> Unit)? = null,
+        checkActive: () -> Unit = {}
     ): Bitmap {
+        val colors = pixels(grid, emodnetCutoffM, nodataColor, onProgress, checkActive)
+        checkActive()
+        return Bitmap.createBitmap(colors, grid.cols, grid.rows, Bitmap.Config.ARGB_8888)
+    }
+
+    internal fun pixels(
+        grid: DepthGrid,
+        emodnetCutoffM: Float = 0f,
+        nodataColor: Int = 0xFFCCCCCC.toInt(),
+        onProgress: ((Int) -> Unit)? = null,
+        checkActive: () -> Unit = {}
+    ): IntArray {
         val w = grid.cols
         val h = grid.rows
+        checkActive()
         val colors = IntArray(w * h)
 
         // Fast path: nodataColor is transparent → skip water/land check entirely.
@@ -54,6 +68,7 @@ object DepthBitmap {
         val nodataOnWater = nodataColor != 0
 
         for (r in 0 until h) {
+            checkActive()
             val outRow = (h - 1 - r) * w   // flip south-up grid → top-down bitmap
             for (c in 0 until w) {
                 val d = grid.depthGated(r, c, emodnetCutoffM)
@@ -71,7 +86,8 @@ object DepthBitmap {
                 onProgress(r * 100 / h)
             }
         }
+        checkActive()
         onProgress?.invoke(100)
-        return Bitmap.createBitmap(colors, w, h, Bitmap.Config.ARGB_8888)
+        return colors
     }
 }

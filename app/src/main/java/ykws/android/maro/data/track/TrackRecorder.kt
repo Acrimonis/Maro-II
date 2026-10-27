@@ -259,8 +259,18 @@ class TrackRecorder(
     @Volatile
     private var state: TrackRecorderState = TrackRecorderState.OFF
     @Volatile
-    private var currentTrack: Track? = null
-    private var pointsSinceLastCheckpoint = 0
+    private var publishedTrack: RecordingCheckpoint.Snapshot? = null
+    private var stateRevision = 0L
+    private var currentTrack: Track?
+        get() = publishedTrack?.track
+        set(value) {
+            if (value != publishedTrack?.track) {
+                stateRevision++
+                publishedTrack = value?.let { RecordingCheckpoint.Snapshot(stateRevision, it) }
+            }
+        }
+    private var recordingPoints = RecordingPoints(AppConfig.trackingPointChunkSize)
+    private val checkpoints = RecordingCheckpoint(repository::saveCheckpoint)
     private var recordingStartTimeMs = 0L
     /** Monotonic time this recording session began — the base every saved total is measured from. */
     private var sessionStartMonoMs = 0L
@@ -378,11 +388,12 @@ class TrackRecorder(
     }
 
     /** A checkpoint write that cannot fail the caller: the next one retries, and the finalize reports. */
-    private suspend fun checkpointQuietly(track: Track) {
+    private suspend fun checkpointQuietly(snapshot: RecordingCheckpoint.Snapshot? = publishedTrack) {
+        snapshot ?: return
         try {
-            repository.saveCheckpoint(track)
+            checkpoints.write(snapshot)
         } catch (e: IOException) {
-            Log.w(TAG, "checkpoint write failed for ${track.id}", e)
+            Log.w(TAG, "checkpoint write failed for ${snapshot.track.id}", e)
         }
     }
 
@@ -403,7 +414,7 @@ class TrackRecorder(
         )
         currentTrack = track.copy(boatMarkers = track.boatMarkers + bm)
         scope.launch {
-            currentTrack?.let { checkpointQuietly(it) }
+            checkpointQuietly()
         }
         recomputeDescription()
         pollTitle()
@@ -462,7 +473,8 @@ class TrackRecorder(
         }
 
         // Restore track state
-        currentTrack = resumedTrack
+        recordingPoints = RecordingPoints(AppConfig.trackingPointChunkSize, resumedTrack.trackPoints)
+        currentTrack = resumedTrack.copy(trackPoints = recordingPoints.snapshot())
         recordingStartTimeMs = resumedTrack.startTimeMs
         sessionStartMonoMs = monotonicNowMs()
         // What the track already spanned: to its end when finalized, else to its last point; a
@@ -495,7 +507,6 @@ class TrackRecorder(
         lastGenuineLat = null
         lastGenuineLon = null
         bearingWindow.clear()
-        pointsSinceLastCheckpoint = 0
         idleDurationSec = track.idleDurationSec
         idleStartMs = 0L
         wasStopped = false
@@ -590,6 +601,7 @@ class TrackRecorder(
                 }
                 transitionTo(TrackRecorderState.OFF)
                 currentTrack = null
+                recordingPoints = RecordingPoints(AppConfig.trackingPointChunkSize)
                 _uiState.update { TrackRecorderUiState() }
                 _events.tryEmit(Stopped)
             }
@@ -615,7 +627,7 @@ class TrackRecorder(
         }
         if (!isFinalizing) {
             scope.launch {
-                currentTrack?.let { checkpointQuietly(it) }
+                checkpointQuietly()
             }
         }
         Log.d(TAG, "updateCurrentTrackMeta: name=${currentTrack?.name} comment=${currentTrack?.comment}")
@@ -698,11 +710,12 @@ class TrackRecorder(
         val now = System.currentTimeMillis()
         val id = UUID.randomUUID().toString()
         val name = formatTimestamp(now)
+        recordingPoints = RecordingPoints(AppConfig.trackingPointChunkSize)
         currentTrack = Track(
             id = id,
             name = name,
             startTimeMs = now,
-            trackPoints = mutableListOf(),
+            trackPoints = recordingPoints.snapshot(),
             startedAtHomePort = if (isManual) lastInsideGeofence else true
         )
         recordingStartTimeMs = now
@@ -734,7 +747,6 @@ class TrackRecorder(
         lastGenuineLat = null
         lastGenuineLon = null
         bearingWindow.clear()
-        pointsSinceLastCheckpoint = 0
         idleDurationSec = 0L
         idleStartMs = 0L
         wasStopped = false
@@ -794,9 +806,8 @@ class TrackRecorder(
                 type = PointType.GAP
             )
             currentTrack = track.copy(
-                trackPoints = track.trackPoints + gapPoint
+                trackPoints = recordingPoints.append(gapPoint)
             )
-            pointsSinceLastCheckpoint++
             _events.tryEmit(PointCaptured(gapPoint))
             _newPoint.tryEmit(gapPoint)
             _uiState.update { it.copy(pointCount = it.pointCount + 1) }
@@ -815,7 +826,7 @@ class TrackRecorder(
                 checkpointFileDeleted = true
                 scope.launch {
                     try {
-                        repository.deleteCheckpoint(track.id)
+                        checkpoints.invalidateWhile { repository.deleteCheckpoint(track.id) }
                     } catch (e: IOException) {
                         Log.w(TAG, "resume: checkpoint delete failed for ${track.id}", e)
                     }
@@ -1123,13 +1134,12 @@ class TrackRecorder(
         lastValidPointTimeMs = sample.timestampEpochMs
         lastAcceptedTimeMs = monotonicNowMs()
 
-        // Rebuild track with new point appended (immutable list)
+        // Publish sealed chunks and a bounded tail; older readers keep an immutable snapshot.
         currentTrack = track.copy(
-            trackPoints = track.trackPoints + point,
+            trackPoints = recordingPoints.append(point),
             fastestSpeedMps = maxOf(track.fastestSpeedMps, sample.speedMps ?: 0f)
         )
 
-        pointsSinceLastCheckpoint++
         _events.tryEmit(PointCaptured(point))
         _newPoint.tryEmit(point)
         val avgKn = if (speedCount > 0) {
@@ -1189,8 +1199,7 @@ class TrackRecorder(
         checkpointJob = scope.launch {
             while (true) {
                 delay(CHECKPOINT_INTERVAL_MS)
-                val track = currentTrack ?: continue
-                checkpointQuietly(track)
+                checkpointQuietly()
             }
         }
     }
@@ -1303,6 +1312,7 @@ class TrackRecorder(
         // Refresh description so sweep-closed IDLE durations appear in the comment (Fix 3).
         recomputeDescription()
         val finalizedTrack = currentTrack ?: finalizedWithTitle
+        val finalizedSnapshot = publishedTrack
 
         // D: transactional finalize — persist the finalized track and remove the checkpoint on IO,
         // suspending the lane (never blocking a thread) so the Stop tap is durable before the
@@ -1339,12 +1349,13 @@ class TrackRecorder(
                 // Best effort: put the complete snapshot on disk as a checkpoint, so a crash before
                 // the retry still leaves the whole recording recoverable. A failure here is the same
                 // disk failing twice; the in-memory copy below is then the only one, and it is kept.
-                checkpointQuietly(finalizedTrack)
+                checkpointQuietly(finalizedSnapshot)
                 e.message ?: e.javaClass.simpleName
             }
         }
 
         if (saveError != null) {
+            recordingPoints = RecordingPoints(AppConfig.trackingPointChunkSize, finalizedTrack.trackPoints)
             // Retain: the recorder stays ON holding the finalized snapshot, the checkpoint job
             // resumes so the disk is retried every interval, and the error channel says why. The
             // next Stop finalizes again from this snapshot; only a successful save or an explicit
@@ -1362,6 +1373,7 @@ class TrackRecorder(
 
         transitionTo(TrackRecorderState.OFF)
         currentTrack = null
+        recordingPoints = RecordingPoints(AppConfig.trackingPointChunkSize)
         isFinalizing = false
         _uiState.update { TrackRecorderUiState() }
     }
@@ -1428,7 +1440,7 @@ class TrackRecorder(
             // the checkpoint persisted so a crash after the prompt still has the trip.
             if (arrivalPromptArmed && lastInsideGeofence) {
                 arrivalPromptArmed = false
-                currentTrack?.let { checkpointQuietly(it) }
+                checkpointQuietly()
                 _events.tryEmit(HomePortArrivalPrompt)
                 return@launch
             }
@@ -1470,7 +1482,7 @@ class TrackRecorder(
                             )
                             session.boatMarkerIndex = idx
                             session.boatMarkerMerged = true
-                            checkpointQuietly(currentTrack!!)
+                            checkpointQuietly()
                             recomputeDescription()
                             pollTitle()
                             return@launch
@@ -1489,7 +1501,7 @@ class TrackRecorder(
                     )
                     currentTrack = track.copy(boatMarkers = track.boatMarkers + bm)
                     session.boatMarkerIndex = currentTrack!!.boatMarkers.lastIndex
-                    checkpointQuietly(currentTrack!!)
+                    checkpointQuietly()
                     recomputeDescription()
                     pollTitle()
                 }
@@ -1519,7 +1531,7 @@ class TrackRecorder(
                 boatMarkers = track.boatMarkers.toMutableList().also { it[idx] = closed }
             )
             scope.launch {
-                currentTrack?.let { checkpointQuietly(it) }
+                checkpointQuietly()
             }
         }
     }

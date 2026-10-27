@@ -3,6 +3,9 @@ package ykws.android.maro.data.regulation
 import ykws.android.maro.BuildConfig
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -31,6 +34,7 @@ class RegulatedZonesRepository(
 ) {
     private val _zoneSet = MutableStateFlow<RegulatedZoneSet?>(null)
     val zoneSet: StateFlow<RegulatedZoneSet?> = _zoneSet.asStateFlow()
+    private val loadMutex = Mutex()
 
     /** Relative asset path for the prebaked regulated zones binary. */
     private fun assetPath(): String = "regulated-zones/$regionId.bin"
@@ -48,21 +52,26 @@ class RegulatedZonesRepository(
      * `Context.assets` is unreachable without a device. A missing, empty or corrupt asset leaves
      * [zoneSet] `null` as much as a clean read leaves it set.
      */
-    internal suspend fun loadFrom(openAsset: (String) -> InputStream) = withContext(Dispatchers.IO) {
-        try {
-            openAsset(assetPath()).use { stream ->
-                val bytes = stream.readBytes()
-                val parsed = RegulatedZoneSerializer.deserialize(bytes)
-                val overrides = readOverrides(openAsset)
-                val applied = RegulationSpeedOverrides.apply(parsed.zones, overrides)
-                _zoneSet.value = parsed.copy(
-                    zones = applied,
-                    metadata = parsed.metadata.copy(totalZones = applied.size)
-                )
+    internal suspend fun loadFrom(openAsset: (String) -> InputStream) = loadMutex.withLock {
+        if (_zoneSet.value != null) return@withLock
+        withContext(Dispatchers.IO) {
+            try {
+                openAsset(assetPath()).use { stream ->
+                    val bytes = stream.readBytes()
+                    val parsed = RegulatedZoneSerializer.deserialize(bytes)
+                    val overrides = readOverrides(openAsset)
+                    val applied = RegulationSpeedOverrides.apply(parsed.zones, overrides)
+                    _zoneSet.value = parsed.copy(
+                        zones = applied,
+                        metadata = parsed.metadata.copy(totalZones = applied.size)
+                    )
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                // No baked asset or corrupt — regulated zones overlay is simply absent.
+                _zoneSet.value = null
             }
-        } catch (_: Exception) {
-            // No baked asset or corrupt — regulated zones overlay is simply absent.
-            _zoneSet.value = null
         }
     }
 

@@ -221,6 +221,12 @@ class TrackRecorderLifecycleTest {
             assertEquals(4, recoverable.trackPoints.size)
             assertEquals(0, h.events.count { it is TrackEvent.Finalized })
 
+            // A failed finalize retains a snapshot, and later appends must extend that same recording.
+            val retained = h.recorder.snapshotPoints()
+            h.emitPoints(from = 4, count = 2)
+            assertEquals(4, retained.size)
+            assertEquals(retained, h.recorder.snapshotPoints().take(4))
+
             h.repo.failSaves = false
             h.recorder.stop()
             h.awaitState(TrackRecorderState.OFF)
@@ -228,6 +234,7 @@ class TrackRecorderLifecycleTest {
             assertTrue(finalFile(id).exists())
             assertFalse(checkpointFile(id).exists())
             assertNotNull(h.repo.load(id))
+            assertEquals(6, h.repo.load(id)!!.trackPoints.size)
         } finally {
             h.close()
         }

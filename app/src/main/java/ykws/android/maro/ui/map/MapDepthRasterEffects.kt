@@ -6,7 +6,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
 import ykws.android.maro.data.depth.RasterCache
 import ykws.android.maro.data.model.BoundingBox
 import ykws.android.maro.data.model.CoastlineState
@@ -14,8 +13,6 @@ import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.DepthState
 import ykws.android.maro.data.model.Isobath
 import ykws.android.maro.data.model.RasterProgress
-import ykws.android.maro.data.regulation.RegulatedZoneSet
-import ykws.android.maro.data.regulation.RegulatedZonesRepository
 import ykws.android.maro.data.settings.AppSettings
 
 /**
@@ -94,23 +91,4 @@ internal fun MapDepthRasterEffects(
         isobaths = isobaths,
         rasterProgress = rasterProgress
     )
-}
-
-/**
- * Regulated zones overlay: load prebaked asset on first composition (extracted from MapScreen).
- *
- * The repository is **hoisted to the caller** and handed in, so the one instance that loads the
- * asset is the one its readers watch — no second instance's state is ever watched. The load itself
- * is `suspend` and runs off the main thread inside the repository; this effect only starts it once.
- */
-@Composable
-internal fun MapRegulatedZonesLoader(
-    context: Context,
-    repository: RegulatedZonesRepository
-): RegulatedZoneSet? {
-    val regulatedZones by produceState<RegulatedZoneSet?>(initialValue = null, repository) {
-        repository.load(context)
-        value = repository.zoneSet.value
-    }
-    return regulatedZones
 }
