@@ -1,6 +1,9 @@
 package ykws.android.maro.data.regulation
 
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.CancellationException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -71,5 +74,29 @@ class RegulatedZonesRepositoryTest {
         repository.loadFrom(asset(corrupt))
 
         assertNull(repository.zoneSet.value)
+    }
+
+    @Test fun repeatedAndConcurrentSuccessfulLoadsOpenTheAssetOnce() = runTest {
+        val bytes = RegulatedZoneSerializer.serialize(sampleSet())
+        val repository = RegulatedZonesRepository("test")
+        var opens = 0
+        val opener: (String) -> InputStream = { path ->
+            if (!path.endsWith(".bin")) throw FileNotFoundException(path)
+            opens++
+            ByteArrayInputStream(bytes)
+        }
+        List(10) { async { repository.loadFrom(opener) } }.awaitAll()
+        repository.loadFrom(opener)
+        assertEquals(1, opens)
+        assertEquals(sampleSet(), repository.zoneSet.value)
+    }
+
+    @Test fun missingAndCancelledLoadsDoNotPreventALaterRetry() = runTest {
+        val repository = RegulatedZonesRepository("test")
+        repository.loadFrom { throw FileNotFoundException(it) }
+        try { repository.loadFrom { throw CancellationException("cancelled load") } }
+        catch (_: CancellationException) { }
+        repository.loadFrom(asset(RegulatedZoneSerializer.serialize(sampleSet())))
+        assertEquals(sampleSet(), repository.zoneSet.value)
     }
 }

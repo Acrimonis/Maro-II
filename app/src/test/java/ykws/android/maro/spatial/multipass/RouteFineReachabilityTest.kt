@@ -63,6 +63,10 @@ class RouteFineReachabilityTest {
                 "$plan reaches the fine walk, so its refinement's settled pull is produced",
                 refineTrace.any { it.startsWith("FINE settled ") }
             )
+            assertTrue(
+                "$plan reaches the movable slow-water approach pass",
+                refineTrace.any { it.startsWith("APPROACH ") }
+            )
         }
     }
 

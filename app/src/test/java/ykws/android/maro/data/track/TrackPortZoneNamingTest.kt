@@ -4,7 +4,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -83,6 +85,12 @@ class TrackPortZoneNamingTest {
         timestampEpochMs = System.currentTimeMillis()
     )
 
+    private suspend fun stopAndAwaitSave(recorder: TrackRecorder) {
+        recorder.stop()
+        // Stop is asynchronous: OFF is published only after the finalized file is durable.
+        withTimeout(5_000) { recorder.uiState.first { it.state == TrackRecorderState.OFF } }
+    }
+
     @Test
     fun `a port-zone marker stays out of the traversed fallback`() = runBlocking {
         val repo = TrackRepository(temp.root)
@@ -96,7 +104,7 @@ class TrackPortZoneNamingTest {
             // Two moving fixes inside the circle: the trip records points but stays at the port.
             samples.tryEmit(sample(homeLat, homeLon))
             samples.tryEmit(sample(homeLat + 0.0001, homeLon + 0.0001))
-            rec.stop()
+            stopAndAwaitSave(rec)
 
             val saved = repo.load(id)
             assertTrue(saved != null)
@@ -123,7 +131,7 @@ class TrackPortZoneNamingTest {
             stopped.value = true
             samples.tryEmit(sample(homeLat, homeLon))
             delay(2_000)
-            rec.stop()
+            stopAndAwaitSave(rec)
 
             val saved = repo.load(id)
             assertTrue(saved != null)

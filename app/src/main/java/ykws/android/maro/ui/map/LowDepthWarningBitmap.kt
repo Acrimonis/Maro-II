@@ -35,14 +35,31 @@ object LowDepthWarningBitmap {
         startWarningM: Float = DepthConstants.LOW_DEPTH_START_WARNING_M.toFloat(),
         isWater: (lat: Double, lon: Double) -> Boolean = { _, _ -> true },
         emodnetCutoffM: Float = 0f,
-        onProgress: ((Int) -> Unit)? = null
+        onProgress: ((Int) -> Unit)? = null,
+        checkActive: () -> Unit = {}
     ): Bitmap {
+        val colors = pixels(grid, crashDepthM, startWarningM, isWater, emodnetCutoffM, onProgress, checkActive)
+        checkActive()
+        return Bitmap.createBitmap(colors, grid.cols, grid.rows, Bitmap.Config.ARGB_8888)
+    }
+
+    internal fun pixels(
+        grid: DepthGrid,
+        crashDepthM: Float = DepthConstants.LOW_DEPTH_CRASH_DEPTH_M.toFloat(),
+        startWarningM: Float = DepthConstants.LOW_DEPTH_START_WARNING_M.toFloat(),
+        isWater: (lat: Double, lon: Double) -> Boolean = { _, _ -> true },
+        emodnetCutoffM: Float = 0f,
+        onProgress: ((Int) -> Unit)? = null,
+        checkActive: () -> Unit = {}
+    ): IntArray {
         val w = grid.cols
         val h = grid.rows
+        checkActive()
         val colors = IntArray(w * h)
         val hLat = grid.cellSizeDegLat * 0.5   // half-cell, for the corner sampling
         val hLon = grid.cellSizeDegLon * 0.5
         for (r in 0 until h) {
+            checkActive()
             val outRow = (h - 1 - r) * w   // flip south-up grid → top-down bitmap
             for (c in 0 until w) {
                 val d = grid.depthGated(r, c, emodnetCutoffM)
@@ -63,8 +80,9 @@ object LowDepthWarningBitmap {
                 onProgress(r * 100 / h)
             }
         }
+        checkActive()
         onProgress?.invoke(100)
-        return Bitmap.createBitmap(colors, w, h, Bitmap.Config.ARGB_8888)
+        return colors
     }
 
     /**

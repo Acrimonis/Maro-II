@@ -174,8 +174,9 @@ internal class RouteFinePass {
         // consumes it: near-collinear waypoints collapse into straight chords so the corner pass sees
         // fewer bends, and a chord is taken only where it clears the wall and is no dearer. The pass reads
         // the same setup the pull walked, so the clearance is one home.
-        val straightened = MultipassPull.straightenLine(setup, swept)
-        trace { "STRAIGHTEN points=${swept.size}→${straightened.size}" }
+        val approached = RouteApproachPass.refine(setup, swept, corridor, checkCancelled, trace)
+        val straightened = MultipassPull.straightenLine(setup, approached)
+        trace { "STRAIGHTEN points=${approached.size}→${straightened.size}" }
         // **The medial nudge** — where the line runs through a passage narrower than the gate's preferred
         // standoff on both sides, its stretch moves to the passage's middle, on the same setup's proofs. It
         // is the berth's own pass: a plan that prices no inner ramp has no passage to centre.
