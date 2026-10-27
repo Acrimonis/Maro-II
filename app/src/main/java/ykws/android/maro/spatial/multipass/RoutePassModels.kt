@@ -34,6 +34,29 @@ internal data class GridWalk(
 internal data class CornerSet(val points: List<LatLng>, val radiusM: (LatLng) -> Double)
 
 /**
+ * **One body corner of a costed marker** — the offset point on the body's outline and the owning marker's
+ * own proximity collar ([reachM]), which is the reach within which a bend is offered this corner: a bend
+ * inside the collar may be moved onto the body's edge, a bend beyond it is not. The marker's identity is
+ * not carried: the corner's reach is the whole of what the snap reads of it.
+ */
+internal data class BodyCorner(val point: LatLng, val reachM: Double)
+
+/**
+ * **A bend the sweep kept, and the point that kept it** — recorded once per interior vertex of the swept
+ * line on the sweep's last pass, so the relocation can slide the bend onto the edge of the obstacle its
+ * skipping chord met. [worstAt] is the chord's own mark: the dearest one for a [ChordRefusal.PRICE] keep
+ * (with [arm] the arm that charged most there), the first refused one for a [ChordRefusal.LAND] keep
+ * ([arm] `null`). The bend is matched to a line by [at], the point itself, so a line turned to its
+ * canonical direction still finds its keeps.
+ */
+internal data class KeptBend(
+    val at: LatLng,
+    val worstAt: LatLng,
+    val cause: ChordRefusal,
+    val arm: PriceArm?
+)
+
+/**
  * The λ-free solve context the ladder's rungs share: the corridor, the grid and every reading the
  * solve-at-λ tail needs. Built once per arm, so three rungs cost one rasterise and three A* passes.
  *

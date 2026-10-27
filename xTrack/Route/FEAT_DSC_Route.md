@@ -2,7 +2,7 @@
 name: Route
 status: active
 created: 2026-08-16 10:44
-modified: 2026-10-24 06:34
+modified: 2026-10-27 13:02
 ---
 
 # Feature: Route
@@ -12,7 +12,7 @@ State doc — what the mode is, what the code does today, and what is left. Pres
 of 2026-10-07, so this file states the current code and nothing else.
 
 ## Summary
-- Set a destination and the app draws the route from the boat to it through one `RouteEngine` seam (dummy · avoid · evolutive) arming a Detour · Balanced · Coastal ladder, then saves the line as an ordinary track; the depth gate, corner pass, pull lookback and the coarse-anchored ends stand as shipped.
+- Set a destination and the app draws the route from the boat to it through one `RouteEngine` seam (dummy · avoid · evolutive) arming a Detour · Balanced · Coastal ladder, then saves the line as an ordinary track; the depth gate, corner pass, pull lookback and the coarse-anchored ends stand as shipped, and since 2026-10-27 a costed marker's body is a corner set the snap hugs while the fine pass slides every bend the sweep kept onto the edge that kept it (`sweep → relocate → sweep`), the collar staying a priced lean.
 - Owed: the `Any` pace's device pass (a drive, a stop, a second trip the same day, Calculate), the measured gate's device pass (the Bacon – La Grenille pair among it), the choice of whether `avoid` — the default row, now strict at 20 m on 100 m cells — takes the berth's floor and ramp, the inner ramp's rate on the device's `innerM`, and the straightener's epsilon on device.
 
 ## Concept
@@ -32,6 +32,8 @@ an ordinary track.
 - **While a route is followed the distance tile becomes the route's own** — its **main figure is the time left**, the bare ETA in force, over one bottom line carrying the distance left, the `Slow water` dial's own word and the cruising pace (`route_trip_line_fmt`). The plan's age is not shown, and neither is a forced-crossing note: this cell reads the trip and nothing else. The two are **one cell the boat can flip**: a tap on the trip tile returns it to the shore reading and a tap there brings the trip back, a freshly armed route opening on the trip face — and with no route the cell is the ordinary distance tile, untappable. The cell wears a **border pulsing in the route toggle's own blue** (`AppConfig.routeNavigateColor`), beating on the app's single pulse home; the border marks the followed route rather than one face, so the trip reading and the shore reading alike wear it and one beat spans the flip. The trip cell and the drawer band alike read `remainingFrom(boat)` off **whatever orientation the plan stands in** (R99), so the loss mirror's ETA and distance face the new destination with no second arithmetic.
 
 ## Current state of the code
+
+- **A costed marker's body gets an edge, and a kept bend slides onto the edge that kept it** (2026-10-27) — every circle or corridor marker body (walls included, pins excluded: a point has no body) is a fourth tangent-corner set the snap reads, and the fine pass runs `sweep → relocate → sweep`, the relocation moving each bend the sweep kept by price or land onto the nearest corner of the mark that kept it, so a bend the greedy left in open water ends on the band, ring or body it was guarding. The collar stays a priced lean and the marker price law is untouched. Plan: [`261027_FEAT_PLN_Route_marker-body-hug.md`](261027_FEAT_PLN_Route_marker-body-hug.md).
 
 - **Corner snapping and bounded cleanup share the total-cost objective** — snapping compares travel time plus penalties; cleanup considers sharp bends as well as flat ones, preserving its segment cap, clearance proofs and field-price allowance. Implementation and checks: [`261026_FEAT_PLN_Route_snap-cost-and-sharp-windows.md`](261026_FEAT_PLN_Route_snap-cost-and-sharp-windows.md).
 
@@ -188,6 +190,7 @@ The live numbered requirements — added after the master book was retired; the 
 
 ## Docs
 
+- [`261027_FEAT_PLN_Route_marker-body-hug.md`](261027_FEAT_PLN_Route_marker-body-hug.md) — **a costed marker's body hugged, a kept bend slid onto its edge**: the device trace that showed the Balanced rung's mid-bay bend held by the band and zones with the grade-2 pin worth 4 s, the decision (hug the body, collar a lean), the fourth corner set, the sweep's keeps record and the relocation pass; the body's price law stands as an open decision (implemented, device pass owed)
 - [`261024_FEAT_PLN_Route_route-comment.md`](261024_FEAT_PLN_Route_route-comment.md) — **the comment a saved route carries**: `#rank • rung • pace • pref`, a per-zone time line (`Open water • 300M • limit`) and `Routed on date in s sec`, composed at save time with the rank read at save time and the words in the active locale (implemented, device pass owed)
 - [`261021_FEAT_PLN_Route_end-fine-island.md`](261021_FEAT_PLN_Route_end-fine-island.md) — **an end beyond the fine ribbon**: the destination anchored on a manufactured one-cell fine island (the fine layer is the coastal ribbon only), and the fix that leaves a no-water fine cell land so the end anchors on the coarse cell (implemented, device pass owed)
 
@@ -218,6 +221,7 @@ The live numbered requirements — added after the master book was retired; the 
 
 One list, newest first: everything the Route feature has planned and **not yet implemented**. The device passes are the user's own and stand in their own section at the end of this file.
 
+- [ ] **The marker body hug's review findings** — nine open items from the 2026-10-27 review hop, none verdict-changing: a kept vertex walked twice against the plan's one-walk claim, an inert canonical-direction wrap and its tautological test, the missing refused-by-price snap case, the stadium sampler's side-effecting conditions, the reach map's silent fallback, the sweep KDoc and the second sweep's untagged summary, two duplicated constants, the properties comment restating its value; and the body's **price law** as the user's open decision → [`261027_FEAT_PLN_Route_marker-body-hug.md`](261027_FEAT_PLN_Route_marker-body-hug.md)
 - [ ] **A pair from either end — the cost read, the crown's near-tie** — the phone's pull cost is measured (2026-10-21, instrumented build): the two-sided pull is 24–36 % of a search and overlapping its walks (F1 of the pull-cost plan, unbuilt) would save 0.83–0.87 s an attempt, 9–13 % of a plain search; the memo shared between the walks is worth 2–7 % of reads, so splitting it is free. One named pair (`evolutive`, cannes-bay → baie-des-anges) still crowns `fast` one way and `around` the other on lines equal to 0.4 m: the rungs' slow-water seconds and scores are not yet printed, so the cause (a margin on the 30 s tolerance's edge is the likeliest) is unproven. `FINAL`'s input differs with the arming direction (12–21 m, up to 1.4 s, inside the bar). The guard swap and the fallback walk have no unit test → [`261021_FEAT_PLN_Route_pull-cost.md`](261021_FEAT_PLN_Route_pull-cost.md), [`261020_FEAT_PLN_Route_direction-symmetry.md`](261020_FEAT_PLN_Route_direction-symmetry.md)
 - [ ] **The taunt's own reach, after the window landed** — the window and its relative allowance shipped on 2026-10-16, and the replay against that day's capture flips only three of 48 price refusals, because 20 of them have their legs priced at zero and a share of nothing is nothing; the floor the plan itself ordered, the allowance written twice, the window's unauditable proof and the sweep's missing clock all stand recorded in the plan → [`261016_FEAT_PLN_Route_taunt-window-and-allowance.md`](261016_FEAT_PLN_Route_taunt-window-and-allowance.md)
 - [ ] **The card's figures** — the line's minutes in slow water on the panel, where it does not already print them; the dial's own word in the header landed with P4. → [`261015_FEAT_PLN_Route_verdict-exchange-rate.md`](xxArchive/261015_FEAT_PLN_Route_verdict-exchange-rate.md)

@@ -6,8 +6,10 @@ import ykws.android.maro.spatial.LandRingOrientation
 import ykws.android.maro.spatial.SpatialOperations
 import kotlin.math.PI
 import kotlin.math.cos
+import kotlin.math.ceil
 import kotlin.math.hypot
 import kotlin.math.roundToLong
+import kotlin.math.sin
 import kotlin.math.sqrt
 
 /**
@@ -38,6 +40,10 @@ object TangentCorners {
     /** The furthest an offset corner may stand from its vertex before the corner is dropped — a
      *  shallow cape must not push a corner kilometres out. */
     private const val MAX_OFFSET_M = 2000.0
+
+    /** A marker body's outline is sampled at least this many times and at most this many, whatever its size. */
+    private const val BODY_MIN_CORNERS = 8
+    private const val BODY_MAX_CORNERS = 64
 
     private data class Key(val lat: Long, val lon: Long)
 
@@ -93,6 +99,116 @@ object TangentCorners {
             }
         }
         return out
+    }
+
+    /**
+     * **The body corners of the costed markers** — points on each marker's **body** outline, stood
+     * [offsetM] off it, which are the bends a line hugging the body would hold. A circle's body is its
+     * ring, a corridor's the stadium of its two sides and two cap half-circles, and a pin — a circle of
+     * radius `0` — has no body and yields nothing: it leans only. A wall (grade 10) is a body like any
+     * other, and the one with the most need of a hug, since a rastered wall is not a coast edge and the
+     * coast set never sees it.
+     *
+     * The outline is sampled every [cellM] along its length, floored at [BODY_MIN_CORNERS] and capped at
+     * [BODY_MAX_CORNERS]; where the cap bites the spacing grows to the perimeter over the cap. The first
+     * sample stands due north of a circle's centre and at `p1`'s cap apex for a corridor, so the set is the
+     * same for the same marker whatever asked for it. Each corner carries its marker's own collar as the
+     * reach a bend is offered it within ([BodyCorner.reachM]).
+     */
+    internal fun bodyCorners(markers: List<RouteMarker>, offsetM: Double, cellM: Double): List<BodyCorner> {
+        val out = ArrayList<BodyCorner>()
+        for (m in markers) {
+            when (val g = m.geometry) {
+                is RouteMarkerGeometry.Circle -> {
+                    if (g.radiusM <= 0.0) continue
+                    val r = g.radiusM + offsetM
+                    val n = sampleCount(2.0 * PI * r, cellM)
+                    for (i in 0 until n) {
+                        val theta = 2.0 * PI * i / n
+                        out.add(BodyCorner(offsetFrom(g.center, r * sin(theta), r * cos(theta)), g.proximityM))
+                    }
+                }
+                is RouteMarkerGeometry.Corridor -> stadiumCorners(g, offsetM, cellM, out)
+            }
+        }
+        return out
+    }
+
+    /**
+     * The stadium outline of a corridor's body, offset by [offsetM] and sampled by arc length from `p1`'s
+     * cap apex: `p1`'s cap to its right side, the right side to `p2`, `p2`'s cap, the left side back, and
+     * the rest of `p1`'s cap. A corridor whose two ends coincide is a circle and is sampled as one.
+     */
+    private fun stadiumCorners(
+        g: RouteMarkerGeometry.Corridor,
+        offsetM: Double,
+        cellM: Double,
+        out: MutableList<BodyCorner>
+    ) {
+        val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
+        val mPerDegLon = mPerDegLat * cos(Math.toRadians(g.p1.latitude))
+        val dx = (g.p2.longitude - g.p1.longitude) * mPerDegLon
+        val dy = (g.p2.latitude - g.p1.latitude) * mPerDegLat
+        val length = hypot(dx, dy)
+        val radius = g.widthM / 2.0 + offsetM
+        if (length < MIN_EDGE_M) {
+            val n = sampleCount(2.0 * PI * radius, cellM)
+            for (i in 0 until n) {
+                val theta = 2.0 * PI * i / n
+                out.add(BodyCorner(offsetFrom(g.p1, radius * sin(theta), radius * cos(theta)), g.proximityM))
+            }
+            return
+        }
+        val ux = dx / length
+        val uy = dy / length
+        // The left normal of travel `p1 → p2`.
+        val nx = -uy
+        val ny = ux
+        val cap = PI * radius
+        val halfCap = cap / 2.0
+        val perimeter = 2.0 * length + 2.0 * cap
+        val n = sampleCount(perimeter, cellM)
+        for (i in 0 until n) {
+            var s = perimeter * i / n
+            val x: Double
+            val y: Double
+            if (s < halfCap) {
+                // `p1`'s cap, from the apex (behind `p1`) round to the right side.
+                val theta = PI + s / radius
+                x = radius * (cos(theta) * ux + sin(theta) * nx)
+                y = radius * (cos(theta) * uy + sin(theta) * ny)
+            } else if ((s - halfCap).also { s = it } < length) {
+                // The right side, `p1` to `p2`.
+                x = -radius * nx + s * ux
+                y = -radius * ny + s * uy
+            } else if ((s - length).also { s = it } < cap) {
+                // `p2`'s cap, right side round to the left side.
+                val theta = -PI / 2.0 + s / radius
+                x = dx + radius * (cos(theta) * ux + sin(theta) * nx)
+                y = dy + radius * (cos(theta) * uy + sin(theta) * ny)
+            } else if ((s - cap).also { s = it } < length) {
+                // The left side, `p2` back to `p1`.
+                x = dx + radius * nx - s * ux
+                y = dy + radius * ny - s * uy
+            } else {
+                // The rest of `p1`'s cap, left side round to the apex.
+                val theta = PI / 2.0 + (s - length) / radius
+                x = radius * (cos(theta) * ux + sin(theta) * nx)
+                y = radius * (cos(theta) * uy + sin(theta) * ny)
+            }
+            out.add(BodyCorner(offsetFrom(g.p1, x, y), g.proximityM))
+        }
+    }
+
+    /** How many samples an outline of [perimeterM] takes at one per [cellM], within the body's floor and cap. */
+    private fun sampleCount(perimeterM: Double, cellM: Double): Int =
+        ceil(perimeterM / cellM.coerceAtLeast(MIN_EDGE_M)).toInt().coerceIn(BODY_MIN_CORNERS, BODY_MAX_CORNERS)
+
+    /** The point [eastM] east and [northM] north of [origin], in the same planar read [addTangent] makes. */
+    private fun offsetFrom(origin: LatLng, eastM: Double, northM: Double): LatLng {
+        val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
+        val mPerDegLon = mPerDegLat * cos(Math.toRadians(origin.latitude))
+        return LatLng(origin.latitude + northM / mPerDegLat, origin.longitude + eastM / mPerDegLon)
     }
 
     /** The ring read counter-clockwise, so the offset faces the water (outside) side either way. */

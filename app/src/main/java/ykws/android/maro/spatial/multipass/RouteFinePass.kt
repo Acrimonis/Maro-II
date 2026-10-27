@@ -144,10 +144,26 @@ internal class RouteFinePass {
         // The settled line then carries its own lookback: the removable-vertex sweep drops every bend the
         // pull's own two proofs clear, gated on the line's own refusals, so the corner pass consumes the
         // genuinely taut line rather than the forward-only greedy's first-refusal keep.
-        val swept = MultipassPull.sweep(
+        val keeps = ArrayList<KeptBend>()
+        val sweptOnce = MultipassPull.sweep(
             setup, settled, refusals, finalTiming, settledMemo, trace, checkCancelled = checkCancelled,
-            traceLive = traceLive
+            traceLive = traceLive, keeps = keeps
         )
+        // **The relocation, then one more sweep.** A bend the sweep kept slides onto the edge of the obstacle
+        // that kept it — a forward greedy, so it runs in the pair's canonical direction like the runner's
+        // snap — and the sweep that follows drops the neighbour a moved bend freed. Where nothing moved the
+        // swept line stands as it is, and the second sweep is not paid.
+        val relocated =
+            if (keeps.isEmpty()) sweptOnce
+            else inCanonicalDirection(sweptOnce, setup) { turned, water ->
+                relocateKeptBends(water, sets, turned, keeps, trace, checkCancelled)
+            }
+        val swept =
+            if (relocated == sweptOnce) sweptOnce
+            else MultipassPull.sweep(
+                setup, relocated, refusals, finalTiming, settledMemo, trace, checkCancelled = checkCancelled,
+                traceLive = traceLive
+            )
         trace {
             "FINE settled points=${swept.size} fineCell=${fmt(fineCellM)}m " +
                 "priceReads=${finalTiming.priceReads} marks=${finalTiming.marks} " +

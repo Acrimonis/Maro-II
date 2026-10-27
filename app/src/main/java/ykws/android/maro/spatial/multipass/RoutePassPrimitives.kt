@@ -434,20 +434,120 @@ internal fun snapToCorners(
             }
         }
         val corner = nearest ?: continue
-        val hardClear =
-            MultipassPull.legClear(out[i - 1], corner, ctx) &&
-                MultipassPull.legClear(corner, path[i + 1], ctx)
-        if (!hardClear) continue
-        val replacedSec = MultipassPull.totalSec(out[i - 1], path[i], ctx) +
-            MultipassPull.totalSec(path[i], path[i + 1], ctx)
-        val snappedSec = MultipassPull.totalSec(out[i - 1], corner, ctx) +
-            MultipassPull.totalSec(corner, path[i + 1], ctx)
-        if (snappedSec <= replacedSec) {
-            out[i] = corner
-        }
+        if (moveVerdict(out[i - 1], path[i], path[i + 1], corner, ctx) == MoveVerdict.MOVED) out[i] = corner
     }
     return out
 }
+
+/** The three answers a proposed move of a bend can get — the one shape the snap and the relocation share. */
+internal enum class MoveVerdict { MOVED, REFUSED_CLEAR, REFUSED_PRICE }
+
+/**
+ * **The bend move's two proofs, in one home** — whether the bend at [b], between the settled [prev] and the
+ * unsettled [next], may stand at [corner] instead: both new legs clear ([MultipassPull.legClear]), read
+ * first and short-circuiting so a refused leg pays no price read, then the two new legs' travel plus
+ * penalties no dearer than the two they replace ([MultipassPull.totalSec]). The snap and the relocation
+ * both decide on this, so a corner neither can take is refused for the same reason by either.
+ */
+private fun moveVerdict(prev: LatLng, b: LatLng, next: LatLng, corner: LatLng, ctx: PullContext): MoveVerdict {
+    val hardClear = MultipassPull.legClear(prev, corner, ctx) && MultipassPull.legClear(corner, next, ctx)
+    if (!hardClear) return MoveVerdict.REFUSED_CLEAR
+    val replacedSec = MultipassPull.totalSec(prev, b, ctx) + MultipassPull.totalSec(b, next, ctx)
+    val movedSec = MultipassPull.totalSec(prev, corner, ctx) + MultipassPull.totalSec(corner, next, ctx)
+    return if (movedSec <= replacedSec) MoveVerdict.MOVED else MoveVerdict.REFUSED_PRICE
+}
+
+/**
+ * **Slides a bend the sweep kept onto the edge of the obstacle that kept it.** The sweep's forward-only
+ * greedy leaves a kept vertex where its skipping chord broke, which can be kilometres from the band, ring
+ * or body the chord met — a bend in open water that no snap can reach, since every set's radius is read
+ * about the bend. This pass reads the reach about the **obstacle** instead: for each [KeptBend] on [path],
+ * the candidate is the corner, across all [sets], nearest to the bend's own worst point and **nearer to it
+ * than the bend is**, so the reach is the bend's own distance to what kept it. The candidate is then
+ * proved by [moveVerdict] against the **current** neighbours — the predecessor as already relocated, the
+ * successor as not yet — and a corner equal to either neighbour is refused, so no zero-length leg is
+ * written. Where the candidate fails the bend stays where the sweep left it.
+ *
+ * It is a forward greedy like the snap — a predecessor settled, a successor not — so its caller runs it in
+ * the pair's canonical direction ([inCanonicalDirection]); the keeps are matched to the line by their
+ * point, which a turned line still holds. It runs once, left to right: the sweep that follows it drops the
+ * neighbour a moved bend freed.
+ *
+ * It reports itself through [trace]: one `RELOCATE idx=… from=… to=… arm=…` per moved bend, one
+ * `RELOCATE keep idx=… why=…` per refused or candidate-less one, and a summary. Its counts are its own;
+ * the pull's refusal tally is not touched.
+ */
+internal fun relocateKeptBends(
+    setup: PullSetup,
+    sets: List<CornerSet>,
+    path: List<LatLng>,
+    keeps: List<KeptBend>,
+    trace: (() -> String) -> Unit = {},
+    checkCancelled: () -> Unit = {}
+): List<LatLng> {
+    if (keeps.isEmpty() || path.size < 3 || sets.all { it.points.isEmpty() }) return path
+    val byAt = HashMap<LatLng, KeptBend>(keeps.size * 2)
+    for (k in keeps) byAt[k.at] = k
+    val ctx = setup.context()
+    val out = path.toMutableList()
+    var moved = 0
+    var refusedClear = 0
+    var refusedPrice = 0
+    var none = 0
+    for (i in 1 until path.size - 1) {
+        if (i % RELOCATE_CANCEL_CADENCE == 0) checkCancelled()
+        val keep = byAt[path[i]] ?: continue
+        val b = path[i]
+        val w = keep.worstAt
+        val reachM = SpatialOperations.haversine(b, w)
+        var nearest: LatLng? = null
+        var nearestDist = reachM
+        for (set in sets) {
+            for (c in set.points) {
+                val d = SpatialOperations.haversine(w, c)
+                if (d < nearestDist && c != out[i - 1] && c != path[i + 1]) {
+                    nearest = c
+                    nearestDist = d
+                }
+            }
+        }
+        val corner = nearest
+        if (corner == null) {
+            none++
+            trace { "RELOCATE keep idx=$i at=${pointText(b)} why=NONE reachM=${fmt(reachM)}" }
+            continue
+        }
+        when (moveVerdict(out[i - 1], b, path[i + 1], corner, ctx)) {
+            MoveVerdict.MOVED -> {
+                out[i] = corner
+                moved++
+                trace {
+                    "RELOCATE idx=$i from=${pointText(b)} to=${pointText(corner)} " +
+                        "arm=${keep.arm?.name ?: keep.cause.name} worstAt=${pointText(w)}"
+                }
+            }
+            MoveVerdict.REFUSED_CLEAR -> {
+                refusedClear++
+                trace { "RELOCATE keep idx=$i at=${pointText(b)} why=LAND to=${pointText(corner)}" }
+            }
+            MoveVerdict.REFUSED_PRICE -> {
+                refusedPrice++
+                trace { "RELOCATE keep idx=$i at=${pointText(b)} why=PRICE to=${pointText(corner)}" }
+            }
+        }
+    }
+    trace {
+        "RELOCATE in=${path.size} keeps=${keeps.size} moved=$moved " +
+            "refusedClear=$refusedClear refusedPrice=$refusedPrice none=$none"
+    }
+    return out
+}
+
+/** The relocation's cancel cadence — read once every this many vertices, as the sweep reads its own. */
+private const val RELOCATE_CANCEL_CADENCE = 64
+
+/** The `lat,lon` pair a relocation line writes for [p], spelt as the `CORNER` and `SWEEP` lines spell it. */
+private fun pointText(p: LatLng): String = "${fmt(p.latitude, 5)},${fmt(p.longitude, 5)}"
 
 /**
  * The metres of a line whose own middle stands inside a priced zone's **interior** — the ranking's

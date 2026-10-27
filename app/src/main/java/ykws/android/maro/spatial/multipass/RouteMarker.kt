@@ -1,8 +1,13 @@
 package ykws.android.maro.spatial.multipass
 
 import ykws.android.maro.data.model.LatLng
+import ykws.android.maro.data.model.markers.BBox
 import ykws.android.maro.spatial.SpatialOperations
+import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.max
+import kotlin.math.min
 
 /**
  * **A costed marker as the route engine reads it** — the projection the `spatial/` layer holds in its
@@ -93,6 +98,33 @@ sealed interface RouteMarkerGeometry {
 
         override fun boundaryDistanceM(p: LatLng): Double =
             abs(SpatialOperations.pointToSegmentDistance(p, p1, p2) - (halfWidthM + proximityM))
+    }
+}
+
+/**
+ * **The box this marker's price reaches** — its body plus its collar, in degrees at its own latitude — so a
+ * corridor seat can keep the markers whose price can bind inside its box and drop the rest. It is a box
+ * around the **reach**, never a centre test: a body straddling the box's edge keeps its corners.
+ */
+internal fun RouteMarker.reachBox(): BBox {
+    val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
+    return when (val g = geometry) {
+        is RouteMarkerGeometry.Circle -> {
+            val reachM = g.radiusM + g.proximityM
+            val dLat = reachM / mPerDegLat
+            val dLon = reachM / (mPerDegLat * cos(Math.toRadians(g.center.latitude)))
+            BBox(g.center.latitude - dLat, g.center.latitude + dLat, g.center.longitude - dLon, g.center.longitude + dLon)
+        }
+        is RouteMarkerGeometry.Corridor -> {
+            val reachM = g.widthM / 2.0 + g.proximityM
+            val midLat = (g.p1.latitude + g.p2.latitude) / 2.0
+            val dLat = reachM / mPerDegLat
+            val dLon = reachM / (mPerDegLat * cos(Math.toRadians(midLat)))
+            BBox(
+                min(g.p1.latitude, g.p2.latitude) - dLat, max(g.p1.latitude, g.p2.latitude) + dLat,
+                min(g.p1.longitude, g.p2.longitude) - dLon, max(g.p1.longitude, g.p2.longitude) + dLon
+            )
+        }
     }
 }
 

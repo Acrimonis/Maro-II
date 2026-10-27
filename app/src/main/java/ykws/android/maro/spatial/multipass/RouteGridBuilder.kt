@@ -171,6 +171,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
                 )
             )
         }
+        bodyCornerSet(world, box, marginM, cellM) { _ -> cellM }?.let { sets.add(it) }
         // The clock's limit read over the corridor's own zones — the world's whole region would answer the
         // same for every point inside the box, at the cost of walking every ring of it per sample. They are
         // the world's zones in the box, **whatever the price switch says**: a switch prices water, it never
@@ -367,6 +368,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
                 )
             )
         }
+        bodyCornerSet(world, box, marginM, cellM) { p -> walk.cellSizeAt(p) }?.let { sets.add(it) }
         val limitAt = limitAtFor(world, ZoneSet(world.speedZonesIn(box)))
         return GridContext(
             world = world, from = from, to = to, box = box, edges = edges, openCoast = openCoast,
@@ -983,4 +985,29 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
             "state=$stateBefore→${grid.state(cell.row, cell.col)} " +
             "limit=${fmt(grid.zoneLimitKn(cell.row, cell.col))}kn)"
     }
+}
+
+/**
+ * **The body corner set of the costed markers whose price reaches [box]**, or `null` where none does —
+ * the fourth set beside the coast, band and ring sets, read by the snap and the relocation alike. A priced
+ * marker is kept only while `route.marker.enabled` prices it (a corner the proof can never pay for is noise);
+ * a wall is kept whatever the switch says, since the wall stands whatever it says. Each corner stands
+ * [marginM] off its body — the coast set's own standoff, so a wall's hug keeps the margin — and reaches a
+ * bend within its marker's own collar plus the local cell ([cellAt]), the zone set's own shape.
+ */
+private fun bodyCornerSet(
+    world: MultipassWorld,
+    box: BBox,
+    marginM: Double,
+    cellM: Double,
+    cellAt: (LatLng) -> Double
+): CornerSet? {
+    val priced = AppConfig.routeMarkerEnabled
+    val markers = world.routeMarkers().filter { (it.isWall || priced) && it.reachBox().overlaps(box) }
+    if (markers.isEmpty()) return null
+    val corners = TangentCorners.bodyCorners(markers, marginM, cellM)
+    if (corners.isEmpty()) return null
+    val reach = HashMap<LatLng, Double>(corners.size * 2)
+    for (c in corners) reach[c.point] = c.reachM
+    return CornerSet(corners.map { it.point }, { p -> (reach[p] ?: 0.0) + cellAt(p) })
 }

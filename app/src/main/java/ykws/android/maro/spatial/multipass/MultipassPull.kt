@@ -838,7 +838,15 @@ object MultipassPull {
          * of a kept-by-price vertex walks the chord at the fine step with a price decomposition and an edge
          * read per mark, work that is worth paying only where a line will be read; `true` keeps every line.
          */
-        traceLive: Boolean = true
+        traceLive: Boolean = true,
+        /**
+         * **The keeps' recorder, or `null` where no reader wants them.** On the sweep's **last** pass —
+         * the one that changed nothing, so every interior vertex of the returned line was tested on it
+         * exactly once — each kept vertex is added as a [KeptBend]: its skipping chord's dearest mark for
+         * a price keep, its first refused mark for a land keep. The chord walk that finds the mark is paid
+         * once per kept vertex, after the loop, and only where a recorder is handed in.
+         */
+        keeps: MutableList<KeptBend>? = null
     ): List<LatLng> {
         if (line.size < 3) {
             trace { "SWEEP skipped=short" }
@@ -859,9 +867,13 @@ object MultipassPull {
         var refusedPrice = 0
         var changed = true
         var steps = 0
+        // The keeps of the pass in hand — emptied at each pass's start, so what stands after the loop is the
+        // last pass's: one site per interior vertex of the returned line, since that pass changed nothing.
+        val passKeeps = ArrayList<KeepSite>()
         while (changed) {
             passes++
             changed = false
+            passKeeps.clear()
             var i = 1
             while (i < work.size - 1) {
                 if (++steps % CANCEL_CADENCE == 0) checkCancelled()
@@ -897,6 +909,7 @@ object MultipassPull {
                         "SWEEP keep idx=$i at=${atText(b)} turn=${fmt(sweepTurnDeg(a, b, c))} why=LAND"
                     }
                     refusedClear++
+                    passKeeps.add(KeepSite(a, b, c, ChordRefusal.LAND))
                     i++
                     continue
                 }
@@ -920,6 +933,7 @@ object MultipassPull {
                 // where a reader stands at all.
                 if (traceLive) traceArms(a, c, ctx, trace, i)
                 refusedPrice++
+                passKeeps.add(KeepSite(a, b, c, ChordRefusal.PRICE))
                 i++
             }
         }
@@ -927,8 +941,22 @@ object MultipassPull {
             "SWEEP in=${line.size} out=${work.size} passes=$passes dropped=$dropped " +
                 "refusedClear=$refusedClear refusedPrice=$refusedPrice"
         }
+        if (keeps != null) {
+            for (site in passKeeps) {
+                val kept = when (site.cause) {
+                    ChordRefusal.LAND -> legRefusedAt(site.a, site.c, ctx)?.let { KeptBend(site.b, it, site.cause, null) }
+                    ChordRefusal.PRICE -> chordCharge(site.a, site.c, ctx)?.let {
+                        KeptBend(site.b, it.worstAt, site.cause, it.worstArm)
+                    }
+                }
+                if (kept != null) keeps.add(kept)
+            }
+        }
         return work
     }
+
+    /** One kept vertex of a sweep pass — its triple and the proof that kept it, read again after the loop. */
+    private class KeepSite(val a: LatLng, val b: LatLng, val c: LatLng, val cause: ChordRefusal)
 
     /**
      * The `lat,lon` pair the report writes after `at=` for [p] — the identifier a bend carries across the
@@ -1021,6 +1049,42 @@ object MultipassPull {
         trace: (() -> String) -> Unit,
         idx: Int
     ) {
+        val charge = chordCharge(a, c, ctx) { j, p, dearest, dearestSec ->
+            // **Every priced mark, not only the dearest** — the geography is the whole point of the
+            // report, so each interval in turn is named where its own charge falls, with the arm that
+            // charged it most. The dearest is kept for the summary line; the marks are the map.
+            trace {
+                "SWEEP mark idx=$idx i=$j at=${atText(p)} arm=${dearest?.name} sec=${fmt(dearestSec, 3)}"
+            }
+        } ?: return
+        trace {
+            "SWEEP arms idx=$idx " +
+                charge.sums.entries.joinToString(" ") { "${it.key.name.lowercase()}=${fmt(it.value, 3)}" } +
+                " worst=${charge.worstArm.name} at=${atText(charge.worstAt)}"
+        }
+    }
+
+    /**
+     * **What a chord is charged, arm by arm, and where it is charged most** — the one walk the arm report
+     * and the sweep's keeps record both read, so the line a reader sees and the point the relocation moves
+     * for cannot disagree. [sums] is each arm's seconds over the chord, [worstArm] the arm whose sum is the
+     * largest, and [worstAt] the mark whose instantaneous total was dearest — the first such mark where the
+     * charge is flat, which on a band is where the chord enters it.
+     */
+    internal class ChordCharge(val sums: Map<PriceArm, Double>, val worstArm: PriceArm, val worstAt: LatLng)
+
+    /**
+     * The chord's own lattice walked at the clearance step, each arm's rate times the interval's width
+     * summed into [ChordCharge.sums] and the dearest interval remembered; [onMark] is told each priced
+     * interval in turn with the arm that charged it most. `null` where the chord is charged nothing. It
+     * decides nothing — the sweep's verdicts are its two proofs — and its reads are counted nowhere.
+     */
+    internal fun chordCharge(
+        a: LatLng,
+        c: LatLng,
+        ctx: PullContext,
+        onMark: ((j: Int, p: LatLng, dearest: PriceArm?, dearestSec: Double) -> Unit)? = null
+    ): ChordCharge? {
         val marks = MarkLattice(SpatialOperations.haversine(a, c), clearanceStep(ctx.marginM))
         val sums = LinkedHashMap<PriceArm, Double>()
         var worstSec = 0.0
@@ -1046,24 +1110,15 @@ object MultipassPull {
                     dearest = arm
                 }
             }
-            // **Every priced mark, not only the dearest** — the geography is the whole point of the
-            // report, so each interval in turn is named where its own charge falls, with the arm that
-            // charged it most. The dearest is kept for the summary line; the marks are the map.
-            trace {
-                "SWEEP mark idx=$idx i=$j at=${atText(p)} arm=${dearest?.name} sec=${fmt(dearestSec, 3)}"
-            }
+            onMark?.invoke(j, p, dearest, dearestSec)
             if (here > worstSec) {
                 worstSec = here
                 worstAt = p
             }
         }
-        if (sums.isEmpty()) return
-        val worstArm = sums.maxByOrNull { it.value }?.key?.name
-        trace {
-            "SWEEP arms idx=$idx " +
-                sums.entries.joinToString(" ") { "${it.key.name.lowercase()}=${fmt(it.value, 3)}" } +
-                (worstAt?.let { " worst=$worstArm at=${atText(it)}" } ?: "")
-        }
+        val at = worstAt ?: return null
+        val worstArm = sums.maxByOrNull { it.value }?.key ?: return null
+        return ChordCharge(sums, worstArm, at)
     }
 
     /** The chord's own verdict: the geometry stands, then the price guard alone decides — the same
@@ -1107,11 +1162,20 @@ object MultipassPull {
 
     /** The walk's [legClearCause] answered with a boolean, from the walk's own context. */
     internal fun legClear(a: LatLng, b: LatLng, ctx: PullContext): Boolean =
-        legClearCause(a, b, ctx) == null
+        legRefusedAt(a, b, ctx) == null
 
     /**
      * The same walk [legClear] answers with a boolean, read for its **cause** — so the instrument can
-     * count which of the pull's tests refused a chord instead of leaving the three to guesswork.
+     * count which of the pull's tests refused a chord instead of leaving the three to guesswork. It is
+     * [legRefusedAt]'s own answer, named: a chord with a refused mark is refused by land.
+     */
+    internal fun legClearCause(a: LatLng, b: LatLng, ctx: PullContext): ChordRefusal? =
+        if (legRefusedAt(a, b, ctx) != null) ChordRefusal.LAND else null
+
+    /**
+     * **The first mark of the chord `a → b` the wall refuses, or `null` where the chord is clear** — the
+     * walk [legClear] and [legClearCause] both read, answered with the **point** so the sweep's keeps record
+     * can say where a land keep's chord met the wall and the relocation can slide the bend to that edge.
      *
      * **The exemption is the margin's own scope**: the shore clearance binds the **route**, never the ends,
      * so a sample standing within [PullContext.marginM] of either end is skipped.
@@ -1121,13 +1185,13 @@ object MultipassPull {
      * pays the distance read, and a fine mark pays it only where the coarse mark covering it read under
      * `marginM + coarseStepM / 2`, so a step at or under the fine one spares nothing at all.
      */
-    internal fun legClearCause(a: LatLng, b: LatLng, ctx: PullContext): ChordRefusal? {
+    internal fun legRefusedAt(a: LatLng, b: LatLng, ctx: PullContext): LatLng? {
         // **One chord, one reading, from either end.** Every lattice below is anchored at the chord's first
         // point, so the chord read from `b` would stand its marks elsewhere and could answer a hair apart;
         // the pair is turned to its canonical direction first, so `a → b` and `b → a` are one walk — the
         // same marks, the same reads, the same verdict — and a walk over the reversed path meets the marks
         // the forward walk already paid for.
-        if (!sortsFirst(a, b)) return legClearCause(b, a, ctx)
+        if (!sortsFirst(a, b)) return legRefusedAt(b, a, ctx)
         val dist = SpatialOperations.haversine(a, b)
         val sampleStep = clearanceStep(ctx.marginM)
         val steps = ceil(dist / sampleStep).toInt().coerceAtLeast(2)
@@ -1159,20 +1223,20 @@ object MultipassPull {
             // The end-disc: the margin binds the path, never the ends. The gate's own disc is narrower, so
             // the gate's interior still binds past it.
             if (endsNear && marginWaived(p, ctx.marginM, ctx.start, ctx.aim)) {
-                if (gate != null && !gateWaived(p, ctx) && gate.isShallow(p)) return ChordRefusal.LAND
+                if (gate != null && !gateWaived(p, ctx) && gate.isShallow(p)) return p
                 continue
             }
             // The rastered walls are a **step**, so every mark tests them: no bound could prove a
             // half-step holds no shallow cell, and a coarse-only walk would sail one.
-            if (ctx.field.hardBlocked(p)) return ChordRefusal.LAND
+            if (ctx.field.hardBlocked(p)) return p
             // The materialized distance is the one read the proof may spare, and it is skipped exactly
             // where the coarse mark covering this fine mark has already answered for its half-step.
             val covering = coarse.indexOf(t)
-            if (!coarseClear[covering] && readHard(ctx, p) < ctx.marginM) return ChordRefusal.LAND
+            if (!coarseClear[covering] && readHard(ctx, p) < ctx.marginM) return p
         }
         // **The gate's measured standoff**, on its own lattice: the chord keeps the wall off the traced
         // 3 m line everywhere outside the gate's own waiver.
-        if (gate != null && gate.hardM > 0.0 && gateRefuses(a, b, dist, gate, ctx)) return ChordRefusal.LAND
+        if (gate != null && gate.hardM > 0.0) return gateRefusedAt(a, b, dist, gate, ctx)
         return null
     }
 
@@ -1183,8 +1247,8 @@ object MultipassPull {
      * every point at least [GateRule.hardM] off the edge. A sample inside the gate's waiver proves nothing
      * and refuses nothing.
      */
-    private fun gateRefuses(a: LatLng, b: LatLng, dist: Double, gate: GateRule, ctx: PullContext): Boolean {
-        if (dist <= 0.0) return false
+    private fun gateRefusedAt(a: LatLng, b: LatLng, dist: Double, gate: GateRule, ctx: PullContext): LatLng? {
+        if (dist <= 0.0) return null
         val marks = MarkLattice(dist, GATE_MARK_STEP_M)
         for (j in 0 until marks.count) {
             val widthM = marks.widthM(j)
@@ -1195,10 +1259,10 @@ object MultipassPull {
             for (s in 0 until samples) {
                 val q = chordPointAt(a, b, (fromM + (s + 0.5) * subM) / dist)
                 if (gateWaived(q, ctx)) continue
-                if (ctx.edgeM(q) < gate.hardM + subM / 2.0) return true
+                if (ctx.edgeM(q) < gate.hardM + subM / 2.0) return q
             }
         }
-        return false
+        return null
     }
 
     /**
