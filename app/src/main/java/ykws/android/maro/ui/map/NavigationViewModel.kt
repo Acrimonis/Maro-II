@@ -13,6 +13,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewModelScope
+import ykws.android.maro.data.track.TrackRecordingService
 import kotlinx.coroutines.Dispatchers
 import ykws.android.maro.data.RetryingInitializer
 import kotlinx.coroutines.Job
@@ -916,6 +917,14 @@ class NavigationViewModel(
         // ── GPS mode collectors (rules 1–3) ─────────────────────────────────
         // enabled = GPS toggle AND app foreground. flatMapLatest tears down the
         // location/compass listeners the instant either turns off.
+        recordingFixesWhileDisplayPaused(
+            TrackRecordingService.recordingFixes,
+            settings.map { it.gpsMode }, _gpsActive, TrackRecordingService.isRecording
+        ).onEach { fix ->
+            // Preserve water broadcasts without another LocationManager listener.
+            _boatIsWater.value = repository.isOnWater(fix.position.latitude, fix.position.longitude)
+        }.launchIn(viewModelScope)
+
         val enabled = combine(
             settings.map { it.gpsMode }.distinctUntilChanged(),
             _gpsActive
@@ -1079,6 +1088,12 @@ class NavigationViewModel(
                 } else {
                     displayPositionJob?.cancel()
                     displayPositionJob = null
+                    gpsSignalWatchdogJob?.cancel()
+                    gpsSignalWatchdogJob = null
+                    deadReckoningJob?.cancel()
+                    deadReckoningJob = null
+                    _isEstimating.value = false
+                    _forceReconnect.value = false
                     _displayPosition.value = null
                 }
             }
@@ -1194,7 +1209,7 @@ class NavigationViewModel(
      */
     private fun startDeadReckoning() {
         // Defense-in-depth: don't extrapolate when the adaptive policy says stationary.
-        if (_acquisitionMode.value == AcquisitionMode.IDLE) return
+        if (!_gpsActive.value || _acquisitionMode.value == AcquisitionMode.IDLE) return
         deadReckoningJob?.cancel()
         val state = deadReckoningState ?: return
         _isEstimating.value = true
