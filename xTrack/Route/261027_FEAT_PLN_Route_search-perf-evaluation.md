@@ -163,6 +163,21 @@ isolates it; the budget above bounds it.
 - **Wave A could not show on this capture:** the process is the first after an install, the store holds one
   build's entries only, so all 88 loads missed and the pre-warm built and saved 88 tiles in 7.5 s. A second launch
   of the same build is the reading that tests the stamp.
+- **The second capture (cold store, same pair, the user having cleared the cache and waited for the pre-warm)
+  repeats the first within noise** — rungs 16.9 / 19.6 / 22.5 s against 17.1 / 19.7 / 21.7 s, the approach pass
+  9.5 / 12.0 / 14.4 s (56 / 61 / 64 % of the rung) over 600 / 648 / 736 candidates at 16 / 19 / 20 ms. Its
+  other readings: the pre-warm built and saved 302 tiles in 26 s and the arm that followed assembled its fine
+  layer in 44 ms with none built; **the first two-sided pull pays a hard read on 86–90 % of its marks**
+  (13.3–18.7 k of 15.5–20.8 k) at 0.9–1.3 s of clearance a rung, which prices the proof step (B1c) at **about a
+  second a rung at most**, 4–6 % of the rung; the final pull is 0.25–0.91 s. The store's cross-launch hit is
+  still unread — clearing the cache made all 302 loads miss by construction. The approach pass had no timer of
+  its own, so its 16–20 ms a candidate could not be split between clearance and price reads; its `APPROACH`
+  line now carries that split (the plan's `## Implemented`), read on the next capture.
+- **Read and acted on (2026-10-27):** clearance and price were even (45 / 55 %), every evaluation walking two
+  kilometre-long chords at 70–85 µs a mark; the exact reorder — price first, stop at the best so far, prove only
+  would-be winners — cut the pass 39–45 % (12.6 → 6.9, 16.0 → 9.1, 21.0 → 12.8 s) and its clearance half
+  72–81 %, on the same start point with identical lines. What is left is pricing (about 85 %), its gate-edge
+  reads (59–116 k paid a pass) the largest count.
 
 ### F16 — The edge index held its raster weakly (latent defect, found by the fixtures)
 

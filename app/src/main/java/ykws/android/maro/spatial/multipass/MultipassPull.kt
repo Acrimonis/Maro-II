@@ -220,6 +220,13 @@ internal class MarkMemo {
         private set
 
     /**
+     * The gate-edge reads the table did **not** hold — the measured edge actually walked, near or far: the
+     * paid half beside [edgeHits], so a reader can tell how often a walk asked the edge index itself.
+     */
+    var edgeMisses: Long = 0L
+        private set
+
+    /**
      * The gate's edge distance at [p] within [reachM] — read once from [gate], then answered from here. It is
      * bound to the walk's [field] like the two tables beside it, the gate rule living exactly as long as the
      * field, and a walk reads one reach, so the point alone keys it.
@@ -231,6 +238,7 @@ internal class MarkMemo {
             edgeHits++
             return held
         }
+        edgeMisses++
         val value = gate.edgeM(p, reachM)
         edge[p] = value
         return value
@@ -244,6 +252,7 @@ internal class MarkMemo {
             edgeHits++
             return held
         }
+        edgeMisses++
         val value = gate.edgeM(p, reachM)
         farEdge[p] = value
         return value
@@ -1252,6 +1261,7 @@ object MultipassPull {
         }
         val gate = ctx.gate
         for (i in 1 until steps) {
+            ctx.timing?.addClearanceMarks(1)
             val t = i.toDouble() / steps
             val p = chordPointAt(a, b, t)
             // The end-disc: the margin binds the path, never the ends. The gate's own disc is narrower, so
@@ -1700,6 +1710,18 @@ class PullTiming {
 
     internal fun addHardReads(count: Int) {
         hardReads += count
+    }
+
+    /**
+     * **The fine marks the clearance walk tested** — one per sample `legClearCause` reached, each paying the
+     * rastered walls' step test ([RouteCostField.hardBlocked], a depth read where the gate is in force) whether
+     * or not its hard distance was proved; [hardReads] is the part of them that also paid the coast index.
+     */
+    var clearanceMarks: Long = 0L
+        private set
+
+    internal fun addClearanceMarks(count: Int) {
+        clearanceMarks += count
     }
 
     internal fun addMarks(count: Int) {

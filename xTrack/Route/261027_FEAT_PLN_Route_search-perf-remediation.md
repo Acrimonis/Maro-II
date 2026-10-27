@@ -459,6 +459,33 @@ smaller than the evaluation's estimate.
     cross-launch effect is unread. What the capture does show: the crossing raster built once and shared
     (317.6 ms, then 2.2 and 2.4 ms), the arm's fine layer assembled in 43 ms with no tile built, and the
     first pull's `hardReads` at 87–90 % of its marks — the reading B1c waits on.
+  - **Second device capture (2026-10-27, cache cleared, pre-warm awaited, the same pair)** — the first,
+    repeated within noise (rungs 16.9 / 19.6 / 22.5 s; the approach pass 9.5 / 12.0 / 14.4 s, 56–64 % of them).
+    It reads what B1c waited on: **86–90 % of the first pull's marks pay a hard read**, at 0.9–1.3 s of
+    clearance a rung, so the proof step is worth about a second a rung at most (4–6 %) on this pair — B1c stays
+    open but is not the lever. The cold pre-warm built and saved 302 tiles in 26 s and the arm built none. The
+    store's cross-launch hit remains unread (the cache was cleared).
+  - **The approach pass's own clocks (2026-10-27, on the user's "next step")** — F17's split, reporting only:
+    the `APPROACH` line keeps its three figures and adds `ms`, `windows`, `evals`, `outside`, `refusedClear`,
+    `clearMs` and `priceMs` (the clearance proofs and the priced chords apart), `slowMs`/`slowLegs` (the
+    slow-water test), and the pull's read counts on the pass's context — `clearMarks` (fine marks tested, a
+    depth step each), `hardReads`, `priceMarks`, `priceReads`, `edgeReads` (the new `MarkMemo.edgeMisses`),
+    `farEdgeReads` and the memo's hits. Pinned: the line adds up (`evals = windows + candidates`) and the
+    answer with the memo and the instrument is the bare call's. The device reading is the user's.
+  - **Cross-launch store read (2026-10-27)** — a fresh process, the cache not cleared, loaded all 63 of the
+    arm's tiles from the store with no miss, and the pre-warm built nothing: wave A's stamp holds across launches.
+  - **The approach pass prices first and proves only would-be winners (2026-10-27, `#implement`)** —
+    `RouteApproachPass.candidateSec`: a candidate is rejected on its two legs' travel, then on its first leg's
+    cost plus the second's travel, then on its full cost, each against the window's best so far, and is proved
+    clear only where it would win; the seeds keep the proof-first `replacementSec`. Exact because a candidate's
+    cost is only ever compared below the best, no price is negative (every input clamped at zero or above) and
+    rounding is monotone. Pinned: 40 seeded lines × 4 setups (free water, a second rock, a gate shoal, a
+    marker-only price) answer the same points in both orders (`incumbentFirst = false` is the test seam).
+    Device, the same start point to the centimetre: the pass 12.6 / 16.0 / 21.0 → 6.9 / 9.1 / 12.8 s, its
+    clearance half −72–81 %, the rungs 20.7 / 24.3 / 28.6 → 15.9 / 18.4 / 21.4 s, tap to last route 29.9 →
+    22.2 s, every line, clock and approach outcome identical. 1 647 tests and `apk-build.bat` green. **The Ask
+    hop's review was still running when this was committed on the user's word; its findings land as a
+    follow-up.**
   - **Review hop (2026-10-27)** — exact where present; fixed on its word: a bare `pull` no longer prices a
     two-point path, the dead `hardDistance` and two stale KDocs, `probeMs` split from `crossedMs`, the tile's
     water computed once per tile, the key's cap the raster's own, the rings sorted, the switches read off the
