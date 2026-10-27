@@ -833,6 +833,125 @@ class AvoidPriceWalkTest {
         )
     }
 
+    /**
+     * **Every hard read is either paid or served, and the tally says which.** A walk without a memo pays
+     * every coastline query it makes; the same walk with one pays the misses and serves the rest, so the
+     * paid count plus the memo's hard hits is the memo-less count exactly — the relation that makes
+     * `hardReads` the clearance walk's own figure rather than a clock's guess.
+     */
+    @Test
+    fun theHardReadCounterPaysTheMissesAndServesTheRest() {
+        val start = LatLng(CHORD_LAT, east(0.0))
+        val mid = LatLng(CHORD_LAT, east(800.0))
+        val aim = LatLng(CHORD_LAT, east(1600.0))
+        val path = listOf(start, mid, aim)
+        val field = pricedCornerField {}
+        val setup = PullSetup(marginM, fineStepM, fineStepM, field, start, aim)
+
+        val bare = PullTiming()
+        MultipassPull.pull(setup, path, timing = bare, memo = null)
+        val memoised = PullTiming()
+        MultipassPull.pull(setup, path, timing = memoised, memo = MarkMemo())
+
+        assertTrue("the fixture's walk reads the wall", bare.hardReads > 0)
+        assertEquals(
+            "with a memo, the paid reads and the served ones are the bare walk's reads, exactly",
+            bare.hardReads, memoised.hardReads + memoised.memoHardHits
+        )
+    }
+
+    /**
+     * **One memo across a pass's pulls answers the second walk's marks.** The second pull over the first
+     * pull's own line walks chords the first already read (the same anchors, the same lattice), so with the
+     * memo shared it pays strictly fewer price and hard reads — and draws the same line, point for point,
+     * because a hit hands back the field's own double.
+     */
+    @Test
+    fun aMemoSharedAcrossThePullPairAnswersTheSecondWalksMarks() {
+        val start = LatLng(CHORD_LAT, east(0.0))
+        val mid = LatLng(CHORD_LAT, east(800.0))
+        val aim = LatLng(CHORD_LAT, east(1600.0))
+        val path = listOf(start, mid, aim)
+        val field = pricedCornerField {}
+        val setup = PullSetup(marginM, fineStepM, fineStepM, field, start, aim)
+
+        // The pass's second walk retraces the first's chords: here the same path walked again, which is
+        // every mark the first walk read — the shape the final pull and the snap's legs take in a pass.
+        MultipassPull.pull(setup, path)
+        val secondFresh = PullTiming()
+        val lineFresh = MultipassPull.pull(setup, path, timing = secondFresh)
+
+        val shared = MarkMemo()
+        MultipassPull.pull(setup, path, memo = shared)
+        val secondShared = PullTiming()
+        val lineShared = MultipassPull.pull(setup, path, timing = secondShared, memo = shared)
+
+        assertEquals("the shared memo draws the very line a fresh one draws", lineFresh, lineShared)
+        assertTrue("the fixture's second walk reads a price", secondFresh.priceReads > 0)
+        assertTrue(
+            "and pays strictly fewer price reads with the first walk's memo (${secondShared.priceReads} < ${secondFresh.priceReads})",
+            secondShared.priceReads < secondFresh.priceReads
+        )
+        assertTrue(
+            "and strictly fewer hard reads (${secondShared.hardReads} < ${secondFresh.hardReads})",
+            secondShared.hardReads < secondFresh.hardReads
+        )
+    }
+
+    /**
+     * **A pulled line's own cost is the cost of its points read again, bit for bit.** The walk sums the
+     * `totalSec` of the chords it committed; `lineCostSec` sums `totalSec` over the same points left to right;
+     * every term is the field's own double, so the two are one number — and the local re-solve prices its
+     * line once rather than walking it a third time.
+     */
+    @Test
+    fun aPulledLinesOwnCostIsTheCostOfItsPointsReadAgain() {
+        val start = LatLng(CHORD_LAT, east(0.0))
+        val aim = LatLng(CHORD_LAT, east(1600.0))
+        val field = pricedCornerField {}
+        val setup = PullSetup(marginM, fineStepM, fineStepM, field, start, aim, paceMps = 10.0)
+        val finePass = RouteFinePass()
+
+        val zigzag = listOf(
+            start, LatLng(CHORD_LAT + 0.001, east(400.0)), LatLng(CHORD_LAT, east(800.0)),
+            LatLng(CHORD_LAT - 0.001, east(1200.0)), aim
+        )
+        for (path in listOf(zigzag, listOf(start, LatLng(CHORD_LAT, east(800.0)), aim), listOf(start, aim))) {
+            val memo = MarkMemo()
+            val pulled = MultipassPull.pullWithCost(setup, path, memo = memo)
+            assertEquals(
+                "the walk's own sum is the sum read off its ${pulled.points.size} points",
+                finePass.lineCostSec(setup, pulled.points, memo), pulled.totalSec, 0.0
+            )
+            assertEquals("and the points are the pull's own", MultipassPull.pull(setup, path), pulled.points)
+        }
+
+        // The chords the walk never priced before committing them: an immediate step the wall refuses (a
+        // wall on the first leg) and a re-anchored chord after a refusal further out (a wall on the long
+        // chord alone) — each read at the commit, each the same double a fresh walk of the points reads.
+        val mid = LatLng(CHORD_LAT, east(800.0))
+        val bent = listOf(start, LatLng(CHORD_LAT + 0.002, east(400.0)), mid, LatLng(CHORD_LAT + 0.002, east(1200.0)), aim)
+        // A wall on the first leg itself refuses the immediate step; a wall on the straight chord between the
+        // start and the third vertex, off both legs, refuses the longer chord after the legs were accepted.
+        val onFirstLeg = chordPointAt(start, bent[1], 0.5)
+        val onLongChordOnly = LatLng(CHORD_LAT, east(400.0))
+        for (wall in listOf(onFirstLeg, onLongChordOnly)) {
+            val walled = PullSetup(
+                marginM, fineStepM, fineStepM,
+                RouteCostField.ofHard { p -> SpatialOperations.haversine(p, wall) }, start, aim, paceMps = 10.0
+            )
+            val refusals = PullRefusals()
+            val memo = MarkMemo()
+            val pulled = MultipassPull.pullWithCost(walled, bent, refusals, memo = memo)
+            assertTrue("the wall refuses a chord", refusals.land > 0)
+            assertEquals(
+                "a chord committed on a refusal is priced as its points read again",
+                finePass.lineCostSec(walled, pulled.points, memo), pulled.totalSec, 0.0
+            )
+            assertEquals("and the bare pull draws the same points", MultipassPull.pull(walled, bent), pulled.points)
+        }
+    }
+
     /** The metres east of the chord's origin that [p] stands — the step-arm fixture's own abscissa. */
     private fun eastMetres(p: LatLng): Double = (p.longitude - 7.00) * M_PER_DEG_LON
 

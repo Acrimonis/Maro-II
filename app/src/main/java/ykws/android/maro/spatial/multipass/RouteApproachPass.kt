@@ -28,6 +28,15 @@ internal object RouteApproachPass {
         setup: PullSetup,
         line: List<LatLng>,
         bounds: BBox,
+        /**
+         * **This pass's own step (m)** — the smallest radius a window is tried at, the floor of the scale
+         * loop and the lattice its slow-water read samples a leg on: a *geometry* step, the fine cell the
+         * line was resolved at. It is deliberately apart from [PullSetup.coarseStepM], the clearance walk's
+         * *proof* step, which may move without this pass's windows moving with it.
+         */
+        stepM: Double,
+        /** The pass's own memo, so a chord the pull already proved is answered rather than re-read. */
+        memo: MarkMemo? = null,
         checkCancelled: () -> Unit = {},
         trace: (() -> String) -> Unit = {}
     ): List<LatLng> {
@@ -38,10 +47,10 @@ internal object RouteApproachPass {
         // Use the same orientation even when this pass is called directly rather than by finePass.
         val reversed = !sortsFirst(line.first(), line.last())
         val work = (if (reversed) line.asReversed() else line).toMutableList()
-        val ctx = (if (reversed) setup.reversed() else setup).context()
+        val ctx = (if (reversed) setup.reversed() else setup).context(memo = memo)
         val slowLegs = mutableMapOf<Pair<LatLng, LatLng>, Boolean>()
         fun slow(a: LatLng, b: LatLng): Boolean = slowLegs.getOrPut(a to b) {
-            hasSlowWater(a, b, ctx, checkCancelled)
+            hasSlowWater(a, b, ctx, stepM, checkCancelled)
         }
         var moved = 0
         var candidates = 0
@@ -63,20 +72,20 @@ internal object RouteApproachPass {
                     val seed = work[seedIndex]
                     val near = if (firstSlow) a else e
                     val radiusM = 2.0 * SpatialOperations.haversine(near, seed)
-                    if (radiusM < setup.coarseStepM) continue
+                    if (radiusM < stepM) continue
                     val oldSec = (from until to).sumOf {
                         MultipassPull.totalSec(work[it], work[it + 1], ctx)
                     }
                     var pivot = seed
                     var bestSec = replacementSec(a, pivot, e, ctx, bounds)
-                    var stepM = radiusM / 2.0
+                    var scaleM = radiusM / 2.0
                     for (scale in 0 until MAX_SCALES) {
-                        if (stepM < setup.coarseStepM) break
+                        if (scaleM < stepM) break
                         val centre = pivot
                         for (direction in 0 until DIRECTIONS) {
                             checkCancelled()
                             val angle = direction * 2.0 * PI / DIRECTIONS
-                            val candidate = offset(centre, stepM * cos(angle), stepM * sin(angle))
+                            val candidate = offset(centre, scaleM * cos(angle), scaleM * sin(angle))
                             if (SpatialOperations.haversine(seed, candidate) > radiusM) continue
                             candidates++
                             val sec = replacementSec(a, candidate, e, ctx, bounds)
@@ -85,7 +94,7 @@ internal object RouteApproachPass {
                                 pivot = candidate
                             }
                         }
-                        stepM /= 2.0
+                        scaleM /= 2.0
                     }
                     if (bestSec >= oldSec || !bestSec.isFinite()) continue
                     savedSec += oldSec - bestSec
@@ -108,13 +117,14 @@ internal object RouteApproachPass {
         a: LatLng,
         b: LatLng,
         ctx: PullContext,
+        stepM: Double,
         checkCancelled: () -> Unit
     ): Boolean {
         fun slowAt(p: LatLng) = ctx.field.armPricesAt(p).any {
             (it.first == PriceArm.BAND || it.first == PriceArm.ZONE) && it.second > 0.0
         }
         if (slowAt(a) || slowAt(b)) return true
-        val marks = MarkLattice(SpatialOperations.haversine(a, b), ctx.coarseStepM)
+        val marks = MarkLattice(SpatialOperations.haversine(a, b), stepM)
         for (i in 0 until marks.count) {
             if (i % 64 == 0) checkCancelled()
             val t = marks.markT(i)

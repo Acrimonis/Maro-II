@@ -79,6 +79,37 @@ class RouteCornerPassTest {
         }
     }
 
+    /**
+     * **The pass's zone read through an arm's set is the world's own read.** The engine hands the pass a
+     * `ZoneSet` over the world's whole list; a box miss is a containment miss, so every point and every
+     * verdict is the one the world's own `zoneLimitKnAt` draws.
+     */
+    @Test
+    fun theZoneReadThroughASetDrawsTheWorldsOwnLine() {
+        val corner = LatLng(43.5, 7.0)
+        val prev = LatLng(43.505, 7.0)
+        val next = LatLng(43.5, 7.005)
+        val zone = SpeedZone(
+            "z", "Cap", 5.0,
+            listOf(
+                LatLng(43.501, 7.001),
+                LatLng(43.501, 7.020),
+                LatLng(43.520, 7.020),
+                LatLng(43.520, 7.001),
+                LatLng(43.501, 7.001)
+            )
+        )
+        val world = CoastWorld(emptyList(), listOf(zone))
+        val byWorld = RouteCornerPass.round(listOf(prev, corner, next), 28.0, world, null, 50.0)
+        val set = ZoneSet(world.allSpeedZones())
+        val bySet = RouteCornerPass.round(
+            listOf(prev, corner, next), 28.0, world, null, 50.0, zoneLimitKnAt = set::strictestLimitKnAt
+        )
+        assertTrue("the fixture draws the corner", byWorld.verdicts.isNotEmpty())
+        assertEquals("the same points through the set", byWorld.points, bySet.points)
+        assertEquals("and the same verdicts", byWorld.verdicts, bySet.verdicts)
+    }
+
     @Test
     fun aCornerWithShortLegsStaysSharp() {
         val corner = LatLng(43.5, 7.0)

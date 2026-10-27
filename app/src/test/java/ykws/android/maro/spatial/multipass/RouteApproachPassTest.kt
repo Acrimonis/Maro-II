@@ -21,7 +21,7 @@ class RouteApproachPassTest {
         val setup = setup(field())
         val swept = MultipassPull.sweep(setup, original, allowanceShare = 0.1, traceLive = false)
         assertEquals("deletion alone cannot improve this approach", original, swept)
-        val result = RouteApproachPass.refine(setup, swept, bounds)
+        val result = RouteApproachPass.refine(setup, swept, bounds, 20.0)
 
         assertTrue("the offshore bend is gone", result.size < swept.size)
         assertTrue("a new approach point was found", result.any { it !in original })
@@ -32,7 +32,7 @@ class RouteApproachPassTest {
     @Test
     fun keepsCoastClearanceEvenWhenACheaperApproachWouldCrossAnotherRock() {
         val freeSetup = setup(field())
-        val free = RouteApproachPass.refine(freeSetup, original, bounds)
+        val free = RouteApproachPass.refine(freeSetup, original, bounds, 20.0)
         val obstacle = between(free[1], free.last(), 0.3)
         val guarded = setup(field(extraHard = RouteCostSource.Hard(distanceAt = {
             (SpatialOperations.haversine(it, obstacle) - 60.0).coerceAtLeast(0.0)
@@ -40,12 +40,12 @@ class RouteApproachPassTest {
         assertClear(guarded, original)
         assertFalse("the tempting replacement crosses the added rock", clear(guarded, free))
 
-        assertSafeImprovement(guarded, RouteApproachPass.refine(guarded, original, bounds))
+        assertSafeImprovement(guarded, RouteApproachPass.refine(guarded, original, bounds, 20.0))
     }
 
     @Test
     fun keepsTheMeasuredDepthWall() {
-        val free = RouteApproachPass.refine(setup(field()), original, bounds)
+        val free = RouteApproachPass.refine(setup(field()), original, bounds, 20.0)
         val shoal = between(free[1], free.last(), 0.3)
         val shoalNorth = (shoal.latitude - GateTestFixtures.LAT0) * GateTestFixtures.M_PER_DEG_LAT
         val shoalEast = (shoal.longitude - GateTestFixtures.LON0) * GateTestFixtures.M_PER_DEG_LON
@@ -58,15 +58,15 @@ class RouteApproachPassTest {
         assertClear(guarded, original)
         assertFalse("the tempting replacement crosses the measured shoal", clear(guarded, free))
 
-        assertSafeImprovement(guarded, RouteApproachPass.refine(guarded, original, bounds))
+        assertSafeImprovement(guarded, RouteApproachPass.refine(guarded, original, bounds, 20.0))
     }
 
     @Test
     fun preservesBothEndsAndFindsTheSameApproachInEitherDirection() {
         val setup = setup(field())
-        val result = RouteApproachPass.refine(setup, original, bounds)
-        assertEquals(result, RouteApproachPass.refine(setup, original, bounds))
-        assertEquals(result.reversed(), RouteApproachPass.refine(setup.reversed(), original.reversed(), bounds))
+        val result = RouteApproachPass.refine(setup, original, bounds, 20.0)
+        assertEquals(result, RouteApproachPass.refine(setup, original, bounds, 20.0))
+        assertEquals(result.reversed(), RouteApproachPass.refine(setup.reversed(), original.reversed(), bounds, 20.0))
         assertEquals(original.first(), result.first())
         assertEquals(original.last(), result.last())
         assertTrue(result.all { inBox(bounds, it) })
@@ -77,7 +77,7 @@ class RouteApproachPassTest {
         // Candidates north of the old approach are outside this tighter corridor.
         val tight = bounds.copy(latNorth = original[1].latitude)
         val setup = setup(field())
-        val result = RouteApproachPass.refine(setup, original, tight)
+        val result = RouteApproachPass.refine(setup, original, tight, 20.0)
         assertTrue(result.all { inBox(tight, it) })
         assertSafeImprovement(setup, result)
     }
@@ -86,14 +86,14 @@ class RouteApproachPassTest {
     fun markerPricesAloneDoNotTriggerSlowWaterRefinement() {
         val setup = setup(field(arm = PriceArm.MARKER))
         val trace = mutableListOf<String>()
-        assertEquals(original, RouteApproachPass.refine(setup, original, bounds, trace = { trace += it() }))
+        assertEquals(original, RouteApproachPass.refine(setup, original, bounds, 20.0, trace = { trace += it() }))
         assertTrue(trace.single().contains("candidates=0"))
     }
 
     @Test(expected = CancellationException::class)
     fun cancellationInterruptsCandidateExploration() {
         var checks = 0
-        RouteApproachPass.refine(setup(field()), original, bounds, checkCancelled = {
+        RouteApproachPass.refine(setup(field()), original, bounds, 20.0, checkCancelled = {
             if (++checks == 8) throw CancellationException("cancelled")
         })
     }

@@ -120,8 +120,9 @@ private val warmDispatcher: CoroutineDispatcher by lazy {
  * **The warm-up's own host** — the pass that builds the fine layer's tiles over `route.prewarm.box`, then
  * outward from it in rings of whole tiles, before an arm asks for them.
  *
- * **It starts with the app** (D4). The effect is keyed on [worldReady], the moment both baked layers can
- * answer, rather than on the boat being idle: warming used to be gated on the boat standing still, so on a
+ * **It starts with the app** (D4). The effect is keyed on [worldReady] — both baked layers able to answer
+ * and the zone and marker lists landed, since a tile is keyed on the zones and markers that reach it —
+ * rather than on the boat being idle: warming used to be gated on the boat standing still, so on a
  * boat that never idles nothing was ever warmed. It stays off **battery-saver**, and it **pauses** — never
  * stops — while a route is **armed** or while another heavy foreground job holds the CPU ([heavyJob], a
  * depth-raster regeneration), resuming to fill the holes afterwards. **All three terms are read per tile**,

@@ -265,6 +265,9 @@ class NavigationViewModel(
     /** The same zone set drives navigation indexes and the map overlay. */
     val regulatedZones = regulatedZonesRepository.zoneSet
 
+    /** Whether the zone list's first load has answered (empty included) — the route pre-warm waits on it. */
+    val speedZonesLoaded: StateFlow<Boolean> = regulatedZonesRepository.loaded
+
     /** Speed zone spatial index — built from each regulated-zone snapshot. */
     private val _speedZoneIndex = MutableStateFlow<SpeedZoneIndex?>(null)
     /** The built speed-zone index, null until both data sources are ready — the history seed waits on this. */

@@ -297,9 +297,14 @@ internal fun bboxDistanceLowerBoundM(box: BBox, latitude: Double, longitude: Dou
 /** Whether the emitted line enters [zone], sampled at [stepM] along every leg. */
 fun lineEntersZone(waypoints: List<LatLng>, zone: SpeedZone, stepM: Double = 25.0): Boolean {
     if (waypoints.any { zone.contains(it.latitude, it.longitude) }) return true
+    val box = zone.bbox()
     for (i in 0 until waypoints.size - 1) {
         val a = waypoints[i]
         val b = waypoints[i + 1]
+        // A sample is lat/lon-linear on the chord, so a leg whose own box misses the ring's holds none inside.
+        if (max(a.latitude, b.latitude) < box.latSouth || min(a.latitude, b.latitude) > box.latNorth ||
+            max(a.longitude, b.longitude) < box.lonWest || min(a.longitude, b.longitude) > box.lonEast
+        ) continue
         val dist = SpatialOperations.haversine(a, b)
         val steps = ceil(dist / stepM).toInt().coerceAtLeast(2)
         for (s in 1 until steps) {

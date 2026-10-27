@@ -63,6 +63,7 @@ import ykws.android.maro.spatial.multipass.depthClearsGate
 import ykws.android.maro.spatial.multipass.fmt
 import ykws.android.maro.spatial.multipass.forcedCrossingZoneNames
 import ykws.android.maro.spatial.multipass.inBand
+import ykws.android.maro.spatial.multipass.LegWater
 import ykws.android.maro.spatial.multipass.inZone
 import ykws.android.maro.spatial.multipass.insideBandWidthM
 import ykws.android.maro.spatial.multipass.msSince
@@ -184,7 +185,13 @@ class RouteAvoidEngine(
      * those figures live on this channel alone and are never returned on a value. The default, `null`,
      * keeps the device behaviour byte-for-byte.
      */
-    private val traceSink: ((String) -> Unit)? = null
+    private val traceSink: ((String) -> Unit)? = null,
+    /**
+     * **Whether a crossing re-solve's raster is built once per arm and copied by the rungs** — `true` on
+     * every shipped path. A fixture passes `false` so every rung builds its own, which is how the sharing is
+     * pinned to draw the very same lines: the raster reads nothing of a rung's λ.
+     */
+    shareCrossingRasters: Boolean = true
 ) : RouteEngine {
 
     /**
@@ -204,7 +211,7 @@ class RouteAvoidEngine(
     private val runner = RoutePassRunner()
 
     /** The fine pass — the refinement along the settled line, composed once. */
-    private val finePass = RouteFinePass()
+    private val finePass = RouteFinePass(shareCrossingRasters)
 
     /** The engine's own `trace`, handed to the seats so the instrument stays the engine's. */
     private val seatTrace: (() -> String) -> Unit = { message -> trace(message) }
@@ -765,38 +772,47 @@ class RouteAvoidEngine(
         val refined = finePass.finePass(ctx, waypoints, lambda, checkCancelled, traceLive, seatTrace)
         val fineMs = msSince(fineStartNs)
 
-        // **The device reading** — the coarse walk's own A* cost and duration, with the fine stage's
-        // duration beside them. Always offered to `trace()`: a sink takes it where one stands, and the
-        // device's own `Log.i` path is gated inside `trace()` by the tag's level, so the guard is not
-        // repeated here — the sink must see every reading, and the device behaviour is unmoved.
-        instrumentCoarseWalk(ctx, lambda, waypoints, passReading, coarseMs, fineMs)
         // Two post-passes over the settled search line: the corner pass rounds each snapped corner into
         // a curve that cuts the inside of the turn — clear where it fits, shrunk where the bow would
         // foul, left standing only where even the 1 kn bottom's radius overshoots the room — then the
         // speed pass smooths the profile with anticipation and comfortable acceleration. The enforced
-        // limit stays the hard ceiling throughout.
-        val rounded = RouteCornerPass.round(refined, ctx.pace, ctx.world, ctx.gate, ctx.marginM, checkCancelled)
+        // limit stays the hard ceiling throughout. **Each tail stage is clocked around its own work alone**
+        // — never around a trace block — so the `DEVICE PASS` line's parts are the solve's own (P3).
+        val cornerStartNs = System.nanoTime()
+        val rounded = RouteCornerPass.round(
+            refined, ctx.pace, ctx.world, ctx.gate, ctx.marginM, checkCancelled,
+            // The arm's own set over the world's whole zone list: the same answer as the world's read, with
+            // a box reject ahead of every ring walk at every sample the pass makes.
+            zoneLimitKnAt = ctx.worldZoneSet::strictestLimitKnAt
+        )
+        val cornerMs = msSince(cornerStartNs)
         // **The corner tally**: what the pass did at each bend, with the speed limit in force there and
         // whether it stands in the 300 m band — the two readings that tell a corner's own speed from the
         // water's.
         traceCornerVerdicts(rounded.verdicts, ctx.pace, ctx.limitAt, inBand(ctx.world))
+        val clockStartNs = System.nanoTime()
         val timedLine = timeLineWithProfile(
             rounded.points, ctx.pace, ctx.limitAt, rounded.ceilingKnAt,
             clockSampleM(ctx.cellM, ctx.fineCellM)
         )
+        val clockMs = msSince(clockStartNs)
+        val probeStartNs = System.nanoTime()
         val forced = forcedCrossingNames(
             ctx, lambda, refined
         )
+        val probeMs = msSince(probeStartNs)
         // **The other fact** — the slow water the drawn line enters, read from the **water** rather than
         // the price. The zones are the world's own, not the grid's switch-gated set, so a crossing the
         // search was charged nothing for — its `speedRoute` override at or above the pace, or the pricing
         // switch off — is still named where the clock has to pay the limit the chart signs.
-        val crossed = crossedSlowZoneNames(refined, ctx.world.speedZonesIn(ctx.box), ctx.pace)
+        val crossedStartNs = System.nanoTime()
+        val crossed = crossedSlowZoneNames(refined, ctx.zoneSet.zones, ctx.pace)
+        val crossedMs = msSince(crossedStartNs)
         trace {
             // **The line's own readings, every one of them built inside the sink** — the band metres, the
             // slow metres and the shares walk the whole line with a coast query per leg, and the depth
             // gate's readings scan it again — so a solve with the tag off pays none of it.
-            val finalShares = slowShares(timedLine, ctx.pace, inZone = inZone(ctx.zones), inBand = inBand(ctx.world))
+            val finalShares = slowShares(timedLine, ctx.pace, inZone = inZone(ctx.pricedZoneSet), inBand = inBand(ctx.world))
             val bandLawM = bandMetres(ctx.world, timedLine.points)
             val bandPricedM = bandPricedMetres(ctx.world, timedLine.points)
             val slowM = slowMetres(timedLine, ctx.pace)
@@ -840,15 +856,22 @@ class RouteAvoidEngine(
         // ramps that serve a limit into the slow-water seconds — the boat's own cornering floor standing
         // outside both — so the wiring has one home and one fixture. The zone share and the zone metres
         // are still settled for the report and are no longer ranking inputs.
+        val slowStartNs = System.nanoTime()
         val slowWater = rungSlowWater(
             timed = timedLine,
             paceKn = ctx.pace,
             limitAt = ctx.limitAt,
-            inZone = inZone(ctx.zones),
+            inZone = inZone(ctx.pricedZoneSet),
             inBand = inBand(ctx.world),
             bandLimitKn = AppConfig.routeAvoidZone300LimitKn,
             ceilingKnAt = rounded.ceilingKnAt
         )
+        val slowMs = msSince(slowStartNs)
+        // **The device reading** — the coarse walk's own A* cost and duration, the fine stage's duration,
+        // and the tail's four clocks beside them. Always offered to `trace()`: a sink takes it where one
+        // stands, and the device's own `Log.i` path is gated inside `trace()` by the tag's level, so the
+        // guard is not repeated here — the sink must see every reading, and the device behaviour is unmoved.
+        instrumentCoarseWalk(ctx, lambda, waypoints, passReading, coarseMs, fineMs, cornerMs, clockMs, probeMs, crossedMs, slowMs)
         return Rung(
             success(timedLine, forced, crossed, slowLimitSeconds = slowWater.byLimit),
             slowWater.cost
@@ -1229,7 +1252,10 @@ class RouteAvoidEngine(
      * speeds apart. `DEVICE PASS` is the coarse walk's own cost — the cells it was rasterized over, how
      * many were passable, how many the A\* expanded, how many cells its answer holds and how long it
      * took, the pull's own refusals — how many chords the land margin refused and how many the price
-     * guard — with the fine stage's own duration beside it, `coarseMs` and `fineMs` one pair.
+     * guard — with the fine stage's own duration beside it, `coarseMs` and `fineMs` one pair, and the
+     * tail's four clocks after them: the corner pass, the profile clock, the forced-crossing probe (its
+     * own call, the crossed-zone report clocked apart as `crossedMs`) and the slow-water reading, each
+     * around its own work and never around a trace block (P3).
      */
     private fun instrumentCoarseWalk(
         ctx: GridContext,
@@ -1237,7 +1263,12 @@ class RouteAvoidEngine(
         coarse: List<LatLng>,
         pass: PassReading,
         coarseMs: Double,
-        fineMs: Double
+        fineMs: Double,
+        cornerMs: Double,
+        clockMs: Double,
+        probeMs: Double,
+        crossedMs: Double,
+        slowMs: Double
     ) {
         val search = pass.search
         // (e) A coarse cell is twenty-five fine ones, so the walk's own counts name their layer: the interior's
@@ -1251,7 +1282,9 @@ class RouteAvoidEngine(
                 "pulled=${pass.pulledCount} snapped=${pass.snappedCount} " +
                 "landRefusals=${pass.refusals.land} priceRefusals=${pass.refusals.price} " +
                 "coarseM=${fmt(lineLengthM(coarse))}m " +
-                "coarseMs=${fmt(coarseMs)} fineMs=${fmt(fineMs)}"
+                "coarseMs=${fmt(coarseMs)} fineMs=${fmt(fineMs)} " +
+                "cornerMs=${fmt(cornerMs)} clockMs=${fmt(clockMs)} probeMs=${fmt(probeMs)} " +
+                "crossedMs=${fmt(crossedMs)} slowMs=${fmt(slowMs)}"
         }
     }
 
@@ -1413,8 +1446,10 @@ internal fun rungSlowWater(
     bandLimitKn: Double,
     ceilingKnAt: (LatLng) -> Double?
 ): RungSlowWater {
-    val byLimit = slowTimeByLimit(timed, paceKn, limitAt, inZone, inBand, bandLimitKn)
-    val ramps = rampSlowSeconds(timed, paceKn, limitAt, inZone, inBand, ceilingKnAt)
+    // The legs' water — in a ring, in the band's width — read once here for the two readers that ask it.
+    val water = LegWater.of(timed, inZone, inBand)
+    val byLimit = slowTimeByLimit(timed, paceKn, limitAt, inZone, inBand, bandLimitKn, water)
+    val ramps = rampSlowSeconds(timed, paceKn, limitAt, inZone, inBand, ceilingKnAt, water)
     return RungSlowWater(
         byLimit = byLimit,
         cost = RoutePassRanking.PassCost(

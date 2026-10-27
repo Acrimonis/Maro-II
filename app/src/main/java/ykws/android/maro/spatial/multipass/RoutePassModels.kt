@@ -73,6 +73,23 @@ internal data class GridContext(
     val limitAt: (LatLng) -> Double?,
     val zones: List<SpeedZone>,
     val priced: List<ZoneRing>,
+    /**
+     * **The arm's priced zones, indexed** — [zones] as a [ZoneSet], the share split's own interior read,
+     * built once rather than per call.
+     */
+    val pricedZoneSet: ZoneSet = ZoneSet(zones),
+    /**
+     * **The corridor's zones whatever the price switch says, indexed** — the clock's and the crossed-zone
+     * report's read (`limitAtFor` is built over it), kept beside the gated set because the two differ when
+     * the price switch is off and the crown reads the gated one.
+     */
+    val zoneSet: ZoneSet = pricedZoneSet,
+    /**
+     * **The world's whole non-excluded zone list, indexed** — the corner pass's read: a bow or a merge
+     * crossing can stand a leg beyond the corridor, so its zone test is bounded by no box, and the set
+     * answers the world's own `zoneLimitKnAt` with a box reject ahead of every ring walk.
+     */
+    val worldZoneSet: ZoneSet = zoneSet,
     val depthGateActive: Boolean,
     val minDepthM: Double,
     val regionSaturated: Boolean,
@@ -99,8 +116,35 @@ internal data class GridContext(
      * of a rung's λ, so one answer serves the three. Fresh per context by default; never part of the
      * context's own identity.
      */
-    val probe: ProbeMemo = ProbeMemo()
+    val probe: ProbeMemo = ProbeMemo(),
+    /**
+     * **The crossing re-solves' rasters, shared by the rungs over this grid** — a zone's local fine raster
+     * reads nothing of a rung's λ either, so the first rung builds it and its siblings copy it
+     * ([CrossingRasterMemo]). Fresh per context; never part of its identity.
+     */
+    val crossingRasters: CrossingRasterMemo = CrossingRasterMemo()
 )
+
+/** One crossing raster's identity within an arm: the zone, the clamped box it is rastered over and the cell. */
+internal data class CrossingRasterKey(val zoneId: String, val box: BBox, val fineCellM: Double)
+
+/**
+ * **One arm's crossing rasters, each built once** — keyed on the zone, its clamped box and the fine cell,
+ * the three things the raster is a function of beside the arm's own pace, gate, markers and harvest, which
+ * every rung of the arm shares. The first asker builds under the lock and stores the finished grid; every
+ * asker, the builder included, takes **its own copy** ([MultipassGrid.copy]), since a rung then frees its
+ * own ends on it. A build cancelled under the lock stores nothing, so the next rung builds for itself and
+ * nothing half-built is ever shared. The stored grid lives as long as the context — one grid per zone an
+ * arm crosses — beside the rungs' copies.
+ */
+internal class CrossingRasterMemo {
+    private val lock = Mutex()
+    private val grids = HashMap<CrossingRasterKey, MultipassGrid>()
+
+    /** The grid for [key], built by [build] at most once, answered as a fresh copy. */
+    suspend fun gridFor(key: CrossingRasterKey, build: () -> MultipassGrid): MultipassGrid =
+        lock.withLock { grids[key] ?: build().also { grids[key] = it } }.copy()
+}
 
 /**
  * **One grid's forced-crossing probe, computed once** — keyed on the crossing zones it was asked for, so a

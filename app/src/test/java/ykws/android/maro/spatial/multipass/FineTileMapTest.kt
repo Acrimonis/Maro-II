@@ -30,7 +30,6 @@ class FineTileMapTest {
         bandWidthM = 300.0, bandLimitKn = 5.0, bandOutsideMarginM = 50.0,
         bandEnabled = true, zoneOutsideMarginM = 100.0, zonesEnabled = true,
         coastBandsM = listOf(0.0..100.0),
-        excludedZoneIdSet = emptySet(), zoneGenerationStamp = 3L,
         zoneRings = listOf(ZoneRing(listOf(LatLng(43.51, 7.02), LatLng(43.51, 7.03)), emptyList(), 4.0)),
         markers = emptyList(), markerStrength = 1.0, markerPriceEnabled = true
     )

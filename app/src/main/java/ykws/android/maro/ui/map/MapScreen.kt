@@ -1188,15 +1188,20 @@ fun MapScreen(
     val gpsStale by viewModel.gpsStale.collectAsState()
     // ── The pre-warm's own host (`route.prewarm.box`) ─────────────────────
     // The pass that builds the fine layer's tiles over the box and outward from it before an arm asks for
-    // them. It starts with the app — keyed on both baked layers being able to answer, not on the boat being
-    // idle — stays off battery-saver, and pauses while a route is armed or a raster is being regenerated,
-    // resuming after either ends. The plan is the selected engine's own, so the tiles it builds are the ones
-    // that engine's arm will ask for.
+    // them. It starts with the app — keyed on both baked layers being able to answer **and** on the zone and
+    // marker lists having landed, since a tile is keyed on the zones and markers that reach it and one built
+    // before they load is a tile no arm will ask for — not on the boat being idle. It stays off
+    // battery-saver, and pauses while a route is armed or a raster is being regenerated, resuming after
+    // either ends. The plan is the selected engine's own, so the tiles it builds are the ones that engine's
+    // arm will ask for.
     val depthState by depthViewModel.state.collectAsState()
     val depthRasterGenerating by depthViewModel.generatingStep.collectAsState()
+    val speedZonesLoaded by viewModel.speedZonesLoaded.collectAsState()
+    val markersLoaded by markersViewModel.markersLoaded.collectAsState()
     MapRoutePrewarmEffect(
         plan = RouteEngineChoice.resolve(appSettings.routeEngineId).plan,
-        worldReady = state is CoastlineState.Ready && depthState is DepthState.Ready,
+        worldReady = state is CoastlineState.Ready && depthState is DepthState.Ready &&
+            speedZonesLoaded && markersLoaded,
         routeArmed = routeArmed,
         heavyJob = depthRasterGenerating != null,
         position = gpsPosition,
@@ -1250,7 +1255,6 @@ fun MapScreen(
     // The route ends read the **unfiltered** markers (the source of truth): a flag must select an end
     // regardless of the list filter, and the R66 write-back must not purge a stored id before the load.
     val routeMarkers by markersViewModel.allMarkers.collectAsState()
-    val markersLoaded by markersViewModel.markersLoaded.collectAsState()
     val routeMarkerFlags = routeMarkers.map { MarkerRouteFlags(it.id, it.routeOrigin, it.routeDestination) }
     val routeStartEligible = RouteEndSelection.eligibleMarkerIds(RouteEndSelection.End.START, routeMarkerFlags)
     val routeDestinationEligible =

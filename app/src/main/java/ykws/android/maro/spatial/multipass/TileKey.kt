@@ -9,25 +9,25 @@ import java.io.DataOutputStream
  *
  * A tile may be reused across arms and across routes, so its key carries every value its contents move
  * with; a key that misses one leaves a stale limit cached and the line silently wrong. The fields fall
- * into five groups, in the doc's own order:
+ * into six groups, in the doc's own order:
  *
  * - **The lattice** — the anchor ([anchorLatSouth], [anchorLonWest], [referenceLat]) and the fine cell
  *   ([fineCellM]). The tile grid is fixed on them, so a different anchor or cell is a different tile;
  *   [tileRow], [tileCol] and [tileCells] name which block of that grid.
- * - **The stamps** — [depthGenerationStamp], [coastlineGenerationStamp], [emodnetCutoffM] and
- *   [zoneGenerationStamp]: a re-baked asset, a moved cutoff or a rebuilt zone list must not leave
- *   coefficients cached.
+ * - **The stamps** — [depthGenerationStamp], [coastlineGenerationStamp] and [emodnetCutoffM]: a re-baked
+ *   asset or a moved cutoff must not leave coefficients cached. The zones carry no stamp of their own —
+ *   [zoneRings] is the content itself, so a zone edited elsewhere in the region moves no key here.
  * - **The geometry and the law** — [obstacleMarginM], [gateMinDepthM], [gateMarginM], the berth's
  *   [berthOuterM] and [berthFloorM], the band's [bandWidthM],
  *   [bandLimitKn] and [bandOutsideMarginM], the [zoneOutsideMarginM] and the plan's fine-mask bands
  *   ([coastBandsM]). The
  *   **pace is deliberately absent**: the tile stores a pace-free factor and the base is re-applied from
  *   the target grid, so one tile serves every speed.
- * - **The switches** — [bandEnabled], [zonesEnabled] and [depthGateEnabled], plus the
- *   [excludedZoneIdSet], because the rasterizer reads all four.
- * - **The zone set** — [zoneRings], the exact ring set the fill even-odd-fills, and [capLatNorth], the
+ * - **The switches** — [bandEnabled], [zonesEnabled] and [depthGateEnabled], the three the rasterizer reads.
+ * - **The zone set** — [zoneRings], the rings whose reach meets **this tile**, the exact set the fill
+ *   even-odd-fills (an excluded zone is dropped before the set is built), and [capLatNorth], the
  *   open-coast closure's own cap.
- * - **The marker price** — [markers], the costed set itself; and the two values that scale and gate it,
+ * - **The marker price** — [markers], the costed markers whose reach meets this tile; and the two values that scale and gate it,
  *   [markerStrength] and [markerPriceEnabled], which the rasterizer reads per cell although they live
  *   nowhere on a marker. A strength or switch move must therefore move the key like a marker move does.
  *
@@ -92,17 +92,18 @@ internal data class TileKey(
     val zonesEnabled: Boolean,
     /** The coast-distance membership bands (m) the plan's fine mask keeps. */
     val coastBandsM: List<ClosedFloatingPointRange<Double>>,
-    /** The ids of the speed zones the user has excluded. */
-    val excludedZoneIdSet: Set<String>,
-    /** The speed-zone list's content stamp. */
-    val zoneGenerationStamp: Long,
-    /** The exact ring set the fill even-odd-fills — the rasterizer's own zone read. */
+    /**
+     * **The rings whose reach meets this tile** — the exact set the fill even-odd-fills for it, in the
+     * provider's own order. A ring further from the tile's raster than the zone's outside margin writes no
+     * cell of it (its even-odd crossings toggle an even count or none inside the box, and the collar sweep is
+     * clamped to the grid), so it is left out and a corridor meeting other far zones names the same tile.
+     */
     val zoneRings: List<ZoneRing>,
     /**
-     * **The costed markers this tile's rasterisation reads** — every Circle, Corridor or costed Pin, with
-     * its geometry and its step / wall flag. The geometry carries the marker's own proximity, so a moved
-     * ring moves the key beside a moved body. It is the key material itself, so a marker created, moved,
-     * re-costed or deleted moves the key and no stale tile survives.
+     * **The costed markers this tile's rasterisation reads** — every Circle, Corridor or costed Pin whose
+     * body and collar reach this tile, with its geometry and its step / wall flag. The geometry carries the
+     * marker's own proximity, so a moved ring moves the key beside a moved body; a marker beyond its reach
+     * prices no cell of the tile and is left out, so an edit far away moves no key here.
      */
     val markers: List<RouteMarker>,
     /**
@@ -130,12 +131,10 @@ internal data class TileKey(
      * [DataOutputStream] shape, so two runs agreeing on the key's values produce identical bytes and no
      * `hashCode` — which could fold an *identity* hash into a component — can ever reach a file name.
      *
-     * **The one component whose Kotlin order is not pinned is [excludedZoneIdSet]** (a `Set`, whose
-     * iteration order is unspecified), so it is **sorted** here. Every other field is a primitive, an
-     * ordered `List`, or a data class over ordered values, so no other component reaches an identity hash;
-     * the nested [zoneRings] (holes included), the [coastBandsM] ranges and every [markers] geometry are
-     * written field by field, because a key that omitted one would name a different tile than the
-     * rasteriser built.
+     * Every field is a primitive, an ordered `List`, or a data class over ordered values, so no component
+     * reaches an identity hash; the nested [zoneRings] (holes included), the [coastBandsM] ranges and every
+     * [markers] geometry are written field by field, because a key that omitted one would name a different
+     * tile than the rasteriser built.
      *
      * It is the store's correctness floor: the entry carries these bytes and a load compares them, so a
      * name collision or a drift can only ever produce a **miss**, never a wrong tile. Pinned by
@@ -172,10 +171,6 @@ internal data class TileKey(
             out.writeDouble(band.start)
             out.writeDouble(band.endInclusive)
         }
-        val excluded = excludedZoneIdSet.sorted()
-        out.writeInt(excluded.size)
-        for (id in excluded) out.writeUtf(id)
-        out.writeLong(zoneGenerationStamp)
         out.writeInt(zoneRings.size)
         for (ring in zoneRings) out.writeZoneRing(ring)
         out.writeInt(markers.size)
