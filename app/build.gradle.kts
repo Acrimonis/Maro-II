@@ -219,6 +219,9 @@ tasks.withType<Test> {
     // The depth prebake parses large GDAL-baked .asc grids (millions of cells) in-memory; give the
     // forked test JVM generous headroom so it doesn't OOM. Harmless for normal (small) unit tests.
     maxHeapSize = "4g"
+    // A Flight Recorder profile of the test JVM, written where `-Dmaro.jfr=<file>.jfr` names — the route
+    // harnesses' own profiler (RouteBendHarnessTest). Absent, nothing is recorded.
+    System.getProperty("maro.jfr")?.let { jvmArgs("-XX:StartFlightRecording=filename=$it,settings=profile") }
 }
 
 dependencies {
@@ -255,4 +258,7 @@ tasks.withType<Test>().configureEach {
     systemProperty("maro.cleanGpx", System.getProperty("maro.cleanGpx", "false"))
     // Probe point for the PrebakedDataDiagnostic containment dump — `<lat>,<lon>`.
     systemProperty("maro.point", System.getProperty("maro.point", ""))
+    // RouteBendHarnessTest's own gate — it writes the shipped values into the JVM's AppConfig, so it never rides
+    // the shared prebake gate into a broad filtered run.
+    systemProperty("maro.bendHarness", System.getProperty("maro.bendHarness", "false"))
 }

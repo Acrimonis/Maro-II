@@ -282,36 +282,40 @@ class LiveMultipassWorld(
     override fun zoneDisplayLimitKnAt(latitude: Double, longitude: Double): Double? =
         strictestDisplayLimitKnAt(zonesProvider(), excludedZoneIds(), latitude, longitude)
 
-    /**
-     * **The costed markers, projected.** Only a `MarkerOrigin.USER` marker that survives
-     * [validRoutingCost] becomes a [RouteMarker]: a Circle, a Corridor, or a **Pin** — a body of radius
-     * `0` whose whole price is its own proximity collar. An auto marker (a record, not a rule) is dropped.
-     *
-     * The wall is the top of the shipped scale ([ROUTING_COST_BLOCKED]) and carries step `0`; a price
-     * carries its own step. **A Pin is never a wall** — a point has no body to bar — so its cost is capped
-     * at the top price ([ROUTING_COST_MAX]) whatever is stored.
-     *
-     * The collar each geometry carries is the marker's own proximity, read through the rule's one home
-     * [markerProximityRangeM] so a legacy marker without a stored override still projects its well.
-     */
-    override fun routeMarkers(): List<RouteMarker> =
-        markersProvider().mapNotNull { m ->
-            if (m.origin != MarkerOrigin.USER) return@mapNotNull null
-            val cost = validRoutingCost(m.routingCost) ?: return@mapNotNull null
-            val proximityM = markerProximityRangeM(
-                m, AppConfig.markerProximityPinM, AppConfig.markerProximityZoneMultiplier
-            )
-            val pin = m.geometry is MarkerGeometry.Pin
-            val geometry = when (val g = m.geometry) {
-                is MarkerGeometry.Circle -> RouteMarkerGeometry.Circle(g.center, g.radiusM, proximityM)
-                is MarkerGeometry.Corridor -> RouteMarkerGeometry.Corridor(g.p1, g.p2, g.widthM, proximityM)
-                is MarkerGeometry.Pin -> RouteMarkerGeometry.Circle(g.position, 0.0, proximityM)
-            }
-            val price = if (pin) cost.coerceAtMost(ROUTING_COST_MAX) else cost
-            val isWall = !pin && price >= ROUTING_COST_BLOCKED
-            RouteMarker(id = m.id, geometry = geometry, step = if (isWall) 0 else price, isWall = isWall)
-        }
+    /** The costed markers, projected ([routeMarkersOf]). */
+    override fun routeMarkers(): List<RouteMarker> = routeMarkersOf(markersProvider())
 }
+
+/**
+ * **The costed markers, projected.** Only a `MarkerOrigin.USER` marker that survives
+ * [validRoutingCost] becomes a [RouteMarker]: a Circle, a Corridor, or a **Pin** — a body of radius
+ * `0` whose whole price is its own proximity collar. An auto marker (a record, not a rule) is dropped.
+ *
+ * The wall is the top of the shipped scale ([ROUTING_COST_BLOCKED]) and carries step `0`; a price
+ * carries its own step. **A Pin is never a wall** — a point has no body to bar — so its cost is capped
+ * at the top price ([ROUTING_COST_MAX]) whatever is stored.
+ *
+ * The collar each geometry carries is the marker's own proximity, read through the rule's one home
+ * [markerProximityRangeM] so a legacy marker without a stored override still projects its well. The live
+ * world's one projection, and a desktop world's over the same stored markers.
+ */
+internal fun routeMarkersOf(markers: List<UserMarker>): List<RouteMarker> =
+    markers.mapNotNull { m ->
+        if (m.origin != MarkerOrigin.USER) return@mapNotNull null
+        val cost = validRoutingCost(m.routingCost) ?: return@mapNotNull null
+        val proximityM = markerProximityRangeM(
+            m, AppConfig.markerProximityPinM, AppConfig.markerProximityZoneMultiplier
+        )
+        val pin = m.geometry is MarkerGeometry.Pin
+        val geometry = when (val g = m.geometry) {
+            is MarkerGeometry.Circle -> RouteMarkerGeometry.Circle(g.center, g.radiusM, proximityM)
+            is MarkerGeometry.Corridor -> RouteMarkerGeometry.Corridor(g.p1, g.p2, g.widthM, proximityM)
+            is MarkerGeometry.Pin -> RouteMarkerGeometry.Circle(g.position, 0.0, proximityM)
+        }
+        val price = if (pin) cost.coerceAtMost(ROUTING_COST_MAX) else cost
+        val isWall = !pin && price >= ROUTING_COST_BLOCKED
+        RouteMarker(id = m.id, geometry = geometry, step = if (isWall) 0 else price, isWall = isWall)
+    }
 
 /**
  * **The live raster's edge index, kept for the session.** A [LiveMultipassWorld] is built per search, so

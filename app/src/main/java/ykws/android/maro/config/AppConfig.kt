@@ -1936,38 +1936,26 @@ object AppConfig {
      *    lives in ui.properties with its token, not here.
      */
     fun init(context: Context) {
+        val props = Properties()
+        // maro.properties, then ui.properties (spacing/dimension/font tokens), then colors.properties, so any
+        // colour key still resolves from colors.properties (colors win). Each is optional: defaults apply if absent.
+        for (name in listOf("maro.properties", "ui.properties", "colors.properties")) {
+            try {
+                context.assets.open(name).use { stream -> props.load(stream) }
+            } catch (_: Exception) {
+                // An absent file keeps its keys' defaults.
+            }
+        }
+        applyProperties(props)
+    }
+
+    /**
+     * **The values the bundled `.properties` hold, applied** — [init]'s whole reading once its files are loaded,
+     * apart from the Android assets so a JVM harness can apply the very files the app ships and route over the
+     * device's own values rather than the code's defaults.
+     */
+    internal fun applyProperties(props: Properties) {
         try {
-            val props = Properties()
-
-            // Load maro.properties (optional — if missing, defaults are kept).
-            try {
-                context.assets.open("maro.properties").use { stream ->
-                    props.load(stream)
-                }
-            } catch (_: Exception) {
-                // maro.properties is optional; defaults apply if absent.
-            }
-
-            // Load ui.properties (optional — UI spacing/dimension/font tokens).
-            // Loaded AFTER maro.properties but BEFORE colors.properties so that any
-            // colour keys still resolve from colors.properties (colors win).
-            try {
-                context.assets.open("ui.properties").use { stream ->
-                    props.load(stream)
-                }
-            } catch (_: Exception) {
-                // ui.properties is optional; defaults apply if absent.
-            }
-
-            // Load colors.properties (optional — defaults apply if absent).
-            try {
-                context.assets.open("colors.properties").use { stream ->
-                    props.load(stream)
-                }
-            } catch (_: Exception) {
-                // colors.properties is optional; defaults apply if absent.
-            }
-
             // Resolve ${key} interpolation — run BEFORE individual property reads so that
             // references like ${ui.dashboard.status.success} are expanded in-place.
             val refPattern = Regex("""\$\{([^}]+)\}""")

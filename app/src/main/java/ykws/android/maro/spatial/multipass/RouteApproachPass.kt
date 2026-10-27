@@ -183,31 +183,9 @@ internal object RouteApproachPass {
                         MultipassPull.totalSec(work[it], work[it + 1], ctx)
                     }
                     tally.priceNs += System.nanoTime() - oldStartNs
-                    var pivot = seed
-                    var bestSec = replacementSec(listOf(a, pivot, e), ctx, bounds, tally, SLIDE_PROOFS, seed = true)
-                    var scaleM = radiusM / 2.0
-                    for (scale in 0 until MAX_SCALES) {
-                        if (scaleM < stepM) break
-                        val centre = pivot
-                        for (direction in 0 until DIRECTIONS) {
-                            checkCancelled()
-                            val angle = direction * 2.0 * PI / DIRECTIONS
-                            val candidate = offset(centre, scaleM * cos(angle), scaleM * sin(angle))
-                            if (SpatialOperations.haversine(seed, candidate) > radiusM) continue
-                            tally.candidates++
-                            val route = listOf(a, candidate, e)
-                            val sec = if (incumbentFirst) {
-                                candidateSec(route, ctx, bounds, bestSec, tally, SLIDE_PROOFS)
-                            } else {
-                                replacementSec(route, ctx, bounds, tally, SLIDE_PROOFS)
-                            }
-                            if (sec < bestSec) {
-                                bestSec = sec
-                                pivot = candidate
-                            }
-                        }
-                        scaleM /= 2.0
-                    }
+                    val slide = searchSlide(a, seed, e, radiusM, ctx, bounds, stepM, tally, incumbentFirst, checkCancelled)
+                    val pivot = slide.p
+                    val bestSec = slide.sec
                     // A slide's window also tries a split — of the slide's own answer, on the legs it found, against
                     // that answer where it beats the window. A split of the seed keeps part of legs the slide moved off
                     // for their price, and the slid window may no longer touch slow water, so the next pass never
@@ -442,6 +420,56 @@ internal object RouteApproachPass {
             return Double.POSITIVE_INFINITY
         }
         return sec
+    }
+
+    /** A slide's point — the window's seed where nothing beat it — and the window's cost through it. */
+    private class Slide(val p: LatLng, val sec: Double)
+
+    /**
+     * **The window's one point, searched around its [seed]** — the seed's own cost first ([replacementSec], so a
+     * seed the pass's proof refuses starts the window with no finite best), then eight directions at each scale
+     * from half [radiusM] down to [stepM], halving, the centre moving to each winner and no candidate further than
+     * [radiusM] from the seed. The candidates are evaluated in the window's own order — [candidateSec] pricing
+     * first, [replacementSec] proving first — so both orders decide alike.
+     */
+    private fun searchSlide(
+        a: LatLng,
+        seed: LatLng,
+        b: LatLng,
+        radiusM: Double,
+        ctx: PullContext,
+        bounds: BBox,
+        stepM: Double,
+        tally: ApproachTally,
+        incumbentFirst: Boolean,
+        checkCancelled: () -> Unit
+    ): Slide {
+        var pivot = seed
+        var bestSec = replacementSec(listOf(a, pivot, b), ctx, bounds, tally, SLIDE_PROOFS, seed = true)
+        var scaleM = radiusM / 2.0
+        for (scale in 0 until MAX_SCALES) {
+            if (scaleM < stepM) break
+            val centre = pivot
+            for (direction in 0 until DIRECTIONS) {
+                checkCancelled()
+                val angle = direction * 2.0 * PI / DIRECTIONS
+                val candidate = offset(centre, scaleM * cos(angle), scaleM * sin(angle))
+                if (SpatialOperations.haversine(seed, candidate) > radiusM) continue
+                tally.candidates++
+                val route = listOf(a, candidate, b)
+                val sec = if (incumbentFirst) {
+                    candidateSec(route, ctx, bounds, bestSec, tally, SLIDE_PROOFS)
+                } else {
+                    replacementSec(route, ctx, bounds, tally, SLIDE_PROOFS)
+                }
+                if (sec < bestSec) {
+                    bestSec = sec
+                    pivot = candidate
+                }
+            }
+            scaleM /= 2.0
+        }
+        return Slide(pivot, bestSec)
     }
 
     /** A split's two points, in the line's order, and the window's cost through them. */

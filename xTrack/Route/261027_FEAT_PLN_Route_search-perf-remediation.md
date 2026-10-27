@@ -759,3 +759,36 @@ F4's chunk extent is published safely through `computeIfAbsent`.
     band, markers) and undesigned. F1 skipped 6 / 0 / 8 windows; "Closest"'s second pass found no repeat and
     still took 6.8 s, its first pass's moves having made new windows. This pair has no pre-wave capture, so its
     lines' identity rests on the suites.
+- **2026-10-28 — wave G: the field reads measured by source, the coast's own read cut, autonomous on the user's
+  word** (*"carry this work as far as you can go without big regression on the use case nor more than 15 % of
+  performance loss"*), on `feature/roooouuutttiiinnngggg`, the device off `adb`.
+  - **The instrument** — `RouteBendHarnessTest` routes the Lérins → La Salis pair over the shipped region
+    (`BakedRegionWorld`), the shipped `.properties` (`AppConfig.applyProperties`, split out of `init` so a JVM can
+    apply the very files the app ships) and the device's own markers (`routeMarkersOf`, the live world's projection
+    made shared; a copy of `user_markers.json` at `app/build/route-harness/`), at 30 kn on `evolutive`; gated on
+    `-Dmaro.bendHarness=true`, with an opt-in Flight Recorder hook (`-Dmaro.jfr=<file>`) on the test JVM. Without
+    the markers every rung goes round Saint-Honorat (18.7–18.9 km); with them through the islands, 15.6–15.8 km —
+    the device's 15.0–15.1 km lines are not reproduced (the marker copy predates the runs).
+  - **The reading** — the profile put a third of a rung's samples on `CoastlineSpatialIndex.nearestRef` (the
+    band's price and clearance, the rasters), half of it in hashing a boxed cell key; the zone rings are 27–65
+    vertices and their reads a few per cent. So the lever is the coast's read, not the zones'.
+  - **What shipped, every line identical on the harness and the suites** — the index's grid is two flat arrays
+    in the old fill order (no key object, no hash); `nearestRef` skips a segment whose box, at the shortest
+    degree of longitude any of its points can take, already stands a micrometre past the best
+    (`SpatialOperations.boxCannotBeat`); the three zone ring-distance loops are one `ringDistanceM` (no skip
+    there — measured no cheaper on rings this short); the approach pass's slide search is its own `searchSlide`.
+    A new exactness test pins `query`'s distance and segment against brute force on ~11 000 points.
+  - **Measured (harness, best of five, ms a rung — Around / Balanced / Closest):** the split as committed
+    514 / 414 / 440 → 401–410 / 332 / 345 with this wave; against the pre-split code (c4b1c689) 370 / 363 / 412
+    that is +8–11 % / −9 % / −16 %. The harness's `rungMs` includes a grid build per rung, which the device pays
+    once an arm from its tile store, so the device's shares differ; its reading is owed.
+  - **Tried and dropped** — a merge never deleting both points of one split: it never fired on the pair, the
+    split's second point being slid in the same pass, and tracking pairs through slides was not worth ~6 % on one
+    rung.
+  - **Review hop (2026-10-28)** — nothing blocking. Fixed on its word: the box bound's slack made absolute (a
+    relative one fell under the distance read's own rounding within ~2 m of the coast); the exactness test asserts
+    the segment taken where it is unique and probes each vertex's longitude; the harness applies the values before
+    it builds its world, shares the coast index across `withMarkers`, reads the ladder off `RoutePreference`, has
+    its own gate and names `--rerun`; `forEachInCell` refuses a cell outside the grid; the memory note. **Left,
+    named:** the index's box seeds its max with `Double.MIN_VALUE` (wrong for non-positive coordinates) and
+    `testOptions.isReturnDefaultValues` is declared twice in `app/build.gradle.kts` — both pre-existing.

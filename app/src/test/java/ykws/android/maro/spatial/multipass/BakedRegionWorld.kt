@@ -8,6 +8,7 @@ import ykws.android.maro.data.model.DepthGrid
 import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.BBox
+import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.data.regulation.RegulatedZoneSerializer
 import ykws.android.maro.data.regulation.SpeedZone
 import ykws.android.maro.data.regulation.SpeedZoneBuilder
@@ -21,20 +22,22 @@ import java.io.File
  * [LiveMultipassWorld] cannot be fed bytes on a JVM — its two repositories load through an Android context —
  * so this restates its reads over the same three deserialisers the app uses: the baked coastline into the
  * app's own [CoastlineSpatialIndex], the baked depth grid read through the chart's EMODnet cutoff exactly as
- * the router reads it, and the baked speed zones through [SpeedZoneBuilder]. No marker is costed, and nothing
- * is generated or synthesised: a line routed over this world is routed over the water the device holds.
+ * the router reads it, and the baked speed zones through [SpeedZoneBuilder]. No marker is costed unless
+ * [withMarkers] hands in stored ones, projected by the live world's own [routeMarkersOf], and nothing is
+ * generated or synthesised: a line routed over this world is routed over the water the device holds.
  *
  * It exists for measurements that a hand-built fixture cannot stand for — a real island chain, a real shelf,
  * the real 300 m band and the real zones. The bake is gitignored, so [load] answers `null` where the files
  * are absent and the caller skips rather than fails.
  */
 internal class BakedRegionWorld private constructor(
-    coastline: CoastlineData,
+    private val coastline: CoastlineData,
+    private val index: CoastlineSpatialIndex,
     private val grid: DepthGrid,
-    private val zones: List<SpeedZone>
+    private val zones: List<SpeedZone>,
+    private val markers: List<RouteMarker> = emptyList()
 ) : MultipassWorld {
 
-    private val index = CoastlineSpatialIndex(coastline.allSegments)
     private val bounds = coastline.boundingBox
     private val cutoffM = AppConfig.depthEmodnetShallowCutoffM
     private val gateMinM = AppConfig.routeAvoidDepthGateMinM.toFloat()
@@ -75,6 +78,15 @@ internal class BakedRegionWorld private constructor(
     override fun zoneDisplayLimitKnAt(latitude: Double, longitude: Double): Double? =
         strictestDisplayLimitKnAt(zones, emptySet(), latitude, longitude)
 
+    override fun routeMarkers(): List<RouteMarker> = markers
+
+    /**
+     * This world with [stored] markers costed as the live world costs them — the device's own marker file — on
+     * the same coastline index. The depth reads take the [AppConfig] values in force when it is called.
+     */
+    fun withMarkers(stored: List<UserMarker>): BakedRegionWorld =
+        BakedRegionWorld(coastline, index, grid, zones, routeMarkersOf(stored))
+
     companion object {
 
         /** The world over [region]'s baked files under [repoDir], or `null` where any of the three is absent. */
@@ -91,7 +103,7 @@ internal class BakedRegionWorld private constructor(
             } else {
                 emptyList()
             }
-            return BakedRegionWorld(coast, depth, zones)
+            return BakedRegionWorld(coast, CoastlineSpatialIndex(coast.allSegments), depth, zones)
         }
     }
 }
