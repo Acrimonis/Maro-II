@@ -5,6 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.spatial.SpatialOperations
 import kotlin.math.abs
@@ -170,6 +171,7 @@ class RouteApproachPassTest {
         val setups = sixWaters()
         val paths = linkedMapOf("cutTravel" to 0.0, "cutLeg" to 0.0, "lost" to 0.0, "refusedClear" to 0.0)
         var berthWindows = 0.0
+        var splitEvals = 0.0
         repeat(8) {
             val line = listOf(
                 original[0],
@@ -190,12 +192,14 @@ class RouteApproachPassTest {
                 assertEquals("$name: the same windows and candidates", figure(proofFirst, "evals"), figure(priceFirst, "evals"), 0.0)
                 for (path in paths.keys) paths[path] = paths.getValue(path) + figure(priceFirst, path)
                 if (name == "berth") berthWindows += figure(priceFirst, "windows")
+                splitEvals += figure(priceFirst, "splitEvals")
             }
         }
         for ((path, count) in paths) {
             assertTrue("the new order takes its $path path on these lines ($paths)", count > 0.0)
         }
         assertTrue("the berth-priced water is searched, not skipped", berthWindows > 0.0)
+        assertTrue("splits are searched in both orders on these lines", splitEvals > 0.0)
     }
 
     /**
@@ -247,6 +251,153 @@ class RouteApproachPassTest {
         assertEquals(line.last(), kept.last())
         assertClear(setup, kept)
         assertTrue("no dearer than it was", cost(setup, kept) <= cost(setup, line))
+    }
+
+    /**
+     * **A turn standing for two features is split in two.** The line leaves the rock's slow disc eastward past an
+     * island it must not cross, then runs south-east past a second slow disc; its one point stands where the two
+     * tangent legs cross, at sea and off both — the 2026-10-27 "Balanced" bend. No slide can round both, so the pass
+     * splits it: the line gains a point, is cheaper and clear, and turns nearer the island and nearer the disc than
+     * the one point did.
+     */
+    @Test
+    fun aTurnStandingForTwoFeaturesIsSplitInTwo() {
+        assertSplitInTwo(point(290.0, 0.0), point(2281.8, -181.8))
+    }
+
+    /**
+     * **A turn the slide must move first is split on the legs it moved to.** The same water, the bend 200 m back
+     * along the same first leg, so its second leg cuts 50 m into the disc, and the start just outside the rock's disc,
+     * so only that second leg is slow: the slide moves it off the disc's price, and a split of the original bend would
+     * keep part of that leg — the 2026-10-27 "Balanced" run, where the split of the seed lost to the slide and the
+     * slid window, its legs clean, was never searched again. The split of the slide's answer still turns once by each
+     * feature.
+     */
+    @Test
+    fun aTurnTheSlideMovesIsSplitOnTheLegsItFound() {
+        val start = point(310.0, 0.0)
+        val bend = point(2082.5, -163.6)
+        val setup = twoFeatureSetup(start)
+        val travelSec = SpatialOperations.haversine(bend, twoFeatureAim) / setup.paceMps
+        assertTrue(
+            "the bend's second leg pays the disc's price",
+            MultipassPull.totalSec(bend, twoFeatureAim, setup.context()) > travelSec + 1.0
+        )
+        val split = assertSplitInTwo(start, bend)
+        // The split's first point stands off the line's own first leg: it lies on the leg the slide found.
+        val firstLeg = MultipassPull.legClearCause(start, bend, setup.context())
+        assertEquals("the first leg is clear", null, firstLeg)
+        val (sx, sy) = metres(start)
+        val (bx, by) = metres(bend)
+        val (px, py) = metres(split[1])
+        val offLegM = abs((bx - sx) * (py - sy) - (by - sy) * (px - sx)) / hypot(bx - sx, by - sy)
+        assertTrue("the split's first point is off the original first leg ($offLegM m)", offLegM > 5.0)
+    }
+
+    private val twoFeatureAim = point(3000.0, -900.0)
+    private val twoFeatureIsland = point(1103.0, -270.0)
+    private val twoFeatureDisc = point(2322.5, -675.0)
+
+    /** An island the first leg must pass and a slow disc the second must, between the rock's disc and the aim. */
+    private fun twoFeatureSetup(start: LatLng): PullSetup {
+        val island = RouteCostSource.Hard(distanceAt = {
+            (SpatialOperations.haversine(it, twoFeatureIsland) - 150.0).coerceAtLeast(0.0)
+        })
+        return setup(field(extraHard = island, secondDisc = twoFeatureDisc), start = start, aim = twoFeatureAim)
+    }
+
+    /** Splits the line `start → bend → aim` over the two features, asserts what a split owes, and returns the line. */
+    private fun assertSplitInTwo(start: LatLng, bend: LatLng): List<LatLng> {
+        val aim = twoFeatureAim
+        val setup = twoFeatureSetup(start)
+        val line = listOf(start, bend, aim)
+        assertClear(setup, line)
+        assertEquals("the island forces a turn", ChordRefusal.LAND, MultipassPull.legClearCause(start, aim, setup.context()))
+
+        val trace = mutableListOf<String>()
+        val split = RouteApproachPass.refine(setup, line, bounds, 20.0, memo = MarkMemo(), trace = { trace += it() })
+        assertTrue("the move is a split ($trace)", trace.any { it.startsWith("APPROACH move ") && it.contains(" kind=split ") })
+        assertTrue("the line gains a point ($split)", split.size > line.size)
+        assertEquals(start, split.first())
+        assertEquals(aim, split.last())
+        assertClear(setup, split)
+        assertTrue("the split is cheaper", cost(setup, split) < cost(setup, line))
+        val inner = split.subList(1, split.lastIndex)
+        val byIsland = inner.minBy { SpatialOperations.haversine(it, twoFeatureIsland) }
+        val byDisc = inner.minBy { SpatialOperations.haversine(it, twoFeatureDisc) }
+        assertTrue("each feature has its own turn ($split)", byIsland != byDisc)
+        assertTrue(
+            "the island's turn stands nearer it than the bend did",
+            SpatialOperations.haversine(byIsland, twoFeatureIsland) < SpatialOperations.haversine(bend, twoFeatureIsland)
+        )
+        assertTrue(
+            "and the disc's nearer the disc",
+            SpatialOperations.haversine(byDisc, twoFeatureDisc) < SpatialOperations.haversine(bend, twoFeatureDisc)
+        )
+
+        // The split is one line whichever order evaluates it and whether or not the second pass skips repeats.
+        assertEquals(
+            "proof-first draws the same split",
+            split, RouteApproachPass.refine(setup, line, bounds, 20.0, memo = MarkMemo(), incumbentFirst = false)
+        )
+        assertEquals(
+            "a second pass searching every window draws the same split",
+            split, RouteApproachPass.refine(setup, line, bounds, 20.0, memo = MarkMemo(), skipRepeats = false)
+        )
+        return split
+    }
+
+    /**
+     * **A turn round one headland is not split, by the corner pass's floor.** The line leaves the rock's slow disc
+     * eastward and turns 60° round a land wedge whose edges run 100 m inside its two 300 m legs. The half cut — one
+     * point halfway down each leg — keeps the wedge clear and is cheaper, so only the floor refuses it: its two
+     * points stand closer than the tangent a pace-speed curve needs for 60°, and the corner pass would draw them back
+     * as the one corner. A cut wide enough to pass that floor crosses the wedge, so the line keeps its one turn.
+     */
+    @Test
+    fun aTurnRoundOneHeadlandIsNotSplit() {
+        val start = point(290.0, 0.0)
+        val bend = point(590.0, 0.0)
+        val aim = point(740.0, -259.8)
+        // The wedge's tip and its two edges, away from the tip: west along the first leg, south-east along the second.
+        val tip = Pair(532.3, -100.0)
+        val edges = listOf(Pair(-1.0, 0.0), Pair(0.5, -0.866))
+        val wedge = RouteCostSource.Hard(distanceAt = { p ->
+            val (east, north) = metres(p)
+            val inside = north <= -100.0 && 0.866 * (east - 590.0) + 0.5 * north <= -100.0
+            if (inside) {
+                0.0
+            } else {
+                edges.minOf { (ux, uy) ->
+                    val t = ((east - tip.first) * ux + (north - tip.second) * uy).coerceAtLeast(0.0)
+                    hypot(east - tip.first - t * ux, north - tip.second - t * uy)
+                }
+            }
+        })
+        val setup = setup(field(extraHard = wedge), start = start, aim = aim)
+        val line = listOf(start, bend, aim)
+        assertClear(setup, line)
+        assertEquals("the wedge forces the turn", ChordRefusal.LAND, MultipassPull.legClearCause(start, aim, setup.context()))
+        val halfCut = listOf(start, point(440.0, 0.0), point(665.0, -129.9), aim)
+        assertClear(setup, halfCut)
+        assertTrue("the half cut is cheaper", cost(setup, halfCut) < cost(setup, line))
+        val paceRadiusM = 15.0 * 15.0 / AppConfig.routeTurnLateralAccelMps2
+        val summedDeg = abs(RouteCornerPass.turnDegreesAt(halfCut[0], halfCut[1], halfCut[2])) +
+            abs(RouteCornerPass.turnDegreesAt(halfCut[1], halfCut[2], halfCut[3]))
+        assertTrue(
+            "but the corner pass would draw it back as one turn",
+            RouteCornerPass.pairIsOneTurn(SpatialOperations.haversine(halfCut[1], halfCut[2]), summedDeg, paceRadiusM)
+        )
+
+        val trace = mutableListOf<String>()
+        val kept = RouteApproachPass.refine(setup, line, bounds, 20.0, memo = MarkMemo(), trace = { trace += it() })
+        assertTrue("no move is a split ($trace)", trace.none { it.contains(" kind=split ") })
+        assertEquals("the line keeps its one turn", line.size, kept.size)
+        assertTrue(
+            "the cuts under the corner pass's span are refused (${summary(trace)})",
+            Regex("splitFloor=([0-9]+)").find(summary(trace))!!.groupValues[1].toInt() > 0
+        )
+        assertClear(setup, kept)
     }
 
     @Test(expected = CancellationException::class)
@@ -309,10 +460,22 @@ class RouteApproachPassTest {
         ))
     }
 
-    private fun setup(field: RouteCostField, gate: GateRule? = null, berth: BerthLaw? = null) = PullSetup(
+    private fun setup(
+        field: RouteCostField,
+        gate: GateRule? = null,
+        berth: BerthLaw? = null,
+        start: LatLng = original.first(),
+        aim: LatLng = original.last()
+    ) = PullSetup(
         marginM = 25.0, coarseStepM = 20.0, priceStepM = 100.0,
-        field = field, start = original.first(), aim = original.last(), gate = gate,
+        field = field, start = start, aim = aim, gate = gate,
         berth = berth, berthLambda = if (berth != null) 3.0 else 0.0, paceMps = 15.0
+    )
+
+    /** A point's east and north metres in [point]'s own frame. */
+    private fun metres(p: LatLng): Pair<Double, Double> = Pair(
+        (p.longitude - GateTestFixtures.LON0) * GateTestFixtures.M_PER_DEG_LON - 200.0,
+        (p.latitude - GateTestFixtures.LAT0) * GateTestFixtures.M_PER_DEG_LAT - 1400.0
     )
 
     private fun assertSafeImprovement(setup: PullSetup, result: List<LatLng>) {

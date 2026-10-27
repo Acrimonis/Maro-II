@@ -341,6 +341,15 @@ object RouteCornerPass {
         return out
     }
 
+    /**
+     * **Whether two same-way bends [spanM] apart read as one turn** — closer than the tangent a pace-speed curve
+     * of radius [paceRadiusM] needs for their [summedDeg]: such a pair cannot host two curves, so [compoundLine]
+     * draws it over the crossing of its outer legs. `RouteApproachPass` reads the same test to refuse a split
+     * this pass would draw back as the one corner it splits.
+     */
+    internal fun pairIsOneTurn(spanM: Double, summedDeg: Double, paceRadiusM: Double): Boolean =
+        spanM < paceRadiusM * tan(Math.toRadians(summedDeg) / 2.0)
+
     /** The next bend after [i] that the pass will curve, or `-1` where the line holds none. */
     private fun nextBendIndex(turnDeg: DoubleArray, i: Int): Int {
         for (k in i + 1 until turnDeg.lastIndex) {
@@ -375,8 +384,7 @@ object RouteCornerPass {
         if (abs(turnAtJ) < MIN_TURN_DEG || turnAtI * turnAtJ < 0.0) return null
         var spanM = 0.0
         for (k in i + 1..j) spanM += SpatialOperations.haversine(line[k - 1], line[k])
-        val summedDeg = abs(turnAtI) + abs(turnAtJ)
-        if (spanM >= paceRadiusM * tan(Math.toRadians(summedDeg) / 2.0)) return null
+        if (!pairIsOneTurn(spanM, abs(turnAtI) + abs(turnAtJ), paceRadiusM)) return null
 
         val frame = Frame(line[i])
         val a = frame.xy(line[i - 1])
@@ -453,9 +461,10 @@ object RouteCornerPass {
      * The turn at [at] between its two legs, in degrees and **signed** by the side it turns to — positive
      * left, negative right — read in the same local frame the fit uses. The attempt reads its own vectors
      * while it fits; this is the pass's read of the angle alone, taken where only the value is wanted: the
-     * shares two bends take from one leg, and whether a pair turns the one way.
+     * shares two bends take from one leg, and whether a pair turns the one way — and `RouteApproachPass`'s
+     * split floor, so both passes read a turn one way.
      */
-    private fun turnDegreesAt(prev: LatLng, at: LatLng, next: LatLng): Double {
+    internal fun turnDegreesAt(prev: LatLng, at: LatLng, next: LatLng): Double {
         val frame = Frame(at)
         val uIn = frame.direction(prev, at) ?: return 0.0
         val uOut = frame.direction(at, next) ?: return 0.0
