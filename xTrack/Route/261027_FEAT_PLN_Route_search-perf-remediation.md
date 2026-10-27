@@ -1,7 +1,7 @@
 <!-- scope: feature -->
 # Route — the search's speed: remediation plan
 
-**Date:** 2026-10-27 · **Status:** waves A–D and P3 implemented (`## Implemented`); B1c and wave E open ·
+**Date:** 2026-10-27 · **Status:** waves A–D and P3 implemented (`## Implemented`); B1c and wave E open; wave F (§11): F0–F2 implemented, F3/F4 wait on F0's device reading ·
 **Order:** the user's word of 2026-10-27: *"write a remediation plan, review, update, report on plan"*, on the
 evaluation of the same day, then `#implement`.
 
@@ -18,7 +18,8 @@ this plan.
 
 ## 1. Shape of the work
 
-Five waves, each shippable alone, ordered by measured weight and blast radius. Every wave ends green on the
+Five waves, each shippable alone, ordered by measured weight and blast radius; wave F (§11) was added after
+them, on the approach pass the device found. Every wave ends green on the
 scoped suite and `compileDebugKotlin`, carries its own fixture that pins the line, and leaves the trace
 format unmoved except where a wave adds a counter (named where it does).
 
@@ -30,6 +31,7 @@ format unmoved except where a wave adds a counter (named where it does).
 | D — the post-search tail | F7, F8, F11 | `RouteCornerPass`, `RouteEta`, `RouteAvoidEngine`, `RoutePassModels`, `ZoneGeometry`, `ShallowEdgeIndex` | exact, reads moved |
 | E — the search and the raster | F9, F10 | `WalkLattice`, `MultipassSearch`, `MultipassGrid` | exact, structural |
 | P3 — the instrument | F12 | `RouteAvoidEngine` | reporting only |
+| F — the approach pass's pricing | F17 | `RouteApproachPass`, `PullContext`, `MarkMemo`, `MultipassPull`, `ShallowEdgeIndex` | counter, then exact cuts |
 
 Not in this plan (recorded in the evaluation §4 and §3 F13/F14): any kernel or metric change, the incumbent
 A\*, overlapping the two pull walks, the berth proof's reach. The code-health items of the evaluation §5 ride
@@ -391,6 +393,197 @@ cache. **Second:** B1c's gain is now conditional on a device reading the agent c
 shows the coastal penalty eating the open-water saving at 100 m, 50 m is the fallback and the item may land
 smaller than the evaluation's estimate.
 
+## 11. Wave F — the approach pass's pricing (design, 2026-10-27)
+
+**Order:** the user's word of 2026-10-27, *"design / plan pricing design"*, on the Route hydration's next step.
+F0–F2 implemented on the user's `#implement` of the same day (`## Implemented`); F3 and F4 are design, waiting
+on F0's device reading.
+
+**Where the pass stands.** After the reorder (`## Implemented`, *prices first and proves only would-be
+winners*) the approach pass is 6.9 / 9.1 / 12.8 s of the three rungs on the 15 km pair, about 85 % of it
+pricing: 600–736 candidates a rung, each pricing up to two kilometre-long chords on geometry the memo has
+never seen. The price walk pays a gate-edge read at **every mark it prices** (`readPrice` → `berthRate` →
+`edgeM`) and at **every span or group it tries to prove** (`softClearanceM` → `berthClearanceM`, plus a far
+read wherever the near one finds no edge): 43–85 k near and 16–31 k far reads a pass, the largest count on the
+`APPROACH` line. The line counts reads; it does not say what a read costs — hence F0.
+
+**The rule is the plan's own:** the drawn line, the clock, the slow-water seconds and the crown stay
+byte-identical. Every lever below changes **which reads are paid, never a decision** — the berth's outer ramp
+is priced from a span's midpoint wherever a proof passes, so a lever that moved one proof's verdict would move
+a sum. Three levels: fewer evaluations (F1), fewer reads per chord (F2, F3), a cheaper read (F4).
+
+**Every threshold is the law's, never the shipped keys'** (review W1–W3). The clamps allow an outer edge
+under the margin (outer 0–500 m, margin 0–200 m), so the berth's rate is exactly zero only from
+`quietM = max(outerM, marginM)`, where its clearance is `e − quietM`; every lever reads `quietM`, never
+`outerM`. A comparison a lever makes at a boundary today's code does not make keeps a 1 m margin, so
+rounding cannot flip it (W4).
+
+| Phase | Level | Touches | Kind |
+|---|---|---|---|
+| F0 | instrument | `PullTiming`, `MarkMemo`, `readPrice`, `RouteApproachPass` | reporting only |
+| F1 | evaluations | `RouteApproachPass` | exact, local |
+| F2 | reads per proof | `PullContext`, the two proofs in `MultipassPull`, `MarkMemo` | exact, local |
+| F3 | reads per mark | `MarkMemo`, `PullContext` | exact, structural |
+| F4 | cost per read | `ShallowEdgeIndex` | exact, local |
+
+**F0 — what a read costs.**
+- Four clocks, each on the side of a read that pays it, where it is paid: the near and far edge reads inside
+  `MarkMemo.edgeDistance` / `farEdgeDistance` — the memo gains the nanos beside its miss counts, since
+  `PullContext.edgeM` cannot tell a hit from a miss (W5) — the field's price read on `readPrice`'s miss in
+  `MultipassPull`, and the field's clearance read in the two proofs, which also gains a count.
+- `edgeNone`, the near reads that found no edge, **split by caller**: the berth's (rate and proof), which F3
+  can remove, and the wall proof's (`gateRefuses`), which it leaves (W6).
+- **Each pass's own ms** beside its evaluations (`pass1Ms` / `pass2Ms`): pass 2's repeats take their price,
+  edge and hard reads from the shared memo, so an evaluation count does not measure their time (W7).
+- The `APPROACH` line prints them. Paid only where a timing is handed in; no answer changes.
+- Acceptance: the clocks sum to no more than `priceMs + clearMs`, every read in `refine` sitting inside one of
+  the two (confirmed by the review); the instrumented call answers as the bare one.
+- Reading owed, the user's device pass: which read carries the price time, how many of the berth's near reads
+  find nothing, and pass 2's own ms. It sizes F1 and chooses between F3 and F4.
+
+**F1 — the second pass skips what the first left unchanged.**
+- `refine` runs up to two passes, and pass 2 runs whenever pass 1 moved a bend — which every rung of the
+  capture did (`moved=2`, and pass 2 runs only after a move). Pass 2 then searches every window again, yet a
+  window's outcome is a function of its own points `work[from..to]`, the context and the bounds alone: a
+  window pass 1 searched without a move, its points unchanged, cannot move in pass 2.
+- A set of the windows searched without a move, keyed on a **copy** of their point lists — `work.subList` is
+  a view the next splice would mutate inside the set (W8) — compared by `LatLng` equality, bit for bit on the
+  doubles; pass 2 skips a window found in it. A window touching a moved bend holds a new point and is searched
+  as before. Counted on the line as `repeats=`.
+- Exact: the skipped search is the one pass 1 ran on the same inputs; the memo changes which reads are paid,
+  never a value, and `slow()` is keyed on the pair.
+- Size — **smaller than it looks** (W7): pass 2 searches the same points, so its price, edge and hard reads
+  are already the memo's. F1 removes the residue — the field's clearance reads (no memo; F2 adds one),
+  `hardBlocked`, the haversines and the table lookups — read on F0's `pass2Ms`.
+- Acceptance: the six-water equivalence test with the skip on and off (a `skipRepeats` seam beside
+  `incumbentFirst`) draws the same points, on a fixture where pass 1 moves a bend and pass 2 skips at least
+  one window — asserted present, never counted.
+
+**F2 — the berth's side of a proof is read only where it can decide.** A span or group proof passes where
+`min(field, berth)` is finite and at least `halfM`. With the berth priced its clearance is always finite, so
+the proof is `field ≥ halfM && berth ≥ halfM`, and three reads go:
+- **Field side first.** Where the field's clearance is under `halfM` the proof fails whatever the berth says:
+  no edge read.
+- **The berth's ceiling.** The berth's clearance never exceeds `max(BERTH_PROOF_REACH_M, edgeReachM)` (a near
+  reading's clearance is at most its own reach, a far one's at most `BERTH_PROOF_REACH_M`; 150 m on the shipped
+  keys) — up to an ulp, so the cut is taken only **1 m above** it (W4). A span whose half-length is above that
+  is never proved, so it splits with no edge read — every proof on the top levels of a kilometre chord.
+- **The far read sized to the question.** Where the near read finds no edge and `halfM ≤
+  BERTH_PROOF_REACH_M`, the far read reaches the lesser of `quietM + halfM + 1 m` and today's `outerM +
+  BERTH_PROOF_REACH_M` — `quietM`, not `outerM`, because past the near reach the clearance is `e − marginM`
+  wherever `outerM < marginM` (W1). A found value is the same double the long read finds (the box only grows
+  with the reach) and is compared exactly as today; "none within" stands a metre past the boundary, so it
+  passes the proof as the long read's answer would. The far table holds "clear to R" as a negative value
+  (NaN stays the absent one), so a short "none" never answers a longer question.
+- **The field's clearance memoised** (W15). `priceClearanceM` is a pure function of the field and the point,
+  read at every proof and never held; a point-keyed table beside the price table answers the same double.
+- Exact: the same boolean at every proof. A read skipped at a midpoint that a later walk prices is paid there
+  instead, never twice. `berthClearanceM` itself is unchanged — `GateCoverageTest` pins its far-out 150 m
+  directly (W12); the proofs call a new decision beside it.
+- Acceptance: today's `softClearanceM` comparison kept in the test as the oracle and compared with the new
+  decision over thousands of points and half-lengths on a berth-priced gate fixture (field-bound, berth-bound,
+  both), under the shipped law **and** two the clamps allow — `outerM < marginM` with an inner ramp, and
+  `outerM > 150 m` (W1–W3); the equivalence test and the island fixture's rungs unmoved; fewer edge reads on
+  a long-chord fixture.
+
+**F3 — one exact read answers its neighbourhood.**
+- The edge distance is 1-Lipschitz: a point `r` metres from a read point `q` stands at least `e(q) − r` off
+  the edge. Most marks need a threshold, not a value: the berth's rate is exactly `0.0` at or beyond
+  `quietM` — not `outerM`: with an inner ramp and `outerM < marginM` the ramp prices the water between them
+  (W2) — and a proof's berth side needs only `≥ halfM`.
+- `MarkMemo` gains a lattice of exact reads at cell centres — cell about 50 m (twice the mark step), each read
+  at reach `quietM + cell` — filled lazily per pass and bound to the field like the memo's tables. It is
+  consulted **inside `berthRate` and the berth's side of the proof, never in `edgeM`**, whose exact value the
+  wall proof (`gateRefuses`) reads (W11). A priced mark asks its cell's node first: where `L = e(q) − r −
+  slack ≥ quietM`, or the node found no edge within its reach, the rate is exactly `0.0` and no read of its
+  own is paid. The proof's berth side decides from the same bound only where `L ≥ quietM`, and as today never
+  above `BERTH_PROOF_REACH_M`: its side holds where `min(L − quietM, BERTH_PROOF_REACH_M) ≥ halfM`, which is
+  a lower bound on today's clearance whether the near read, the far read or neither finds the edge (W3).
+  Otherwise the exact reads, as today.
+- What still pays its own read: marks within about `quietM + cell` of the edge — the ramp's water, where the
+  value matters.
+- Exact: where the bound decides, the rate returned is the `0.0` the law returns and `raw + 0.0` is `raw`;
+  every proof decides the same boolean. The slack covers the read's own metric (local equirectangular at the
+  read point) against the haversine `r` — millimetres at these spans; 0.5 m is taken.
+- Blast radius: `PullContext` is every walk's — the pulls, the sweep, the straightener — so the whole fine
+  pass reads through the lattice; a `MarkMemo` seam turns it off.
+- Acceptance: a property test over a traced gate fixture — thousands of points, half within a cell of the
+  edge and straddling cell boundaries — in which no bound contradicts the exact read, under the shipped law
+  and F2's two clamp-allowed laws; the island fixture's three rungs and `RouteEvolutiveEngineTest`
+  byte-identical with the seam on and off; the equivalence test unmoved.
+
+**F4 — the read itself, nearest first.**
+- `ShallowEdgeIndex.distanceM` visits every quad of the box around the point. Visiting quads in rings outward
+  and stopping once a ring's nearest possible distance exceeds the best found **by more than 1 m** returns the
+  same minimum — the same `pointToSegmentM` doubles over every segment that could win. The ring's bound is
+  measured in the **query latitude's** longitude metres, as the read itself measures, never
+  `DepthLattice.cellLonM`, which is the raster's south edge's and its widest (W9).
+- A chunk records its segments' extent, and **`distanceM` alone** skips a chunk whose segments all stand
+  beyond reach — never `forEachSegmentNear`, whose other reader, `forEachSegmentIn`, hands the collar marking
+  in `RouteGridBuilder` every segment of a quad meeting the box, beyond the box included (W10).
+- It pays on reads that find an edge; a read that finds none still crosses its box, which F3 removes.
+- Exact; it reaches every caller of the index through the same double — the raster's seeds, the corner pass,
+  the trace, `RouteAvoidEngine`, `RouteMedialNudge` (`edgeM`, and `rayHitM`'s steps) and `BerthCarve` (W13).
+- Acceptance: today's `distanceM` kept in the test, the two answering identical doubles over random points
+  and reaches on a traced fixture, query points north of the raster's south edge among them.
+
+**Order.** F0 and F1 ship together: F1 needs no reading to be exact, and the same capture reads what it
+saved. F2 next. Then F3 where the berth's edge clocks carry the time and its `edgeNone` is most of its near
+reads, F4 where reads that find an edge carry it — and neither where the field's own reads carry it, F2's
+clearance memo being the one field-side lever here.
+
+**Not in this wave.**
+- Fewer directions, scales or passes, or a coarser price step — each moves a line.
+- Pricing candidates in parallel — threading, excluded as in the evaluation's §4.
+- A window-level travel bound (`haversine(a, e) / pace ≥ oldSec`) — exact, but it never fires on a window
+  that crosses slow water, whose old legs already cost more than the straight leg's travel.
+- F3's bound would also serve the gate's wall proof (`gateRefuses`) — clearance, not pricing.
+- The two items the last order left (`addClearanceMarks` per mark, the tests-only `MarkMemo.price()`).
+- **Found by the review, pre-existing, not in this wave (W14):** where `outerM < marginM`, the near reach
+  (`edgeReachM`, anchored on `outerM` and the wall) can stop short of the ramp, so ramp water past `hardM +
+  12 m` reads a rate of zero, and a far "none" claims 150 m against a margin boundary that may be nearer. The
+  shipped keys (outer 50 m, margin 20 m) do not reach it; a fix moves lines and needs its own order.
+
+**Gaps.** What a read costs, how many of the berth's near reads find nothing, and pass 2's own ms — F0's.
+The depth raster's cell on the device, which sets both the box a read crosses and F3's cell — unread.
+
+**Strongest objection.** After the review the cheap levers are smaller than they looked — F1's repeats are
+already memo-served — so most of any gain rests on F3 or F4, the two with the widest reach: F3 changes the
+read path every walk of the fine pass shares and stands on a Lipschitz bound with a numerical slack, F4 on a
+ring bound every index caller reads through. Neither is sized until F0's capture, and one contradiction in
+F3's property test makes it unsound as drawn.
+
+### Review — one independent read, 2026-10-27, and what it changed
+
+On the user's order to review, update and report. The hop read §11 and every file it touches, briefed to
+break each "exact" claim in source. Its findings and the plan's disposition:
+
+| # | Finding | Disposition |
+|---|---|---|
+| W1 | **Blocks F2 as written.** Past the near reach the clearance is `e − marginM` wherever `outerM < marginM`, which the clamps allow; "none within `outerM + halfM`" would pass a proof today's read fails. | `quietM = max(outerM, marginM)` in the reach, capped at today's long reach. |
+| W2 | **Blocks F3 as written.** With an inner ramp and `outerM < marginM` the rate is positive between them; "zero at `outerM`" is false. | The threshold is `quietM`. |
+| W3 | **Blocks F3 as written.** With `outerM > 150 m` a plain `L − outerM ≥ halfM` passes a proof today's capped far read fails. | The bound keeps the `BERTH_PROOF_REACH_M` cap and decides only from `quietM`. |
+| W4 | F2's "none within R" and the ceiling cut can disagree with today's arithmetic by an ulp. | A 1 m margin on both. |
+| W5 | F0's edge clocks cannot sit in `PullContext.edgeM` (no hit/miss split); `readPrice` is `MultipassPull`'s. | Clocks in `MarkMemo` and `readPrice`; Touches corrected. |
+| W6 | `edgeNone` also counts the wall proof's reads, which F3 leaves. | Split by caller. |
+| W7 | `evals=a/b` does not measure pass 2's time: its repeats are memo-served. | Each pass's own ms; F1's size restated. |
+| W8 | A `subList` key mutates on the next splice. | The key is a copy. |
+| W9 | F4's ring bound must use the query latitude's metres, and keep a margin. | Written into F4. |
+| W10 | An extent skip in `forEachSegmentNear` changes the collar marking's segments. | The skip lives in `distanceM` alone. |
+| W11 | The lattice must not sit in `edgeM`; "the near read would find nothing" is false where `hardM + 12 > outerM` (harmless to the rate). | Placed in `berthRate` and the proof's berth side; the claim dropped. |
+| W12 | `GateCoverageTest` pins `berthClearanceM`'s 150 m. | `berthClearanceM` unchanged; named. |
+| W13 | F4's callers were not all named. | Named. |
+| W14 | Pre-existing: `edgeReachM` anchored on `outerM` misreads the ramp where `outerM < marginM`. | Recorded under *Not in this wave*. |
+| W15 | A missing exact lever: `priceClearanceM` has no memo. | Added to F2. |
+
+**Confirmed exact by the hop, as read in source:** F1's window reads only its points, the context and the
+bounds, `slow()` is pair-keyed, pass 2 runs only after a move, and `LatLng` equality is bit-exact; F2's berth
+clearance is always finite when priced, field-first gives the same boolean (NaN included), the ceiling holds
+for every law the clamps allow up to an ulp, and a found value is the same double; F3's slack has wide
+headroom (about a millimetre of drift), `λ × 0.0` is `+0.0`, and each memo serves one gate and berth per
+field on one thread; F0's reads all sit inside `priceNs` or `clearNs`, `hasSlowWater` paying none of them;
+F4's chunk extent is published safely through `computeIfAbsent`.
+
 ## Implemented
 
 - **2026-10-27 — waves A, B (B1a, B1b, B2), C, D and P3, on `feature/roooouuutttiiinnngggg`.** `compileDebugKotlin`,
@@ -523,3 +716,46 @@ smaller than the evaluation's estimate.
     `solveCrossing` parameter trim and its hand-built setup (its one direct test caller builds no context);
     `rAndL`'s boxed pair; the halo branch of `tileWater` has no fixture with a live gate; D2's tangent
     equality rests on the corner fixtures, `composite` being private.
+
+- **2026-10-27 — wave F's F0, F1 and F2 (§11), on `feature/roooouuutttiiinnngggg`, `#implement`.** The whole
+  unit suite green (1 650 tests, 3 new; the line test extended, the six waters shared) and `apk-build.bat` green; the device pass is the
+  user's own.
+  - **F0** — `PullTiming` carries the paid side of each read: `nearEdgeNanos`, `farEdgeNanos`,
+    `fieldPriceNanos`, `fieldClearReads`/`fieldClearNanos`, and `berthEdgeNone`/`wallEdgeNone` (the near reads
+    that found no edge, by caller). The two edge clocks sit in one home each (`nearEdgeRead`, `farEdgeRead`),
+    which `MarkMemo`'s miss and a memo-less walk both read through, so a hit is never clocked. The `APPROACH`
+    line prints them beside `repeats`, `passMs=a/b` and `passEvals=a/b`. Pinned: the pass evaluations sum to
+    `evals`, and the read clocks sit inside `priceMs + clearMs`.
+  - **F1** — `refine` keeps a set of the windows it searched without a move, keyed on a copy of their points,
+    and the second pass skips them (`skipRepeats = false` is the test seam). Pinned by a line that runs the
+    original approach down a straight chain into a second slow disc, its end walled in a thin ring so every
+    replacement there is refused: pass 2 skips that crossing's windows and draws the full pass's line.
+  - **F2** — `PullContext.softProves` replaces `softClearanceM` in the span and group proofs: the field's side
+    first, no edge read past the berth's ceiling (`berthCeilingM`, plus 1 m), and the far read sized to
+    `min(quietM + halfM + 1 m, outerM + 150)` (`berthClears`). `BerthLaw.quietM = max(outerM, marginM)` is the
+    one home of the berth's quiet distance. `MarkMemo`'s far table holds found distances and "clear to R" as
+    a negated reach; a new table memoises the field's clearance. `berthClearanceM` keeps its value (pinned by
+    `GateCoverageTest`). Pinned by `SoftProofTest`: the new proof against the old comparison over 1 200
+    points × 17 half-lengths, two fields and five laws (shipped; an outer edge inside the margin with an inner
+    ramp; one past 150 m; a near clearance past 150 m; no berth), on one shared memo asked in shuffled order;
+    and fewer edge reads on each priced law.
+  - **Deviations from §11's text** — the clocks live on `PullTiming`, handed into the memo's two reads, not on
+    the memo, so they are paid only where a timing is handed in; `pass1Ms`/`pass2Ms` shipped as `passMs=a/b`;
+    the six-water lines left no window for pass 2 to skip, hence the dedicated F1 fixture.
+  - **Review hop (2026-10-27)** — nothing blocking; it confirmed `softProves` equal to the old comparison in
+    every case and every law the clamps allow, the far table's encoding, F1's key and F0's placement. Fixed on
+    its word: `farEdgeDistance`'s contract written as it behaves (a held found distance answers a shorter
+    reach too, which both callers read as the long read's value); a six-water F1 test that never skipped
+    removed; a law whose near clearance passes 150 m added, pinning the ceiling's `edgeReachM` term;
+    `berthClears`' last line reduced; stale "two tables" KDoc; the read helpers made private; unused defaults
+    dropped. **Left, named:** the F0 clocks run in every production walk (every pass hands in a timing) while
+    only `APPROACH` prints them — two `nanoTime` calls per paid read; the clock-if-timed pattern is written four
+    times; `berthClearanceM` is now a second home of the near-then-far logic, kept for its test (W12); the clock
+    containment check runs on a gateless fixture, so the edge clocks' placement rests on reading.
+  - **F0's device reading (2026-10-27, Lérins → La Salis, 30 kn, `evolutive`)** — the approach pass 5.5 / 9.9 /
+    11.1 s (λ 3 / 1 / 5), pricing 79–89 % of it; inside pricing the field's own reads carry 89–91 % (price about
+    63 µs a read, clearance about 89 µs) and the gate-edge reads 5–7 % (about 7 µs a near read). By §11's own
+    order neither F3 nor F4 is built: the lever is the zone reads' cost, unmeasured by source (zones, the 300 m
+    band, markers) and undesigned. F1 skipped 6 / 0 / 8 windows; "Closest"'s second pass found no repeat and
+    still took 6.8 s, its first pass's moves having made new windows. This pair has no pre-wave capture, so its
+    lines' identity rests on the suites.

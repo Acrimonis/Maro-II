@@ -27,6 +27,17 @@ import kotlin.math.sin
  * the inner rate at least that, and a λ above zero to price it at all). Each decision is the one the
  * proof-first order took; only the reads that cannot change it are skipped (the 2026-10-27 device split:
  * clearance and price were even, and most candidates lose).
+ *
+ * **A window the first pass searched without a move is not searched again.** Its outcome is a function of its
+ * own points, the context and the bounds alone, so the second pass — which runs only after a move — searches
+ * only the windows a move gave a new point.
+ *
+ * **A merge never deletes a land turn.** A window of three spans or more replaces its inner points with one; where
+ * one of them is a turn the land forces — the chord skipping it refused for land — that one point would stand for
+ * two turns, where their outer legs cross, off both (the 2026-10-27 Lérins → La Salis "Closest" line, a turn at
+ * sea in place of Sainte-Marguerite's tip and the 10 kn zone's corner). Such a window is not searched. A turn kept
+ * for price — a bend pinned by an old crossing, the reason this pass exists — may still be merged away, and a
+ * two-span window only moves its one point.
  */
 internal object RouteApproachPass {
     private const val MAX_SPAN = 4
@@ -55,7 +66,17 @@ internal object RouteApproachPass {
          * path. A fixture passes `false` to run the proof-first order this replaced, which is how the two are
          * pinned to answer the same line: the reordering skips reads, never a decision.
          */
-        incumbentFirst: Boolean = true
+        incumbentFirst: Boolean = true,
+        /**
+         * **Whether the second pass skips a window the first searched without a move** — `true` on every shipped
+         * path. A fixture passes `false` to search it again, which is how the two are pinned to draw one line.
+         */
+        skipRepeats: Boolean = true,
+        /**
+         * **Whether a merge window holding a land turn is skipped** — `true` on every shipped path. A fixture
+         * passes `false` to show the merge the rule refuses.
+         */
+        keepLandTurns: Boolean = true
     ): List<LatLng> {
         if (line.size < 3 || !setup.field.hasSoft || setup.paceMps <= 0.0) {
             trace { "APPROACH skipped=no-candidates" }
@@ -84,10 +105,32 @@ internal object RouteApproachPass {
                 tally.slowLegs++
             }
         }
+        // **A land turn** — a point whose skipping chord, its two neighbours joined, the pull's clearance proof refuses
+        // for land: the coast, the rastered walls and the measured shallow-water wall alike. Keyed on the chord, like
+        // `slow()`; the proof is a clearance proof, so its time is the clearance clock's.
+        val landChords = mutableMapOf<Pair<LatLng, LatLng>, Boolean>()
+        fun landTurn(u: LatLng, w: LatLng): Boolean = landChords.getOrPut(u to w) {
+            val landStartNs = System.nanoTime()
+            (MultipassPull.legClearCause(u, w, ctx) == ChordRefusal.LAND).also {
+                tally.clearNs += System.nanoTime() - landStartNs
+                tally.landProofs++
+            }
+        }
+        // The move's own line reads its causes on a context with no memo and no tally: where the trace is live it
+        // pays a clearance proof and up to three prices per replaced point, inside `ms` and `passMs` but never in
+        // the read clocks, the read counts or the memo's.
+        val untallied = (if (reversed) setup.reversed() else setup).context()
         var moved = 0
         var candidates = 0
         var savedSec = 0.0
+        // The windows searched without a move, by a copy of their points — `subList` is a view the next splice
+        // would change inside the set.
+        val unmoved = HashSet<List<LatLng>>()
+        val passMs = mutableListOf<Double>()
+        val passEvals = mutableListOf<Int>()
         for (pass in 0 until MAX_PASSES) {
+            val passStartNs = System.nanoTime()
+            val evalsBefore = tally.evals
             var changed = false
             var from = 0
             while (from < work.size - 2) {
@@ -105,6 +148,15 @@ internal object RouteApproachPass {
                     val near = if (firstSlow) a else e
                     val radiusM = 2.0 * SpatialOperations.haversine(near, seed)
                     if (radiusM < stepM) continue
+                    if (keepLandTurns && span >= 3 && (from + 1 until to).any { landTurn(work[it - 1], work[it + 1]) }) {
+                        tally.landTurnWindows++
+                        continue
+                    }
+                    val window = work.subList(from, to + 1).toList()
+                    if (skipRepeats && window in unmoved) {
+                        tally.repeats++
+                        continue
+                    }
                     tally.windows++
                     val oldStartNs = System.nanoTime()
                     val oldSec = (from until to).sumOf {
@@ -135,8 +187,24 @@ internal object RouteApproachPass {
                         }
                         scaleM /= 2.0
                     }
-                    if (bestSec >= oldSec || !bestSec.isFinite()) continue
+                    if (bestSec >= oldSec || !bestSec.isFinite()) {
+                        unmoved += window
+                        continue
+                    }
                     savedSec += oldSec - bestSec
+                    // **The move's own line**, each replaced point named with the reason it stood — the window's own
+                    // points, captured before the splice, so the line says what the move replaced whenever it is
+                    // written. A slide's one point is replaced, not deleted, so `LAND` there is no breach of the rule.
+                    val windowFrom = from
+                    val windowPivot = pivot
+                    val windowSavedSec = oldSec - bestSec
+                    trace {
+                        "APPROACH move pass=${pass + 1} from=$windowFrom span=$span replaced=[" +
+                            window.windowed(3).joinToString(" ") { (u, v, w) ->
+                                "${MultipassPull.atText(v)}:${keepCause(u, v, w, untallied)}"
+                            } +
+                            "] at=${MultipassPull.atText(windowPivot)} savedSec=${fmt(windowSavedSec, 3)}"
+                    }
                     work.subList(from + 1, to).clear()
                     work.add(from + 1, pivot)
                     moved++
@@ -145,21 +213,36 @@ internal object RouteApproachPass {
                 }
                 from++
             }
+            passMs += msSince(passStartNs)
+            passEvals += tally.evals - evalsBefore
             if (!changed) break
         }
         // One line: what the pass found, then where its time and its reads went — the clearance proofs (the
         // seeds' included in `clearMs`) and the priced chords apart, the slow-water test of the line's legs
         // beside them, and the pull's own read counts on the pass's context. `refusedClear` counts candidates
         // and `seedsRefused` the windows' seeds; `edgeReads` and `farEdgeReads` are the near and the far edge
-        // reads actually paid, and like the memo's hits they read zero where the pass holds no memo.
+        // reads actually paid, and like the memo's hits they read zero where the pass holds no memo. `repeats`
+        // are the windows the second pass skipped, `landTurnWindows` the merges never searched for holding a land
+        // turn (its `landProofs` inside `clearMs`), and `passMs`/`passEvals` each pass's own share. The read
+        // clocks — `nearEdgeMs`, `farEdgeMs`, `fieldPriceMs`, `fieldClearMs` — are each the paid side of one
+        // read, inside `priceMs` or `clearMs`; `berthEdgeNone`/`wallEdgeNone` the near reads that found no edge.
+        // Each accepted move has its own `APPROACH move` line before this one.
         trace {
             "APPROACH moved=$moved candidates=$candidates savedSec=${fmt(savedSec, 3)} " +
-                "ms=${fmt(msSince(startNs))} windows=${tally.windows} evals=${tally.evals} " +
+                "ms=${fmt(msSince(startNs))} windows=${tally.windows} repeats=${tally.repeats} " +
+                "landTurnWindows=${tally.landTurnWindows} landProofs=${tally.landProofs} " +
+                "passMs=${passMs.joinToString("/") { fmt(it) }} passEvals=${passEvals.joinToString("/")} " +
+                "evals=${tally.evals} " +
                 "outside=${tally.outside} cutTravel=${tally.cutTravel} cutLeg=${tally.cutLeg} " +
                 "lost=${tally.lost} proofs=${tally.proofs} refusedClear=${tally.refusedClear} " +
                 "seedsRefused=${tally.seedsRefused} " +
                 "clearMs=${fmt(tally.clearNs / NANOS_PER_MS)} priceMs=${fmt(tally.priceNs / NANOS_PER_MS)} " +
                 "slowMs=${fmt(tally.slowNs / NANOS_PER_MS)} slowLegs=${tally.slowLegs} " +
+                "nearEdgeMs=${fmt(timing.nearEdgeNanos / NANOS_PER_MS)} " +
+                "farEdgeMs=${fmt(timing.farEdgeNanos / NANOS_PER_MS)} " +
+                "fieldPriceMs=${fmt(timing.fieldPriceNanos / NANOS_PER_MS)} " +
+                "fieldClearMs=${fmt(timing.fieldClearNanos / NANOS_PER_MS)} fieldClears=${timing.fieldClearReads} " +
+                "berthEdgeNone=${timing.berthEdgeNone} wallEdgeNone=${timing.wallEdgeNone} " +
                 "clearMarks=${timing.clearanceMarks} hardReads=${timing.hardReads} " +
                 "priceMarks=${timing.marks} priceReads=${timing.priceReads} " +
                 "edgeReads=${(memo?.edgeMisses ?: 0L) - edgeMissesBefore} " +
@@ -216,6 +299,18 @@ internal object RouteApproachPass {
         val sec = MultipassPull.totalSec(a, p, ctx) + MultipassPull.totalSec(p, b, ctx)
         tally.priceNs += System.nanoTime() - priceStartNs
         return sec
+    }
+
+    /**
+     * **Why the line held [v]**, for the move's line — `LAND` where the chord skipping it is refused for land,
+     * `PRICE` where that chord clears but costs more than the two legs through [v], `NONE` otherwise. The price
+     * read is the plain comparison, not the sweep's allowance-weighted one, so it names the reason rather than
+     * replaying the sweep's verdict.
+     */
+    private fun keepCause(u: LatLng, v: LatLng, w: LatLng, ctx: PullContext): String = when {
+        MultipassPull.legClearCause(u, w, ctx) == ChordRefusal.LAND -> "LAND"
+        MultipassPull.totalSec(u, w, ctx) > MultipassPull.totalSec(u, v, ctx) + MultipassPull.totalSec(v, w, ctx) -> "PRICE"
+        else -> "NONE"
     }
 
     /** Whether [p] stands outside the corridor — no read is paid for it, and the tally counts it once. */
@@ -299,7 +394,10 @@ internal object RouteApproachPass {
      * by carrying it.
      */
     private class ApproachTally {
-        /** Nanoseconds in every clearance proof ([MultipassPull.legClear], up to two each), the seeds' included. */
+        /**
+         * Nanoseconds in every clearance proof — each evaluation's ([MultipassPull.legClear], up to two each), the
+         * seeds' included, and the land-turn proofs that decide a merge window's eligibility.
+         */
         var clearNs = 0L
 
         /**
@@ -316,6 +414,15 @@ internal object RouteApproachPass {
 
         /** The windows searched: a crossing beside open water, wide enough for the pass's step. */
         var windows = 0
+
+        /** The windows the second pass skipped — searched by the first without a move, their points unchanged. */
+        var repeats = 0
+
+        /** The merge windows skipped because an inner point is a land turn — never searched. */
+        var landTurnWindows = 0
+
+        /** The land-turn proofs paid — one per chord the eligibility test had not read yet. */
+        var landProofs = 0
 
         /** The replacements evaluated: each window's seed and every candidate. */
         var evals = 0

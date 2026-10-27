@@ -83,6 +83,13 @@ internal const val GATE_FINE_STEP_M = 2.0
 private const val BERTH_PROOF_REACH_M = 150.0
 
 /**
+ * **The metre a skipped read keeps from the boundary it is skipped at** — where the price walk's proof
+ * answers a comparison today's reads never made (a far read cut short, a span past the berth's ceiling), it
+ * decides only a metre clear of that boundary, so no rounding in the reads it skips can stand across it.
+ */
+private const val SKIP_MARGIN_M = 1.0
+
+/**
  * **The settled lookback's window: the largest span (segments) one chord may replace.** A span of `k`
  * runs from an anchor over `k` segments, so `k = 2` is today's triple and `k = 3, 4` collapse a run of
  * two or three flat vertices into one chord. Small on purpose — the shape to try — so the added work is
@@ -170,7 +177,7 @@ internal class MarkLattice(val lengthM: Double, stepM: Double) {
  */
 internal class MarkMemo {
 
-    /** The field the two tables were filled under; a different identity wipes them. */
+    /** The field the tables were filled under; a different identity wipes them all. */
     private var boundField: RouteCostField? = null
 
     /** The materialized walls' distance already read, by the point it was read at. */
@@ -182,8 +189,14 @@ internal class MarkMemo {
     /** The depth gate's measured edge distance already read, by the point it was read at. */
     private val edge = PointDoubleMap()
 
-    /** The berth proof's own wider edge read, by the point it was read at. */
+    /**
+     * The berth proof's own wider edge read, by the point it was read at — a found distance as itself, a read
+     * that found none as the negated reach it was read to ([farEdgeDistance]).
+     */
     private val farEdge = PointDoubleMap()
+
+    /** The field's soft-boundary clearance already read, by the point it was read at. */
+    private val fieldClearance = PointDoubleMap()
 
     /** The hard reads answered from the table rather than the field — raised on [hardOrNull]'s hit side. */
     var hardHits: Long = 0L
@@ -233,10 +246,18 @@ internal class MarkMemo {
 
     /**
      * The gate's edge distance at [p] within [reachM] — read once from [gate], then answered from here. It is
-     * bound to the walk's [field] like the two tables beside it, the gate rule living exactly as long as the
-     * field, and a walk reads one reach, so the point alone keys it.
+     * bound to the walk's [field] like the tables beside it, the gate rule living exactly as long as the
+     * field, and a walk reads one reach, so the point alone keys it. A paid read is clocked into [timing] where
+     * one is handed in, [berthSide] naming whose read it was ([PullTiming.addNearEdgeRead]).
      */
-    fun edgeDistance(field: RouteCostField, gate: GateRule, p: LatLng, reachM: Double): Double {
+    fun edgeDistance(
+        field: RouteCostField,
+        gate: GateRule,
+        p: LatLng,
+        reachM: Double,
+        timing: PullTiming?,
+        berthSide: Boolean
+    ): Double {
         bind(field)
         val held = edge[p]
         if (!held.isNaN()) {
@@ -244,23 +265,63 @@ internal class MarkMemo {
             return held
         }
         edgeMisses++
-        val value = gate.edgeM(p, reachM)
+        val value = nearEdgeRead(gate, p, reachM, timing, berthSide)
         edge[p] = value
         return value
     }
 
-    /** The berth proof's wider edge read at [p] — read once from [gate], then answered from here. */
-    fun farEdgeDistance(field: RouteCostField, gate: GateRule, p: LatLng, reachM: Double): Double {
+    /**
+     * **The berth proof's wider edge read at [p]** — read once from [gate] and then answered from here: the
+     * nearest edge's distance where any read here found one, and `MAX_VALUE` where none stands within [reachM].
+     *
+     * The proof asks more than one reach ([PullContext.softProves] sizes it), never past the one it always
+     * read, so the table keeps what each read proved. A **found** distance is the nearest edge's own double —
+     * the one the longest read finds too — and answers every later call, **even one whose reach falls short of
+     * it**: the callers read it as that long read's value, which is what they compare (a fresh short read would
+     * say `MAX_VALUE` there, and the proof would clear on that alike). A read that found **none** is held as the
+     * negated reach it was read to and answers only a reach at or under it, so a short "none" never answers a
+     * longer question. A reach is always positive, so the sign tells the two apart.
+     */
+    fun farEdgeDistance(
+        field: RouteCostField,
+        gate: GateRule,
+        p: LatLng,
+        reachM: Double,
+        timing: PullTiming?
+    ): Double {
         bind(field)
         val held = farEdge[p]
         if (!held.isNaN()) {
-            edgeHits++
-            return held
+            if (held >= 0.0) {
+                edgeHits++
+                return held
+            }
+            if (reachM <= -held) {
+                edgeHits++
+                return Double.MAX_VALUE
+            }
         }
         farEdgeMisses++
-        val value = gate.edgeM(p, reachM)
-        farEdge[p] = value
+        val value = farEdgeRead(gate, p, reachM, timing)
+        farEdge[p] = if (value == Double.MAX_VALUE) -reachM else value
         return value
+    }
+
+    /**
+     * The field's soft-boundary clearance at [p] under [field], or `null` where no read is held yet — the one
+     * probe, paired with [putFieldClearance], in [priceOrNull]'s shape; no hit count is kept, the paid reads
+     * being counted where they are made ([PullTiming.fieldClearReads]).
+     */
+    fun fieldClearanceOrNull(field: RouteCostField, p: LatLng): Double? {
+        bind(field)
+        val held = fieldClearance[p]
+        return if (held.isNaN()) null else held
+    }
+
+    /** Stores [value] as the field's clearance at [p] under [field] — the other half of [fieldClearanceOrNull]. */
+    fun putFieldClearance(field: RouteCostField, p: LatLng, value: Double) {
+        bind(field)
+        fieldClearance[p] = value
     }
 
     /** The soft price at [p] under [field] — read once, then answered, the same double each time. */
@@ -302,9 +363,31 @@ internal class MarkMemo {
             price.clear()
             edge.clear()
             farEdge.clear()
+            fieldClearance.clear()
             boundField = field
         }
     }
+}
+
+/**
+ * **One near edge read actually paid**, clocked into [timing] where one is handed in — the memo's miss and the
+ * memo-less walk read through this one home, so the clock is the paid side and nothing else.
+ */
+private fun nearEdgeRead(gate: GateRule, p: LatLng, reachM: Double, timing: PullTiming?, berthSide: Boolean): Double {
+    if (timing == null) return gate.edgeM(p, reachM)
+    val startNs = System.nanoTime()
+    val value = gate.edgeM(p, reachM)
+    timing.addNearEdgeRead(System.nanoTime() - startNs, found = value != Double.MAX_VALUE, berthSide = berthSide)
+    return value
+}
+
+/** **One far edge read actually paid** — the berth proof's wider read, clocked like [nearEdgeRead]. */
+private fun farEdgeRead(gate: GateRule, p: LatLng, reachM: Double, timing: PullTiming?): Double {
+    if (timing == null) return gate.edgeM(p, reachM)
+    val startNs = System.nanoTime()
+    val value = gate.edgeM(p, reachM)
+    timing.addFarEdgeNanos(System.nanoTime() - startNs)
+    return value
 }
 
 /**
@@ -489,16 +572,36 @@ internal class PullContext(
     private val edgeReachM: Double =
         max(if (berthPriced) berth!!.outerM else 0.0, (gate?.hardM ?: 0.0) + GATE_MARK_STEP_M / 2.0 + GATE_FINE_STEP_M)
 
+    /** **The far read the berth's proof has always made** — past the outer edge by [BERTH_PROOF_REACH_M]. */
+    private val farReachM: Double = if (berthPriced) berth!!.outerM + BERTH_PROOF_REACH_M else 0.0
+
+    /**
+     * **The most [berthClearanceM] can answer (m)** — a near reading's clearance is at most its own reach (the
+     * outer edge stands within it), a far one's at most [BERTH_PROOF_REACH_M], up to rounding. A span longer than
+     * twice this is never proved by the berth, so [softProves] reads no edge for it.
+     */
+    private val berthCeilingM: Double = max(BERTH_PROOF_REACH_M, edgeReachM)
+
     /** The gate's edge distance at [p] (m, the pad taken off), from the walk's memo where it holds it. */
-    fun edgeM(p: LatLng): Double {
+    fun edgeM(p: LatLng): Double = nearEdgeM(p, berthSide = false)
+
+    /** [edgeM], naming whose read it is for the walk's tally — the berth's (its rate and proof) or the wall's. */
+    private fun nearEdgeM(p: LatLng, berthSide: Boolean): Double {
         val rule = gate ?: return Double.MAX_VALUE
-        return memo?.edgeDistance(field, rule, p, edgeReachM) ?: rule.edgeM(p, edgeReachM)
+        return memo?.edgeDistance(field, rule, p, edgeReachM, timing, berthSide)
+            ?: nearEdgeRead(rule, p, edgeReachM, timing, berthSide)
+    }
+
+    /** The berth proof's far read at [p] within [reachM], from the walk's memo where it answers it. */
+    private fun farEdgeM(p: LatLng, reachM: Double): Double {
+        val rule = gate!!
+        return memo?.farEdgeDistance(field, rule, p, reachM, timing) ?: farEdgeRead(rule, p, reachM, timing)
     }
 
     /** The berth's rate at [p], in seconds per metre, at this pass's cursor — read off the measured edge. */
     fun berthRate(p: LatLng): Double {
         if (!berthPriced) return 0.0
-        return berthLambda * berth!!.rateSecPerM(edgeM(p))
+        return berthLambda * berth!!.rateSecPerM(nearEdgeM(p, berthSide = true))
     }
 
     /**
@@ -511,17 +614,75 @@ internal class PullContext(
     fun berthClearanceM(p: LatLng): Double {
         if (!berthPriced) return Double.MAX_VALUE
         val law = berth!!
-        val near = edgeM(p)
+        val near = nearEdgeM(p, berthSide = true)
         if (near != Double.MAX_VALUE) return law.clearanceM(near)
         timing?.addFarEdgeRead()
-        val rule = gate!!
-        val reachM = law.outerM + BERTH_PROOF_REACH_M
-        val far = memo?.farEdgeDistance(field, rule, p, reachM) ?: rule.edgeM(p, reachM)
+        val far = farEdgeM(p, farReachM)
         return if (far == Double.MAX_VALUE) BERTH_PROOF_REACH_M else law.clearanceM(far)
     }
 
-    /** The soft clearance the price-walk's group proof reads — the field's and the berth's, one number. */
-    fun softClearanceM(p: LatLng): Double = min(field.priceClearanceM(p), berthClearanceM(p))
+    /**
+     * **Whether the span of half-length [halfM] around [p] holds no soft boundary** — the price walk's span and
+     * group proof: the field's declaration and the berth's clearance together, `min(field, berth)` finite and at
+     * least [halfM], as it always was. It is read so that a side which cannot move the verdict pays no read.
+     * With the berth priced its clearance is always finite, so the verdict is `field ≥ halfM && berth ≥ halfM`:
+     *
+     * 1. **The field's side first** — under [halfM] the proof fails whatever the berth says, and no edge is read.
+     * 2. **The berth's ceiling** — its clearance never exceeds [berthCeilingM], so a span past it (by
+     *    [SKIP_MARGIN_M], for rounding) is never proved, and no edge is read.
+     * 3. **The far read sized to the question** ([berthClears]).
+     *
+     * Only reads that cannot change the boolean are skipped; a midpoint a later walk prices pays its read there.
+     */
+    fun softProves(p: LatLng, halfM: Double): Boolean {
+        val fieldM = fieldClearanceM(p)
+        if (!berthPriced) return fieldM < Double.MAX_VALUE && fieldM >= halfM
+        if (!(fieldM >= halfM)) return false
+        if (halfM > berthCeilingM + SKIP_MARGIN_M) return false
+        return berthClears(p, halfM)
+    }
+
+    /**
+     * **Whether [berthClearanceM] at [p] reaches [halfM]**, with the far read sized to the question. A near
+     * reading answers as it always did. Past it, where [halfM] stands a margin under [BERTH_PROOF_REACH_M], the
+     * far read reaches only `quietM + halfM` and [SKIP_MARGIN_M], capped at the read the proof always made: a
+     * distance found within it is that read's own double, compared as before, and where none stands within it
+     * every distance the long read could find clears [halfM] by the margin ([BerthLaw.quietM] is where the
+     * clearance becomes `distance − quietM`), while beyond the long read the clearance is [BERTH_PROOF_REACH_M],
+     * which the margin leaves above [halfM].
+     */
+    private fun berthClears(p: LatLng, halfM: Double): Boolean {
+        val law = berth!!
+        val near = nearEdgeM(p, berthSide = true)
+        if (near != Double.MAX_VALUE) return law.clearanceM(near) >= halfM
+        timing?.addFarEdgeRead()
+        val reachM = if (halfM <= BERTH_PROOF_REACH_M - SKIP_MARGIN_M) {
+            min(law.quietM + halfM + SKIP_MARGIN_M, farReachM)
+        } else {
+            farReachM
+        }
+        val far = farEdgeM(p, reachM)
+        if (far != Double.MAX_VALUE) return law.clearanceM(far) >= halfM
+        // None within either reach: the long one reads its bound, and a short one is only ever asked where
+        // [halfM] stands a margin under that bound, so the one comparison answers both.
+        return BERTH_PROOF_REACH_M >= halfM
+    }
+
+    /**
+     * The field's own soft-boundary clearance at [p] — a pure function of the field and the point, so the
+     * walk's memo answers a point it has read with the same double; a paid read is clocked into the timing.
+     */
+    private fun fieldClearanceM(p: LatLng): Double {
+        memo?.fieldClearanceOrNull(field, p)?.let { return it }
+        val value = if (timing == null) {
+            field.priceClearanceM(p)
+        } else {
+            val startNs = System.nanoTime()
+            field.priceClearanceM(p).also { timing.addFieldClearRead(System.nanoTime() - startNs) }
+        }
+        if (!value.isNaN()) memo?.putFieldClearance(field, p, value)
+        return value
+    }
 
     /**
      * **This walk's field alone** — no berth and no gate, the same field, steps and memo — whose soft price
@@ -1023,7 +1184,7 @@ object MultipassPull {
      * The `lat,lon` pair the report writes after `at=` for [p] — the identifier a bend carries across the
      * rungs, exactly as the `CORNER` lines spell it.
      */
-    private fun atText(p: LatLng): String = "${fmt(p.latitude, 5)},${fmt(p.longitude, 5)}"
+    internal fun atText(p: LatLng): String = "${fmt(p.latitude, 5)},${fmt(p.longitude, 5)}"
 
     /**
      * The turn at [at] between its two legs, in degrees — the size of the heading change from the
@@ -1456,8 +1617,7 @@ object MultipassPull {
         }
         val halfM = marks.spanLengthM(i0, i1) / 2.0
         val mid = chordPointAt(a, b, marks.spanMidT(i0, i1))
-        val clearance = ctx.softClearanceM(mid)
-        if (clearance < Double.MAX_VALUE && clearance >= halfM) {
+        if (ctx.softProves(mid, halfM)) {
             // The span's one read goes through the memo like a group's, so a chord walked again — the
             // reversed walk, the sweep's retrace — answers its spans from the marks already paid for.
             val price = readPrice(ctx, mid)
@@ -1494,8 +1654,7 @@ object MultipassPull {
             val proved = if (k > 1) {
                 // `MAX_VALUE` is the declaration's own "no boundary named": a source that names none
                 // can never be proved, and a group of one interval is never asked.
-                val clearance = ctx.softClearanceM(chordPointAt(a, b, marks.spanMidT(i, i + k)))
-                clearance < Double.MAX_VALUE && clearance >= halfM
+                ctx.softProves(chordPointAt(a, b, marks.spanMidT(i, i + k)), halfM)
             } else {
                 false
             }
@@ -1566,19 +1725,26 @@ object MultipassPull {
         val memo = ctx.memo
         val raw = if (memo == null) {
             ctx.timing?.addPriceReads(1)
-            ctx.field.softPriceSecPerMAt(p)
+            fieldPriceRead(ctx, p)
         } else {
             val held = memo.priceOrNull(ctx.field, p)
             if (held != null) {
                 held
             } else {
-                val price = ctx.field.softPriceSecPerMAt(p)
+                val price = fieldPriceRead(ctx, p)
                 memo.putPrice(ctx.field, p, price)
                 ctx.timing?.addPriceReads(1)
                 price
             }
         }
         return raw + ctx.berthRate(p)
+    }
+
+    /** One field price read actually paid, clocked into the walk's timing where it carries one. */
+    private fun fieldPriceRead(ctx: PullContext, p: LatLng): Double {
+        val timing = ctx.timing ?: return ctx.field.softPriceSecPerMAt(p)
+        val startNs = System.nanoTime()
+        return ctx.field.softPriceSecPerMAt(p).also { timing.addFieldPriceNanos(System.nanoTime() - startNs) }
     }
 }
 
@@ -1685,6 +1851,60 @@ class PullTiming {
 
     internal fun addFarEdgeRead() {
         farEdgeReads++
+    }
+
+    /**
+     * Nanoseconds in the near gate-edge reads actually paid — the memo's misses and a memo-less walk's reads,
+     * the berth's and the wall's together. Beside the count the memo keeps, it is what one read costs.
+     */
+    var nearEdgeNanos: Long = 0L
+        private set
+
+    /** Nanoseconds in the berth proof's far edge reads actually paid. */
+    var farEdgeNanos: Long = 0L
+        private set
+
+    /**
+     * **The berth's near reads that found no edge within their reach** — its rate's and its proof's — the
+     * reads a bound off a neighbouring read could answer without a read of their own.
+     */
+    var berthEdgeNone: Long = 0L
+        private set
+
+    /** The wall proof's near reads that found no edge within their reach — beside [berthEdgeNone], told apart. */
+    var wallEdgeNone: Long = 0L
+        private set
+
+    /** Nanoseconds in the field's own price reads actually paid — the price memo's misses. */
+    var fieldPriceNanos: Long = 0L
+        private set
+
+    /** The field's soft-boundary clearance reads the price walk's proofs actually paid. */
+    var fieldClearReads: Long = 0L
+        private set
+
+    /** Nanoseconds in [fieldClearReads]. */
+    var fieldClearNanos: Long = 0L
+        private set
+
+    internal fun addNearEdgeRead(nanos: Long, found: Boolean, berthSide: Boolean) {
+        nearEdgeNanos += nanos
+        if (!found) {
+            if (berthSide) berthEdgeNone++ else wallEdgeNone++
+        }
+    }
+
+    internal fun addFarEdgeNanos(nanos: Long) {
+        farEdgeNanos += nanos
+    }
+
+    internal fun addFieldPriceNanos(nanos: Long) {
+        fieldPriceNanos += nanos
+    }
+
+    internal fun addFieldClearRead(nanos: Long) {
+        fieldClearReads++
+        fieldClearNanos += nanos
     }
 
     /** The clearance walk's own sampling step (m), read from the [PullSetup] the walk was handed. */

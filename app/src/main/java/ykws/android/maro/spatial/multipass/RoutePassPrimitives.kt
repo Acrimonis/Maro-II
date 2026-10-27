@@ -208,6 +208,14 @@ data class BerthLaw(
     val pricesAnything: Boolean
         get() = (secPerM > 0.0 && outerM > marginM) || (hasInnerRamp && innerSecPerM > 0.0)
 
+    /**
+     * **Where the law falls quiet (m)** — the distance off the edge from which [rateSecPerM] is exactly `0.0`
+     * and [clearanceM] is `distanceM − quietM`: the outer edge, or the margin where the clamps leave the outer
+     * edge inside it, the inner ramp then pricing the water up to the margin. A reader that skips a read on a
+     * bound reads this, never [outerM].
+     */
+    val quietM: Double get() = max(outerM, marginM)
+
     /** The rate (s/m, before λ) at [distanceM] off the edge. */
     fun rateSecPerM(distanceM: Double): Double {
         if (distanceM >= marginM) {
