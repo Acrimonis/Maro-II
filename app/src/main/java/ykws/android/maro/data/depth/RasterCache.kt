@@ -8,14 +8,12 @@ import android.graphics.Bitmap
 import android.util.Log
 import java.io.File
 import java.io.FileInputStream
-import java.io.FileOutputStream
-import java.nio.ByteBuffer
-import java.nio.channels.FileChannel
+import kotlinx.coroutines.CancellationException
 
 /**
  * RawBuf disk cache for raster [Bitmap] outputs (depth colour map, low-depth warning overlay).
  *
- * Persists [IntArray] pixel data directly via [ByteBuffer] → [FileChannel], avoiding encode/decode
+ * Persists pixels through bounded raw buffers and file channels, avoiding image encode/decode
  * overhead. Two ~27 MB rasters read back in ~105 ms total vs ~6 s cold rebuild.
  *
  * Cache files live in [Context.cacheDir]/raster/ — cleared by the OS when storage runs low,
@@ -98,56 +96,49 @@ object RasterCache {
         if (step == Step.GRID || step == Step.ISOBATH) true // in-memory only, always "present"
         else cacheFile(context, step, key).exists()
 
-    /**
-     * Writes [pixels] (size w×h, ARGB_8888 layout) to a RawBuf cache file.
-     * File format: 8-byte header (w:Int, h:Int) + raw pixel data (w×h×4 bytes).
-     * No-op for GRID / ISOBATH steps.
-     */
-    fun write(context: Context, step: Step, key: Key, pixels: IntArray, w: Int, h: Int) {
+    /** Writes the same RawBuf layout with bounded transfer arrays and atomic publication. */
+    fun write(context: Context, step: Step, key: Key, bitmap: Bitmap, checkActive: () -> Unit = {}) {
         if (step == Step.GRID || step == Step.ISOBATH) return
+        checkActive()
         val file = cacheFile(context, step, key)
-        file.parentFile?.mkdirs()
-        val t0 = System.currentTimeMillis()
-        val buf = ByteBuffer.allocateDirect(8 + pixels.size * 4)
-        buf.putInt(w)
-        buf.putInt(h)
-        buf.asIntBuffer().put(pixels)
-        buf.position(buf.capacity())
-        buf.flip()
-        FileOutputStream(file).channel.use { it.write(buf) }
-        val elapsed = System.currentTimeMillis() - t0
-        Log.d(TAG, "${step.name} write: ${elapsed}ms sizeKB=${file.length() / 1024}")
+        RasterBuffer.writeFile(file, bitmap.width, bitmap.height, AppConfig.rasterBufferPixels, checkActive) { offset, data, count ->
+            transferPixels(bitmap, offset, data, count, writingBitmap = false)
+        }
     }
 
-    /**
-     * Reads a RawBuf cache file back into a [Bitmap], or returns null on miss / corruption.
-     * Returns null for GRID / ISOBATH steps (in-memory only).
-     */
-    fun read(context: Context, step: Step, key: Key): Bitmap? {
+    /** Reads complete validated chunks; cancellation never evicts a valid cache entry. */
+    fun read(context: Context, step: Step, key: Key, checkActive: () -> Unit = {}): Bitmap? {
         if (step == Step.GRID || step == Step.ISOBATH) return null
+        checkActive()
         val file = cacheFile(context, step, key)
         if (!file.exists()) return null
         return try {
-            val t0 = System.currentTimeMillis()
-            val buf = FileInputStream(file).channel.use { ch ->
-                val size = ch.size().toInt()
-                val bb = ByteBuffer.allocateDirect(size)
-                ch.read(bb)
-                bb.flip()
-                bb
+            var bitmap: Bitmap? = null
+            FileInputStream(file).channel.use { channel ->
+                if (channel.size() <= 8L + AppConfig.rasterBufferPixels * 4L) {
+                    val small = RasterBuffer.readSmall(channel, channel.size(), AppConfig.rasterBufferPixels, checkActive)
+                    checkActive()
+                    bitmap = Bitmap.createBitmap(small.values, small.width, small.height, Bitmap.Config.ARGB_8888)
+                } else RasterBuffer.read(channel, channel.size(), AppConfig.rasterBufferPixels, checkActive,
+                    create = { width, height -> bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888) },
+                    pixels = { offset, data, count -> transferPixels(bitmap!!, offset, data, count, writingBitmap = true) })
             }
-            val w = buf.getInt()
-            val h = buf.getInt()
-            val pixels = IntArray(w * h)
-            buf.asIntBuffer().get(pixels)
-            val bmp = Bitmap.createBitmap(pixels, w, h, Bitmap.Config.ARGB_8888)
-            val elapsed = System.currentTimeMillis() - t0
-            Log.d(TAG, "${step.name} read: ${elapsed}ms")
-            bmp
+            checkActive()
+            bitmap
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (e: Exception) {
             Log.w(TAG, "${step.name} cache read failed, evicting", e)
             file.delete()
             null
+        }
+    }
+
+    /** Transfer whole rows together, with at most one partial row at each end of a chunk. */
+    private fun transferPixels(bitmap: Bitmap, offset: Int, data: IntArray, count: Int, writingBitmap: Boolean) {
+        rasterPixelSpans(bitmap.width, offset, count) { arrayOffset, x, y, width, height ->
+            if (writingBitmap) bitmap.setPixels(data, arrayOffset, width, x, y, width, height)
+            else bitmap.getPixels(data, arrayOffset, width, x, y, width, height)
         }
     }
 
