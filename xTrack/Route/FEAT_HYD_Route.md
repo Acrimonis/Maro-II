@@ -1,20 +1,20 @@
 # Context Hydration — Route — 2026-10-27
 
-**Last Bake:** 2026-10-27 17:20 UTC — written by `#bake` on `feature/roooouuutttiiinnngggg`.
+**Last Bake:** 2026-10-27 17:30 UTC — written by `#bake` on `feature/roooouuutttiiinnngggg`.
 
 **Directive trace:** no dependency was added and no binary file opened; the device was touched read-only (`adb` logcat, pidof, dumpsys) after each of the user's runs, and none of the covered action classes stopped.
 
 ## State
 
-The search-speed remediation (waves A–D, P3) is committed, and on top of it the approach pass now carries its own clocks and prices a candidate before proving it, stopping at the window's best so far — exact, pinned by 40 seeded lines × 4 setups answering one line in both orders. Device, on the 15 km pair from the same start point: the approach pass fell 39–45 % and the search 29.9 → 22.2 s, every line identical; the tile store hits across launches (63 of 63). 1 647 tests and `apk-build.bat` green. The `#implement` Ask hop's review was still running at the commit, on the user's word.
+The search-speed remediation and the approach pass's reorder are committed; the first review of the reorder could not break it, and its findings are closed in this follow-up — a 48-comparison equivalence test that asserts every evaluation path runs (a berth-priced water among them), the copied corridor check and proof shared, the `APPROACH` line's refusals and edge reads split into disjoint counts, five KDocs corrected. The device run after it drew identical lines on the 15 km pair. 1 647 tests and `apk-build.bat` green. This follow-up's own Ask hop had not returned at the commit, on the user's word.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/spatial/multipass/RouteApproachPass.kt` — `candidateSec`, the `ApproachTally` clocks; pricing is now about 85 % of the pass
-- `app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt` — `clearanceMarks`, `MarkMemo.edgeMisses`
-- `xTrack/Route/261027_FEAT_PLN_Route_search-perf-remediation.md` — `## Implemented`, the open items (B1c, wave E)
-- `xTrack/Route/261027_FEAT_PLN_Route_search-perf-evaluation.md` — F17 with the split and the reorder's result
+- `app/src/main/java/ykws/android/maro/spatial/multipass/RouteApproachPass.kt` — `candidateSec`, `outside`, `proveClear`, the `ApproachTally`; pricing is about 85 % of the pass
+- `app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt` — `MarkMemo.edgeMisses`/`farEdgeMisses`, `PullTiming.clearanceMarks`
+- `app/src/test/java/ykws/android/maro/spatial/multipass/RouteApproachPassTest.kt` — the equivalence test over six waters
+- `xTrack/Route/261027_FEAT_PLN_Route_search-perf-remediation.md` — `## Implemented`, the two items left outside the order
 
 ## Next Step
 
-Fold in the Ask hop's review of the approach pass's reorder; then the pass's pricing, whose gate-edge reads (59–116 k paid a pass) are the largest count.
+Fold in the follow-up's Ask hop; then the approach pass's pricing, whose gate-edge reads (43–85 k near and 16–31 k far paid a pass) are the largest count.

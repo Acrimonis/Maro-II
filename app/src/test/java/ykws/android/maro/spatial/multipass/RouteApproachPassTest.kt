@@ -118,39 +118,51 @@ class RouteApproachPassTest {
         )
         assertTrue("a refusal is one of the evaluations", figure("outside") + figure("refusedClear") <= figure("evals"))
         assertTrue("the proofs test fine marks and read the wall", figure("clearMarks") > 0.0 && figure("hardReads") > 0.0)
-        assertTrue("and the cleared legs are priced", figure("priceMarks") > 0.0 && figure("priceReads") > 0.0)
+        assertTrue("and the candidates' legs are priced", figure("priceMarks") > 0.0 && figure("priceReads") > 0.0)
         assertTrue("the slow-water test read the line's legs", figure("slowLegs") > 0.0)
         assertTrue("every clock is reported", listOf("ms", "clearMs", "priceMs", "slowMs").all { figure(it) >= 0.0 })
     }
 
     /**
-     * **Pricing first and proving only the winners answers the very line the proof-first order did.** Over
-     * forty seeded lines around the rock — free water, a second rock that refuses tempting replacements, a
-     * shoal behind the measured gate, and a marker-only price that searches nothing — the two orders return
-     * the same points, while the new order proves no more candidates than it priced in full and fewer than
-     * the old one evaluated.
+     * **Pricing first and proving only the winners answers the very line the proof-first order did.** Eight
+     * seeded lines around the rock, each refined over six waters — free water, a mild slow disc whose best is
+     * mostly travel time (where the travel cut fires), a second rock standing on the
+     * free answer (so a would-be winner is refused by its proof), a shoal behind the measured gate, the same
+     * shoal with the gate's berth priced (the one price whose sign rests on a config clamp), and a marker-only
+     * price that searches nothing — return the same points in both orders. Every path the new order can take is
+     * shown to run somewhere on these lines, asserted as **present** rather than counted so a fixture tweak does
+     * not break it: the travel cut, the first-leg cut, a full price that loses, a proof that refuses, and a
+     * search over berth-priced water.
      */
     @Test
     fun pricingFirstAnswersTheProofFirstLine() {
         val random = java.util.Random(20261027L)
+        val free = RouteApproachPass.refine(setup(field()), original, bounds, 20.0)
+        val onTheFreeAnswer = between(free[1], free.last(), 0.3)
         val shoalRaster = GateTestFixtures.raster(130, 190, 20.0) { n, e ->
             if (hypot(n - 1500.0, e - 1500.0) < 80.0) 2.0 else 15.0
         }
         val shoalDepth = GateTestFixtures.depthOf(shoalRaster)
+        val shoalField = field(extraHard = depthGateSource(3.0) { shoalDepth(it.latitude, it.longitude) })
         val setups = listOf(
             "free" to setup(field()),
             "rock" to setup(field(extraHard = RouteCostSource.Hard(distanceAt = {
-                (SpatialOperations.haversine(it, point(1200.0, 700.0)) - 60.0).coerceAtLeast(0.0)
+                (SpatialOperations.haversine(it, onTheFreeAnswer) - 60.0).coerceAtLeast(0.0)
             }))),
-            "shoal" to setup(
-                field(extraHard = depthGateSource(3.0) { shoalDepth(it.latitude, it.longitude) }),
-                GateTestFixtures.gateOver(shoalRaster, hardM = 20.0)
+            "shoal" to setup(shoalField, GateTestFixtures.gateOver(shoalRaster, hardM = 20.0)),
+            "berth" to setup(
+                shoalField,
+                GateTestFixtures.gateOver(shoalRaster, hardM = 10.0, preferredM = 20.0, berthOuterM = 120.0),
+                BerthLaw(marginM = 20.0, outerM = 120.0, secPerM = 0.2, floorM = 10.0, innerSecPerM = 0.6)
             ),
-            "marker" to setup(field(arm = PriceArm.MARKER))
+            "marker" to setup(field(arm = PriceArm.MARKER)),
+            // Slow water dearer than open water by a fraction of the travel: a detour's travel alone can beat
+            // the best, which is what the travel cut exists for.
+            "mild" to setup(field(rate = 0.02))
         )
-        var compared = 0
-        var proofsSaved = 0
-        repeat(10) {
+        val paths = linkedMapOf("cutTravel" to 0.0, "cutLeg" to 0.0, "lost" to 0.0, "refusedClear" to 0.0)
+        var berthWindows = 0.0
+        repeat(8) {
             val line = listOf(
                 original[0],
                 point(random.nextDouble() * 200.0 - 100.0, 260.0 + random.nextDouble() * 120.0),
@@ -168,15 +180,14 @@ class RouteApproachPassTest {
                 fun figure(lines: List<String>, field: String) =
                     Regex("(?:^| )$field=([0-9.]+)").find(lines.single())?.groupValues?.get(1)?.toDouble() ?: 0.0
                 assertEquals("$name: the same windows and candidates", figure(proofFirst, "evals"), figure(priceFirst, "evals"), 0.0)
-                val evaluatedBefore = figure(proofFirst, "evals") - figure(proofFirst, "outside")
-                val provedNow = figure(priceFirst, "proofs") + figure(priceFirst, "windows")
-                assertTrue("$name: no more proofs than the old order ran", provedNow <= evaluatedBefore)
-                proofsSaved += (evaluatedBefore - provedNow).toInt()
-                compared++
+                for (path in paths.keys) paths[path] = paths.getValue(path) + figure(priceFirst, path)
+                if (name == "berth") berthWindows += figure(priceFirst, "windows")
             }
         }
-        assertEquals(40, compared)
-        assertTrue("the reordering skips proofs on these lines ($proofsSaved)", proofsSaved > 0)
+        for ((path, count) in paths) {
+            assertTrue("the new order takes its $path path on these lines ($paths)", count > 0.0)
+        }
+        assertTrue("the berth-priced water is searched, not skipped", berthWindows > 0.0)
     }
 
     @Test(expected = CancellationException::class)
@@ -187,8 +198,13 @@ class RouteApproachPassTest {
         })
     }
 
-    private fun field(extraHard: RouteCostSource.Hard? = null, arm: PriceArm = PriceArm.BAND): RouteCostField {
-        fun price(p: LatLng) = if (SpatialOperations.haversine(p, rock) <= 300.0) 0.35 else 0.0
+    private fun field(
+        extraHard: RouteCostSource.Hard? = null,
+        arm: PriceArm = PriceArm.BAND,
+        /** The slow disc's price (s/m) — dear by default; a mild one leaves the best mostly travel time. */
+        rate: Double = 0.35
+    ): RouteCostField {
+        fun price(p: LatLng) = if (SpatialOperations.haversine(p, rock) <= 300.0) rate else 0.0
         return RouteCostField(listOfNotNull(
             RouteCostSource.Hard(distanceAt = { (SpatialOperations.haversine(it, rock) - 30.0).coerceAtLeast(0.0) }),
             extraHard,
@@ -200,9 +216,10 @@ class RouteApproachPassTest {
         ))
     }
 
-    private fun setup(field: RouteCostField, gate: GateRule? = null) = PullSetup(
+    private fun setup(field: RouteCostField, gate: GateRule? = null, berth: BerthLaw? = null) = PullSetup(
         marginM = 25.0, coarseStepM = 20.0, priceStepM = 100.0,
-        field = field, start = original.first(), aim = original.last(), gate = gate, paceMps = 15.0
+        field = field, start = original.first(), aim = original.last(), gate = gate,
+        berth = berth, berthLambda = if (berth != null) 3.0 else 0.0, paceMps = 15.0
     )
 
     private fun assertSafeImprovement(setup: PullSetup, result: List<LatLng>) {

@@ -21,8 +21,10 @@ import kotlin.math.sin
  * cost is only ever compared against the window's best so far, so a candidate that cannot beat that best
  * is rejected whatever its clearance — exactly as an unclear one is — and the proof is paid only by the few
  * that would win. The price walk stops as soon as a lower bound reaches the best: the two legs' travel at the
- * pace, then the first leg's full cost plus the second's travel, since no price is ever negative (every
- * source only adds, and every input to it is clamped at zero or above). Each decision is the one the
+ * pace, then the first leg's full cost plus the second's travel, since no price is ever negative — the field's
+ * price sums only terms above zero (`RouteCostField.priceAt` adds a source's cost only where it is positive),
+ * and the berth's rate is non-negative by its config clamps (`route.evolutive.berth.secPerM` at zero or above,
+ * the inner rate at least that, and a λ above zero to price it at all). Each decision is the one the
  * proof-first order took; only the reads that cannot change it are skipped (the 2026-10-27 device split:
  * clearance and price were even, and most candidates lose).
  */
@@ -72,6 +74,7 @@ internal object RouteApproachPass {
         val hardHitsBefore = memo?.hardHits ?: 0L
         val edgeHitsBefore = memo?.edgeHits ?: 0L
         val edgeMissesBefore = memo?.edgeMisses ?: 0L
+        val farEdgeMissesBefore = memo?.farEdgeMisses ?: 0L
         val ctx = (if (reversed) setup.reversed() else setup).context(timing = timing, memo = memo)
         val slowLegs = mutableMapOf<Pair<LatLng, LatLng>, Boolean>()
         fun slow(a: LatLng, b: LatLng): Boolean = slowLegs.getOrPut(a to b) {
@@ -109,7 +112,7 @@ internal object RouteApproachPass {
                     }
                     tally.priceNs += System.nanoTime() - oldStartNs
                     var pivot = seed
-                    var bestSec = replacementSec(a, pivot, e, ctx, bounds, tally)
+                    var bestSec = replacementSec(a, pivot, e, ctx, bounds, tally, seed = true)
                     var scaleM = radiusM / 2.0
                     for (scale in 0 until MAX_SCALES) {
                         if (scaleM < stepM) break
@@ -123,7 +126,7 @@ internal object RouteApproachPass {
                             val sec = if (incumbentFirst) {
                                 candidateSec(a, candidate, e, ctx, bounds, bestSec, tally)
                             } else {
-                                replacementSec(a, candidate, e, ctx, bounds, tally)
+                                replacementSec(a, candidate, e, ctx, bounds, tally, seed = false)
                             }
                             if (sec < bestSec) {
                                 bestSec = sec
@@ -144,19 +147,23 @@ internal object RouteApproachPass {
             }
             if (!changed) break
         }
-        // One line: what the pass found, then where its time and its reads went — the clearance proofs and the
-        // priced chords apart, the slow-water test of the line's legs beside them, and the pull's own read
-        // counts on the pass's context (the memo's hits are this pass's share of the memo the fine pass holds).
+        // One line: what the pass found, then where its time and its reads went — the clearance proofs (the
+        // seeds' included in `clearMs`) and the priced chords apart, the slow-water test of the line's legs
+        // beside them, and the pull's own read counts on the pass's context. `refusedClear` counts candidates
+        // and `seedsRefused` the windows' seeds; `edgeReads` and `farEdgeReads` are the near and the far edge
+        // reads actually paid, and like the memo's hits they read zero where the pass holds no memo.
         trace {
             "APPROACH moved=$moved candidates=$candidates savedSec=${fmt(savedSec, 3)} " +
                 "ms=${fmt(msSince(startNs))} windows=${tally.windows} evals=${tally.evals} " +
                 "outside=${tally.outside} cutTravel=${tally.cutTravel} cutLeg=${tally.cutLeg} " +
                 "lost=${tally.lost} proofs=${tally.proofs} refusedClear=${tally.refusedClear} " +
+                "seedsRefused=${tally.seedsRefused} " +
                 "clearMs=${fmt(tally.clearNs / NANOS_PER_MS)} priceMs=${fmt(tally.priceNs / NANOS_PER_MS)} " +
                 "slowMs=${fmt(tally.slowNs / NANOS_PER_MS)} slowLegs=${tally.slowLegs} " +
                 "clearMarks=${timing.clearanceMarks} hardReads=${timing.hardReads} " +
                 "priceMarks=${timing.marks} priceReads=${timing.priceReads} " +
-                "edgeReads=${(memo?.edgeMisses ?: 0L) - edgeMissesBefore} farEdgeReads=${timing.farEdgeReads} " +
+                "edgeReads=${(memo?.edgeMisses ?: 0L) - edgeMissesBefore} " +
+                "farEdgeReads=${(memo?.farEdgeMisses ?: 0L) - farEdgeMissesBefore} " +
                 "memoPriceHits=${(memo?.priceHits ?: 0L) - priceHitsBefore} " +
                 "memoHardHits=${(memo?.hardHits ?: 0L) - hardHitsBefore} " +
                 "memoEdgeHits=${(memo?.edgeHits ?: 0L) - edgeHitsBefore}"
@@ -194,26 +201,39 @@ internal object RouteApproachPass {
         b: LatLng,
         ctx: PullContext,
         bounds: BBox,
-        tally: ApproachTally
+        tally: ApproachTally,
+        /** Whether this is a window's seed — the line's own point — rather than a candidate around it. */
+        seed: Boolean
     ): Double {
         tally.evals++
-        if (!inBox(bounds, p)) {
-            tally.outside++
-            return Double.POSITIVE_INFINITY
-        }
-        // Only the real route ends retain waivers: a window end or a new pivot earns no exemption. The second
-        // leg is proved only where the first clears, exactly as the `||` it replaces short-circuited.
-        val clearStartNs = System.nanoTime()
-        val clear = MultipassPull.legClear(a, p, ctx) && MultipassPull.legClear(p, b, ctx)
-        tally.clearNs += System.nanoTime() - clearStartNs
-        if (!clear) {
-            tally.refusedClear++
+        if (outside(bounds, p, tally)) return Double.POSITIVE_INFINITY
+        // Only the real route ends retain waivers: a window end or a new pivot earns no exemption.
+        if (!proveClear(a, p, b, ctx, tally)) {
+            if (seed) tally.seedsRefused++ else tally.refusedClear++
             return Double.POSITIVE_INFINITY
         }
         val priceStartNs = System.nanoTime()
         val sec = MultipassPull.totalSec(a, p, ctx) + MultipassPull.totalSec(p, b, ctx)
         tally.priceNs += System.nanoTime() - priceStartNs
         return sec
+    }
+
+    /** Whether [p] stands outside the corridor — no read is paid for it, and the tally counts it once. */
+    private fun outside(bounds: BBox, p: LatLng, tally: ApproachTally): Boolean {
+        if (inBox(bounds, p)) return false
+        tally.outside++
+        return true
+    }
+
+    /**
+     * **Whether both legs through [p] are clear** — the second proved only where the first clears, the order
+     * the replacement's two proofs have always had — with the proofs' time in the tally.
+     */
+    private fun proveClear(a: LatLng, p: LatLng, b: LatLng, ctx: PullContext, tally: ApproachTally): Boolean {
+        val clearStartNs = System.nanoTime()
+        val clear = MultipassPull.legClear(a, p, ctx) && MultipassPull.legClear(p, b, ctx)
+        tally.clearNs += System.nanoTime() - clearStartNs
+        return clear
     }
 
     /**
@@ -230,7 +250,7 @@ internal object RouteApproachPass {
      * 4. **The full cost** at or above it: no proof is run.
      * 5. **The proof** — only a candidate that would win is proved clear, and a refusal is `+∞` as before.
      *
-     * Each bound is exact under rounding: a leg's cost is its travel plus a price that is never negative, and
+     * Each bound is sound under rounding: a leg's cost is its travel plus a price that is never negative, and
      * rounding to the nearest is monotone, so a bound at or above the incumbent leaves the full sum there too.
      * The cost returned is the same `first + second` the proof-first order summed. The window's seed is still
      * evaluated by [replacementSec], so its own cost — the first incumbent — is the value it always was.
@@ -245,10 +265,7 @@ internal object RouteApproachPass {
         tally: ApproachTally
     ): Double {
         tally.evals++
-        if (!inBox(bounds, p)) {
-            tally.outside++
-            return Double.POSITIVE_INFINITY
-        }
+        if (outside(bounds, p, tally)) return Double.POSITIVE_INFINITY
         val priceStartNs = System.nanoTime()
         val secondTravel = SpatialOperations.haversine(p, b) / ctx.paceMps
         if (SpatialOperations.haversine(a, p) / ctx.paceMps + secondTravel >= incumbent) {
@@ -269,10 +286,7 @@ internal object RouteApproachPass {
             return Double.POSITIVE_INFINITY
         }
         tally.proofs++
-        val clearStartNs = System.nanoTime()
-        val clear = MultipassPull.legClear(a, p, ctx) && MultipassPull.legClear(p, b, ctx)
-        tally.clearNs += System.nanoTime() - clearStartNs
-        if (!clear) {
+        if (!proveClear(a, p, b, ctx, tally)) {
             tally.refusedClear++
             return Double.POSITIVE_INFINITY
         }
@@ -285,10 +299,13 @@ internal object RouteApproachPass {
      * by carrying it.
      */
     private class ApproachTally {
-        /** Nanoseconds in the evaluations' clearance proofs ([MultipassPull.legClear], up to two each). */
+        /** Nanoseconds in every clearance proof ([MultipassPull.legClear], up to two each), the seeds' included. */
         var clearNs = 0L
 
-        /** Nanoseconds pricing chords — each window's own legs and each cleared evaluation's two. */
+        /**
+         * Nanoseconds pricing chords — each window's own legs, each cleared seed's two, and as much of each
+         * candidate's two as its bounds let it reach (the travel bound included).
+         */
         var priceNs = 0L
 
         /** Nanoseconds in the slow-water test of the line's legs ([hasSlowWater]), each leg read once. */
@@ -306,8 +323,11 @@ internal object RouteApproachPass {
         /** The evaluations refused before any read — a pivot outside the corridor. */
         var outside = 0
 
-        /** The evaluations a clearance proof refused. */
+        /** The candidates a clearance proof refused — would-be winners in the price-first order. */
         var refusedClear = 0
+
+        /** The windows' seeds a clearance proof refused — the window then starts with no finite best. */
+        var seedsRefused = 0
 
         /** Candidates rejected on the two legs' travel alone — no price read, no proof. */
         var cutTravel = 0

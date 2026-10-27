@@ -483,9 +483,32 @@ smaller than the evaluation's estimate.
     marker-only price) answer the same points in both orders (`incumbentFirst = false` is the test seam).
     Device, the same start point to the centimetre: the pass 12.6 / 16.0 / 21.0 → 6.9 / 9.1 / 12.8 s, its
     clearance half −72–81 %, the rungs 20.7 / 24.3 / 28.6 → 15.9 / 18.4 / 21.4 s, tap to last route 29.9 →
-    22.2 s, every line, clock and approach outcome identical. 1 647 tests and `apk-build.bat` green. **The Ask
-    hop's review was still running when this was committed on the user's word; its findings land as a
-    follow-up.**
+    22.2 s, every line, clock and approach outcome identical. 1 647 tests and `apk-build.bat` green. The Ask
+    hop's review returned after the commit (`b3ca6bf4`): **it could not break the claim** — `sec` is read only by
+    `sec < bestSec`, the field price is non-negative by `priceAt`'s `cost > 0.0` filter, the travel terms are the
+    same expression as `totalSec`'s, the bounds hold under rounding for finite, infinite and NaN costs, and no
+    memo read changes with order. **Its findings — closed by the follow-up below, save the two it names:** the berth rate's ≥ 0 rests on its config
+    clamp alone and no fixture prices a berth; the 40-case test proves neither cut path nor a refused would-be
+    winner runs (sum `cutTravel`/`cutLeg` and a candidate-only refusal count, add a berth-priced setup); the box
+    and proof blocks are copied between `candidateSec` and `replacementSec`; five KDocs or comments are stale
+    (the class KDoc's "clamped" premise, "exact" → "sound", `priceNs`, `clearanceMarks` and the end disc, a test
+    comment); the `APPROACH` line's `refusedClear` mixes seeds with candidates and `edgeReads`/`farEdgeReads`
+    double-count far misses; `addClearanceMarks` runs per mark in the measured walk; and a pre-existing
+    `MarkMemo.price()` (tests only) stores a per-cell price in the per-metre table.
+  - **The review's follow-up (2026-10-27, `#implement`)** — the equivalence test now refines 8 seeded lines over
+    6 waters (free, a rock standing on the free answer, a gate shoal, the shoal with a priced berth, a
+    marker-only price, a mild slow disc where the best is mostly travel): 48 comparisons draw identical lines,
+    and the travel cut, the first-leg cut, a losing full price, a refused would-be winner and a berth-priced
+    search are each asserted **present**, never counted. `outside` and `proveClear` replace the copied corridor
+    check and proof; `replacementSec` names its seeds, so the `APPROACH` line's `refusedClear` counts candidates
+    and `seedsRefused` the seeds; `MarkMemo.farEdgeMisses` splits the far reads from `edgeMisses`, so
+    `edgeReads + farEdgeReads` is the memo's paid edge reads with nothing counted twice (device: 42 885 + 16 156
+    = the old 59 041 on λ 5, every line, clock and approach outcome identical to the run before). The class
+    premise, "sound under rounding", `clearNs`/`priceNs`/`refusedClear`, `clearanceMarks` and `edgeHits` KDocs
+    are corrected. 1 647 tests and `apk-build.bat` green. **Left, outside the order taken:**
+    `addClearanceMarks` still runs per mark, and the tests-only `MarkMemo.price()` still stores a per-cell price
+    in the per-metre table. **This follow-up's own Ask hop had not returned when it was committed on the user's
+    word.**
   - **Review hop (2026-10-27)** — exact where present; fixed on its word: a bare `pull` no longer prices a
     two-point path, the dead `hardDistance` and two stale KDocs, `probeMs` split from `crossedMs`, the tile's
     water computed once per tile, the key's cap the raster's own, the rings sorted, the switches read off the

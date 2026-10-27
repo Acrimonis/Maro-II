@@ -3,7 +3,7 @@
 > State only — routing map, feature index, focus history, global todos, doc index. Rules and instructions live in `AGENTS.md`.
 
 ## Focus History
-- [2026-10-27 16:28 UTC] Route — on `feature/roooouuutttiiinnngggg`, the search-speed remediation shipped (a tile cache keyed on a tile's own water and a coastline content stamp, read across launches; one mark memo per pass; a shared crossing raster; a fused clock; a set-backed corner pass; read counters and the tail's clocks), then the approach pass the device found at 56–72 % of a long rung was instrumented and reordered to price before it proves: the pass −39–45 %, the 15 km search 29.9 → 22.2 s, every line identical, 1 647 tests green → xTrack/Route/FEAT_HYD_Route.md
+- [2026-10-27 16:28 UTC] Route — on `feature/roooouuutttiiinnngggg`, the search-speed remediation shipped (a tile cache keyed on a tile's own water and a coastline content stamp, read across launches; one mark memo per pass; a shared crossing raster; a fused clock; a set-backed corner pass; read counters and the tail's clocks), then the approach pass the device found at 56–72 % of a long rung was instrumented and reordered to price before it proves: the pass −39–45 %, the 15 km search 29.9 → 22.2 s, every line identical, its review's findings closed (a six-water equivalence test asserting every path, disjoint log counts), 1 647 tests green → xTrack/Route/FEAT_HYD_Route.md
 - [2026-10-25 08:05 UTC] Tracks — on `feature/route-mono`, a route's auto name lost its direction: both ends read `A <-> B` and a single named end reads alone, with the From / To strings removed from both locales and recorded trips keeping `A to B`, and the home-port radius widened to 150 m so a destination 106–113 m from the port no longer takes its marker's name; `compileDebugKotlin` green, the device pass owed → xTrack/Tracks/FEAT_HYD_Tracks.md
 - [2026-10-24 12:51 UTC] Tracks — on `feature/list-filters`, the track list gained a Source filter (All · GPS · Demo) that calls a track GPS when any point carries an accuracy and demo when none does, routes and the live recording always passing, and the route lists dropped the Source and On water / On land axes; the scoped suites and `apk-build.bat` green, the device pass owed → xTrack/Tracks/FEAT_HYD_Tracks.md
 - [2026-10-24 07:32 UTC] Tracks — on feature/track-comment-ignore-time-spend-at-la-salis, the home port, its arrival prompt, the port-zone naming exclusion and the route-comment rung removal shipped; the home port is now `tracking.homePort.*` in maro.properties read from the file rather than stored settings, fixing the stale-prefs shadow; compileDebugKotlin and the scoped data.track + RouteCommentHeadTest suites green, the device pass owed → xTrack/Tracks/FEAT_HYD_Tracks.md
@@ -49,7 +49,7 @@
 
 | Feature | Status | Created | Modified | Link |
 |---|---|---|---|---|
-| Route | active | 2026-08-16 10:44 | 2026-10-27 17:20 | [FEAT_DSC_Route.md](Route/FEAT_DSC_Route.md) |
+| Route | active | 2026-08-16 10:44 | 2026-10-27 17:30 | [FEAT_DSC_Route.md](Route/FEAT_DSC_Route.md) |
 | Ui_Dashboard | active | 2026-06-06 00:00 | 2026-10-12 08:58 | [FEAT_DSC_Ui_Dashboard.md](Ui_Dashboard/FEAT_DSC_Ui_Dashboard.md) |
 | Ui_General | active | 2026-06-08 16:43 | 2026-10-23 15:22 | [FEAT_DSC_Ui_General.md](Ui_General/FEAT_DSC_Ui_General.md) |
 | Markers | active | 2026-06-22 11:52 | 2026-10-23 17:41 | [FEAT_DSC_Markers.md](Markers/FEAT_DSC_Markers.md) |

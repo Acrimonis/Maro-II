@@ -215,15 +215,20 @@ internal class MarkMemo {
         hard[p] = value
     }
 
-    /** The gate-edge reads answered from the table rather than the index — [edgeDistance]'s own hit side. */
+    /** The gate-edge reads answered from the table rather than the index — the hit side of [edgeDistance] and [farEdgeDistance] alike. */
     var edgeHits: Long = 0L
         private set
 
     /**
-     * The gate-edge reads the table did **not** hold — the measured edge actually walked, near or far: the
-     * paid half beside [edgeHits], so a reader can tell how often a walk asked the edge index itself.
+     * The near gate-edge reads the table did **not** hold — the measured edge actually walked at the walk's
+     * own reach ([edgeDistance]): the paid half beside [edgeHits]. The berth proof's wider reads are
+     * [farEdgeMisses], so the two never count one read twice.
      */
     var edgeMisses: Long = 0L
+        private set
+
+    /** The berth proof's wider edge reads the table did **not** hold ([farEdgeDistance]) — paid, never a hit. */
+    var farEdgeMisses: Long = 0L
         private set
 
     /**
@@ -252,7 +257,7 @@ internal class MarkMemo {
             edgeHits++
             return held
         }
-        edgeMisses++
+        farEdgeMisses++
         val value = gate.edgeM(p, reachM)
         farEdge[p] = value
         return value
@@ -1713,9 +1718,10 @@ class PullTiming {
     }
 
     /**
-     * **The fine marks the clearance walk tested** — one per sample `legClearCause` reached, each paying the
-     * rastered walls' step test ([RouteCostField.hardBlocked], a depth read where the gate is in force) whether
-     * or not its hard distance was proved; [hardReads] is the part of them that also paid the coast index.
+     * **The fine marks the clearance walk tested** — one per sample `legClearCause` reached. Outside the ends'
+     * discs each pays the rastered walls' step test ([RouteCostField.hardBlocked], a depth read where the gate is
+     * in force) whether or not its hard distance was proved, and [hardReads] is the part that also paid the coast
+     * index; inside a disc a sample reads the gate alone.
      */
     var clearanceMarks: Long = 0L
         private set
