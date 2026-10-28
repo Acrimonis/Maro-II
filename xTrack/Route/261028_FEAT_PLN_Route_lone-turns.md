@@ -85,6 +85,16 @@ is already in `## Implemented`.
 
 ## 4. P1 — slide a lone turn along its own legs
 
+> **As built (2026-10-28), against the draft below:**
+> - **A saving floor, `route.approach.lone.minSavedSec` = 1.0 s.** The lone slide's incumbent is `oldSec − floor`, while
+>   each leg is still seeded at `oldSec`. Without the floor, 0.03–0.97 s slides set off second-pass re-searches of their
+>   neighbours (the second pass's evaluations 98 → 426 on one rung), and two rungs ran +16 % against the 15 % budget.
+> - **A travel pre-check.** No search runs where the chord `a→e`'s travel alone cannot beat `oldSec − floor`. That bound
+>   is the same in both evaluation orders.
+> - **A fixture switch, `slideLoneTurns`.** The P4a/P5b tests pass it as false, so they pin the S search's own answer;
+>   the line as shipped is checked in `anSStandingForOneTurnIsMergedAtItsCrossing`.
+> - **`isLone` is one local function**, shared by the offer and P0's count.
+
 - **The offer.** A lone candidate becomes an `Offer` with a new `loneTurn` flag.
   - `Search.answerFor` runs `searchAlongLegs(a, v, e, oldSec, oldSec)`. This is P5b's one-dimensional search, with `v` in
     the crossing's place. The window's own cost is both the seed of each leg and the incumbent.
@@ -257,6 +267,44 @@ properties file, `TurnConfigFixture.withTurn`, and the properties file's comment
   - **The count itself costs next to nothing:** `slowMs` went from 15–21 ms to 22–28 ms, and `landProofs` from 6–10 to
     9–12.
 
+## 12. P1 — review and evidence (2026-10-28)
+
+One reviewer read P1 in the working tree against §1–§5, §7, §10 and §11. Nothing blocked.
+
+| # | Finding | Disposition |
+|---|---|---|
+| R1 | **Should fix.** No reversed-direction check for a lone move: the equivalence test's mirror is a reflection, not a reversal. | Each case in `aLoneTurnSlidesAlongItsLegsOrStays` now asserts the reversed line. |
+| R2 | **Should fix.** The S line as shipped (the S, then a lone slide) was checked by nothing for clearance, cost or symmetry. | `anSStandingForOneTurnIsMergedAtItsCrossing` now refines with the defaults and asserts clear, no dearer than the merge, reversed, and identical with every window searched again. |
+| R3 | **Should fix.** The `loneTurns` KDoc said "none is searched", and P0's comment was stale. | Both say what the slide leaves: under the floor, a split's point, or made after the last pass. |
+| R4 | **Should fix.** Four lines ran past 133 characters. | Rewrapped. |
+| R5 | **Note.** Every lone window paid all its leg evaluations, even where nothing could save the floor. | The travel pre-check (§4). |
+| R6 | **Note.** The traced slack probe (150–206 ms a rung on the device) dwarfs P1's own cost. | Kept for one device reading of P1, then to be dropped (§13). |
+| R7 | **Note.** The equivalence test never covers a slide the floor refuses. | Not added: by the review's own reading it is order-equivalent. |
+| R8 | **Note.** The key sits in the pacing section of `maro.properties`, and §4's draft call was stale. | The section was accepted; §4 records the floor. |
+
+**What the review confirmed:**
+- order-equivalence with the lowered incumbent, since a lone offer is never `searched` and never an S, so `best.sec` equals `oldSec`;
+- the floor applies to lone slides only, and `+∞` is handled;
+- the S tests' switch hides no regression;
+- the window counts are disjoint;
+- the config follows ONE HOME.
+
+**Evidence:**
+- **Tests:** 1 666 pass (24 skipped), and `RouteDirectionSymmetryTest` under `-Dmaro.prebake=true` passes 2/2 over the 24 pairs.
+- **The device's "Around" line, replayed:**
+  - The 43° turn at 43.53999,7.10292 moves to 43.54277,7.08493, La Fourmigue's band edge, saving 10.9 s.
+  - The same happens on all three rungs' replays.
+  - No other lone slide clears the floor.
+- **Harness pairs:**
+  - 1–2 lone slides a rung. On "Closest" (Lérins → La Salis), the 89° turn takes 7.1 s and then 4.3 s.
+  - The approach pass costs +23–34 ms a rung on one pair and −8 to +24 ms on the other: at most about 13 % of a rung, inside
+    the budget. Whole-rung times vary ±10 % between identical runs.
+
+## 13. Left open
+
+- **The phone run of P1 is owed.** It will show whether "Around"'s turn now sits at the band edge.
+- **Drop the slack probe after that run.** It is diagnostic only and reads with no memo when the trace is live.
+
 ## Implemented
 
 - **P0 (2026-10-28, uncommitted).** `RouteApproachPass.refine` counts the lone turns left on its line (`loneTurns=`) and
@@ -269,3 +317,13 @@ properties file, `TurnConfigFixture.withTurn`, and the properties file's comment
 
   Checks: 1 666 tests pass (24 skipped), and the harness gives identical lines. The plan's go/no-go now reads
   slack, not the bare count. **P1 is not built.**
+- **P1 (2026-10-28, uncommitted).** A two-span window whose legs are both clean, whose point turns ≥ `MIN_TURN_DEG`,
+  and whose skipping chord crosses slow water without being refused for land (`isLone`) is offered P5b's slide along
+  its own legs (`searchAlongLegs`, `kind = SLID_LONE`). A slide is kept only where it saves
+  `route.approach.lone.minSavedSec` (1 s) and is proved clear. No search runs where the chord's travel cannot save
+  that much.
+  - **The decisions as taken:** D1 band and zone water only, D2 one-dimensional along the legs, D3 evidence and budget
+    (both met, §12), D4 the approach pass.
+  - **Tests:** `aLoneTurnSlidesAlongItsLegsOrStays` covers five cases, the floor, repeat skipping and reversal. The
+    equivalence test's lone lines, the S line as shipped, and the direction-symmetry survey also cover it.
+  - **Deviations from the plan:** the saving floor and the travel pre-check (§4), and the `slideLoneTurns` fixture switch.

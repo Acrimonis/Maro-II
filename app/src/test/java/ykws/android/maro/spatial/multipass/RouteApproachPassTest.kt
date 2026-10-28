@@ -166,7 +166,8 @@ class RouteApproachPassTest {
      * price whose slow gate opens nothing — return the same points in both orders. Every path the new order can take is
      * shown to run somewhere on these lines, asserted as **present** rather than counted so a fixture tweak does
      * not break it: the travel cut, the first-leg cut, a full price that loses, a proof that refuses, a search over
-     * berth-priced water, a split, an S's crossing, and that crossing slid along its legs to a move.
+     * berth-priced water, a split, an S's crossing, that crossing slid along its legs to a move, and a lone turn slid
+     * along its own legs to a move.
      */
     @Test
     fun pricingFirstAnswersTheProofFirstLine() {
@@ -178,6 +179,8 @@ class RouteApproachPassTest {
         var crossings = 0.0
         var crossingSlides = 0.0
         var slidCrossings = 0.0
+        var loneSlides = 0.0
+        var slidLones = 0.0
         val lines = List(8) {
             listOf(
                 original[0],
@@ -194,7 +197,8 @@ class RouteApproachPassTest {
                 point(1800.0 + random.nextDouble() * 200.0 - 100.0, -300.0 + random.nextDouble() * 200.0 - 100.0),
                 original[3]
             )
-        } + listOf(sLine, sLine.map(::mirrored)) // S lines on open water, whose crossing wins and slides
+        } + listOf(sLine, sLine.map(::mirrored)) + // S lines on open water, whose crossing wins and slides
+            listOf(loneLine, loneLine.map(::mirrored)) // a lone turn past the rock's disc, which slides along its legs
         for (line in lines) {
             for ((name, setup) in setups) {
                 val proofFirst = mutableListOf<String>()
@@ -213,6 +217,8 @@ class RouteApproachPassTest {
                 crossings += figure(priceFirst, "crossings")
                 crossingSlides += figure(priceFirst, "crossingSlides")
                 slidCrossings += figure(priceFirst, "slidCrossings")
+                loneSlides += figure(priceFirst, "loneSlides")
+                slidLones += figure(priceFirst, "slidLones")
             }
         }
         for ((path, count) in paths) {
@@ -223,6 +229,8 @@ class RouteApproachPassTest {
         assertTrue("an S's crossing is evaluated in both orders on these lines", crossings > 0.0)
         assertTrue("and slid along its legs", crossingSlides > 0.0)
         assertTrue("a slid crossing placing a move", slidCrossings > 0.0)
+        assertTrue("a lone turn slid along its legs", loneSlides > 0.0)
+        assertTrue("and placing a move", slidLones > 0.0)
     }
 
     /**
@@ -252,7 +260,9 @@ class RouteApproachPassTest {
         )
 
         val trace = mutableListOf<String>()
-        val merged = RouteApproachPass.refine(setup, line, bounds, 20.0, memo = MarkMemo(), trace = { trace += it() })
+        val merged = RouteApproachPass.refine(
+            setup, line, bounds, 20.0, memo = MarkMemo(), trace = { trace += it() }, slideLoneTurns = false
+        )
         val summary = summary(trace)
         assertEquals("the slow gate opened nothing ($summary)", 0, count(summary, "windows"))
         assertEquals("the S read opened its window", 1, count(summary, "sWindows"))
@@ -280,15 +290,34 @@ class RouteApproachPassTest {
         assertTrue("and shorter", polylineLengthM(merged) < polylineLengthM(line) - 150.0)
         assertEquals(
             "proof-first draws the same line",
-            merged, RouteApproachPass.refine(setup, line, bounds, 20.0, memo = MarkMemo(), incumbentFirst = false)
+            merged, RouteApproachPass.refine(
+                setup, line, bounds, 20.0, memo = MarkMemo(), incumbentFirst = false, slideLoneTurns = false
+            )
         )
         assertEquals(
             "a second pass searching every window draws the same line",
-            merged, RouteApproachPass.refine(setup, line, bounds, 20.0, memo = MarkMemo(), skipRepeats = false)
+            merged, RouteApproachPass.refine(
+                setup, line, bounds, 20.0, memo = MarkMemo(), skipRepeats = false, slideLoneTurns = false
+            )
         )
         assertEquals(
             "and the pair armed from the other end the same line, turned back",
-            merged.reversed(), RouteApproachPass.refine(setup.reversed(), line.reversed(), bounds, 20.0, memo = MarkMemo())
+            merged.reversed(), RouteApproachPass.refine(
+                setup.reversed(), line.reversed(), bounds, 20.0, memo = MarkMemo(), slideLoneTurns = false
+            )
+        )
+        // The line as shipped: the merged turn is itself a lone turn, which a later window may slide on — clear, no
+        // dearer than the merge alone, and the same from either end and with every window searched again.
+        val shipped = RouteApproachPass.refine(setup, line, bounds, 20.0, memo = MarkMemo())
+        assertClear(setup, shipped)
+        assertTrue("the shipped line is no dearer than the merge", cost(setup, shipped) <= cost(setup, merged))
+        assertEquals(
+            "and is drawn the same from the other end",
+            shipped.reversed(), RouteApproachPass.refine(setup.reversed(), line.reversed(), bounds, 20.0, memo = MarkMemo())
+        )
+        assertEquals(
+            "and with every window searched again",
+            shipped, RouteApproachPass.refine(setup, line, bounds, 20.0, memo = MarkMemo(), skipRepeats = false)
         )
     }
 
@@ -354,21 +383,26 @@ class RouteApproachPassTest {
         for (line in listOf(underTheFloor, sameWay)) {
             assertClear(setup, line)
             val trace = mutableListOf<String>()
-            val kept = RouteApproachPass.refine(setup, line, bounds, 20.0, memo = MarkMemo(), trace = { trace += it() })
+            val kept = RouteApproachPass.refine(
+                setup, line, bounds, 20.0, memo = MarkMemo(), trace = { trace += it() }, slideLoneTurns = false
+            )
             assertEquals("no crossing is offered on $line (${summary(trace)})", 0, count(summary(trace), "crossings"))
             assertEquals("and the line is kept", line, kept)
         }
     }
 
     /**
-     * **A lone turn is counted, and only counted (P0).** One turn past a slow disc, both legs clean and the chord
-     * skipping it through the disc: no window opens on it, so it is named and the line kept. Past a small disc and far
-     * off a wide one its line reads slack — a step or more along a leg still clears the water; a turn whose legs graze
-     * the wide disc reads none. The small disc's window with the turn under the corner pass's floor, or with a rock on the chord —
-     * a land turn — is not counted.
+     * **A lone turn slides along its legs where a leg leaves it room, and stays where none does.** One turn past a slow
+     * disc, both legs clean and the chord skipping it through the disc: neither the slow gate nor the S read opens its
+     * window, so it is offered the slide along its own legs (lone-turns P1). Far off a wide disc the turn moves along
+     * its legs, cheaper and clear, and the line left reads no more than a step or two of slack
+     * (P0's count on the line handed on); a turn whose legs graze the wide disc is searched and kept, and so is one past
+     * a small disc whose slide saves less than `route.approach.lone.minSavedSec` — until the floor is lifted. The small disc's
+     * window with the turn under the corner pass's floor, or with a rock on the chord — a land turn — is never offered.
+     * Skipping repeats draws the same line in every case.
      */
     @Test
-    fun aLoneTurnIsCountedAndTheLineKept() {
+    fun aLoneTurnSlidesAlongItsLegsOrStays() {
         val a = point(1400.0, -500.0)
         val e = point(2600.0, -500.0)
         val small = setup(field(smallDiscs = listOf(point(2000.0, -480.0) to 50.0)), start = a, aim = e)
@@ -382,18 +416,19 @@ class RouteApproachPassTest {
             ),
             start = a, aim = e
         )
-        data class Case(val name: String, val setup: PullSetup, val v: LatLng, val lone: Int, val slack: Int)
+        data class Case(val name: String, val setup: PullSetup, val v: LatLng, val offered: Boolean, val slides: Boolean)
         val cases = listOf(
-            Case("past a small disc", small, point(2000.0, -600.0), lone = 1, slack = 1),
-            Case("far off a wide disc", wide, point(2000.0, -650.0), lone = 1, slack = 1),
-            Case("grazing a wide disc", wide, point(2000.0, -609.0), lone = 1, slack = 0),
-            Case("under the floor", small, point(2000.0, -545.0), lone = 0, slack = 0),
-            Case("land turn", rockOnTheChord, point(2000.0, -600.0), lone = 0, slack = 0)
+            // Searched, but its slide saves under `route.approach.lone.minSavedSec`: the grid's rounding, kept.
+            Case("past a small disc", small, point(2000.0, -600.0), offered = true, slides = false),
+            Case("far off a wide disc", wide, point(2000.0, -900.0), offered = true, slides = true),
+            Case("grazing a wide disc", wide, point(2000.0, -609.0), offered = true, slides = false),
+            Case("under the floor", small, point(2000.0, -545.0), offered = false, slides = false),
+            Case("land turn", rockOnTheChord, point(2000.0, -600.0), offered = false, slides = false)
         )
         for (case in cases) {
             val line = listOf(a, case.v, e)
             assertClear(case.setup, line)
-            // Each case is what it is named for: clean legs — travel alone — and the reason it is or is not counted.
+            // Each case is what it is named for: clean legs — travel alone — and the reason it is or is not offered.
             val ctx = case.setup.context()
             for ((u, w) in line.zipWithNext()) {
                 assertEquals(
@@ -411,12 +446,40 @@ class RouteApproachPassTest {
                 case.name == "land turn", MultipassPull.legClearCause(a, e, ctx) == ChordRefusal.LAND
             )
             val trace = mutableListOf<String>()
-            val kept = RouteApproachPass.refine(case.setup, line, bounds, 20.0, memo = MarkMemo(), trace = { trace += it() })
-            assertEquals("${case.name}: lone turns (${summary(trace)})", case.lone, count(summary(trace), "loneTurns"))
-            val lines = trace.filter { it.startsWith("APPROACH lone ") }
-            assertEquals("${case.name}: named on its own line", case.lone, lines.size)
-            assertEquals("${case.name}: with slack ($lines)", case.slack, lines.count { count(it, "slackM") >= 20 })
-            assertEquals("${case.name}: and the line is kept", line, kept)
+            val refined = RouteApproachPass.refine(case.setup, line, bounds, 20.0, memo = MarkMemo(), trace = { trace += it() })
+            val summary = summary(trace)
+            assertEquals("${case.name}: offered ($summary)", case.offered, count(summary, "loneWindows") > 0)
+            assertEquals("${case.name}: slid", case.slides, count(summary, "slidLones") > 0)
+            if (case.slides) {
+                assertEquals("${case.name}: still one turn", 3, refined.size)
+                assertTrue("${case.name}: cheaper", cost(case.setup, refined) < cost(case.setup, line))
+                assertClear(case.setup, refined)
+                assertTrue(
+                    "${case.name}: a move line names it",
+                    trace.any { it.startsWith("APPROACH move ") && it.contains("kind=lone") }
+                )
+                for (left in trace.filter { it.startsWith("APPROACH lone ") }) {
+                    assertTrue("${case.name}: slid to within two steps of the water ($left)", count(left, "slackM") < 40)
+                }
+            } else {
+                assertEquals("${case.name}: and the line is kept", line, refined)
+            }
+            val full = RouteApproachPass.refine(case.setup, line, bounds, 20.0, memo = MarkMemo(), skipRepeats = false)
+            assertEquals("${case.name}: skipping repeats draws the same line", full, refined)
+            val back = RouteApproachPass.refine(case.setup.reversed(), line.reversed(), bounds, 20.0, memo = MarkMemo())
+            assertEquals("${case.name}: armed from the other end, the same line turned back", refined.reversed(), back)
+        }
+        // With no floor, the small disc's turn slides too: the floor, not the search, kept it.
+        val floor = AppConfig.routeApproachLoneMinSavedSec
+        AppConfig.routeApproachLoneMinSavedSec = 0.0
+        try {
+            val line = listOf(a, point(2000.0, -600.0), e)
+            val trace = mutableListOf<String>()
+            val refined = RouteApproachPass.refine(small, line, bounds, 20.0, memo = MarkMemo(), trace = { trace += it() })
+            assertTrue("with no floor it slides (${summary(trace)})", count(summary(trace), "slidLones") > 0)
+            assertTrue("and saves under the shipped floor", cost(small, line) - cost(small, refined) < floor)
+        } finally {
+            AppConfig.routeApproachLoneMinSavedSec = floor
         }
     }
 
@@ -442,7 +505,9 @@ class RouteApproachPassTest {
         })
 
         val trace = mutableListOf<String>()
-        val kept = RouteApproachPass.refine(setup, line, bounds, 20.0, memo = MarkMemo(), trace = { trace += it() })
+        val kept = RouteApproachPass.refine(
+            setup, line, bounds, 20.0, memo = MarkMemo(), trace = { trace += it() }, slideLoneTurns = false
+        )
         assertEquals("the crossing is offered (${summary(trace)})", 1, count(summary(trace), "crossings"))
         assertEquals("and the S is kept", line, kept)
         assertTrue("with no move", trace.none { it.startsWith("APPROACH move ") })
@@ -468,7 +533,9 @@ class RouteApproachPassTest {
         )
 
         val trace = mutableListOf<String>()
-        val kept = RouteApproachPass.refine(setup, line, bounds, 20.0, memo = MarkMemo(), trace = { trace += it() })
+        val kept = RouteApproachPass.refine(
+            setup, line, bounds, 20.0, memo = MarkMemo(), trace = { trace += it() }, slideLoneTurns = false
+        )
         val summary = summary(trace)
         assertTrue("the window is skipped for its land turn ($summary)", count(summary, "landTurnWindows") > 0)
         assertEquals("before its crossing is read", 0, count(summary, "crossings"))
@@ -529,7 +596,9 @@ class RouteApproachPassTest {
         assertFalse("the crossing's second leg is refused", MultipassPull.legClear(crossing, line.last(), setup.context()))
 
         val trace = mutableListOf<String>()
-        val slid = RouteApproachPass.refine(setup, line, bounds, 20.0, memo = MarkMemo(), trace = { trace += it() })
+        val slid = RouteApproachPass.refine(
+            setup, line, bounds, 20.0, memo = MarkMemo(), trace = { trace += it() }, slideLoneTurns = false
+        )
         assertEquals("the crossing was offered (${summary(trace)})", 1, count(summary(trace), "crossings"))
         assertEquals("and the slide placed the move", 1, count(summary(trace), "slidCrossings"))
         assertEquals(3, slid.size)
@@ -541,15 +610,19 @@ class RouteApproachPassTest {
         assertTrue("the line is cheaper", cost(setup, slid) < cost(setup, line))
         assertEquals(
             "proof-first draws the same line",
-            slid, RouteApproachPass.refine(setup, line, bounds, 20.0, memo = MarkMemo(), incumbentFirst = false)
+            slid, RouteApproachPass.refine(
+                setup, line, bounds, 20.0, memo = MarkMemo(), incumbentFirst = false, slideLoneTurns = false
+            )
         )
         assertEquals(
             "a second pass searching every window draws the same line",
-            slid, RouteApproachPass.refine(setup, line, bounds, 20.0, memo = MarkMemo(), skipRepeats = false)
+            slid, RouteApproachPass.refine(setup, line, bounds, 20.0, memo = MarkMemo(), skipRepeats = false, slideLoneTurns = false)
         )
         assertEquals(
             "and the pair armed from the other end the same line, turned back",
-            slid.reversed(), RouteApproachPass.refine(setup.reversed(), line.reversed(), bounds, 20.0, memo = MarkMemo())
+            slid.reversed(), RouteApproachPass.refine(
+                setup.reversed(), line.reversed(), bounds, 20.0, memo = MarkMemo(), slideLoneTurns = false
+            )
         )
     }
 
@@ -581,7 +654,9 @@ class RouteApproachPassTest {
         assertTrue("and so does the leg's middle", cost(setup, listOf(a, middle, aim)) > cost(setup, line))
 
         val trace = mutableListOf<String>()
-        val slid = RouteApproachPass.refine(setup, line, bounds, 20.0, memo = MarkMemo(), trace = { trace += it() })
+        val slid = RouteApproachPass.refine(
+            setup, line, bounds, 20.0, memo = MarkMemo(), trace = { trace += it() }, slideLoneTurns = false
+        )
         assertEquals("the slide placed the move (${summary(trace)})", 1, count(summary(trace), "slidCrossings"))
         assertEquals(3, slid.size)
         assertTrue("on the incoming leg ($slid)", onSegment(slid[1], a, crossing))
@@ -593,11 +668,15 @@ class RouteApproachPassTest {
         assertTrue("the line is cheaper", cost(setup, slid) < cost(setup, line))
         assertEquals(
             "proof-first draws the same line",
-            slid, RouteApproachPass.refine(setup, line, bounds, 20.0, memo = MarkMemo(), incumbentFirst = false)
+            slid, RouteApproachPass.refine(
+                setup, line, bounds, 20.0, memo = MarkMemo(), incumbentFirst = false, slideLoneTurns = false
+            )
         )
         assertEquals(
             "and the pair armed from the other end the same line, turned back",
-            slid.reversed(), RouteApproachPass.refine(setup.reversed(), line.reversed(), bounds, 20.0, memo = MarkMemo())
+            slid.reversed(), RouteApproachPass.refine(
+                setup.reversed(), line.reversed(), bounds, 20.0, memo = MarkMemo(), slideLoneTurns = false
+            )
         )
     }
 
@@ -619,7 +698,9 @@ class RouteApproachPassTest {
         assertTrue("the crossing beats the S", cost(setup, viaCrossing) < cost(setup, line))
 
         val trace = mutableListOf<String>()
-        val slid = RouteApproachPass.refine(setup, line, corridor, 20.0, memo = MarkMemo(), trace = { trace += it() })
+        val slid = RouteApproachPass.refine(
+            setup, line, corridor, 20.0, memo = MarkMemo(), trace = { trace += it() }, slideLoneTurns = false
+        )
         val summary = summary(trace)
         assertEquals("the slide placed the move ($summary)", 1, count(summary, "slidCrossings"))
         assertTrue("reading candidates along the legs", count(summary, "crossingSlides") > 0)
@@ -637,15 +718,21 @@ class RouteApproachPassTest {
         )
         assertEquals(
             "proof-first draws the same line",
-            slid, RouteApproachPass.refine(setup, line, corridor, 20.0, memo = MarkMemo(), incumbentFirst = false)
+            slid, RouteApproachPass.refine(
+                setup, line, corridor, 20.0, memo = MarkMemo(), incumbentFirst = false, slideLoneTurns = false
+            )
         )
         assertEquals(
             "a second pass searching every window draws the same line",
-            slid, RouteApproachPass.refine(setup, line, corridor, 20.0, memo = MarkMemo(), skipRepeats = false)
+            slid, RouteApproachPass.refine(
+                setup, line, corridor, 20.0, memo = MarkMemo(), skipRepeats = false, slideLoneTurns = false
+            )
         )
         assertEquals(
             "and the pair armed from the other end the same line, turned back",
-            slid.reversed(), RouteApproachPass.refine(setup.reversed(), line.reversed(), corridor, 20.0, memo = MarkMemo())
+            slid.reversed(), RouteApproachPass.refine(
+                setup.reversed(), line.reversed(), corridor, 20.0, memo = MarkMemo(), slideLoneTurns = false
+            )
         )
         return summary to slid
     }
@@ -658,6 +745,12 @@ class RouteApproachPassTest {
 
     /** [p] reflected north to south in [point]'s frame. */
     private fun mirrored(p: LatLng): LatLng = metres(p).let { (east, north) -> point(east, -north) }
+
+    /**
+     * A lone turn past the rock's disc: both legs clean, the chord from the first point to the last through the disc,
+     * the turn standing well off it — the equivalence test's lone line.
+     */
+    private val loneLine = listOf(point(-180.0, 600.0), point(600.0, 600.0), point(400.0, -400.0))
 
     /** The S the tests above read: right past the rock's disc, then left past a second disc, to the aim. */
     private val sLine = listOf(point(0.0, 310.0), point(1500.0, 250.0), point(1800.0, -300.0), point(3000.0, -900.0))

@@ -61,6 +61,12 @@ import kotlin.math.sin
  * the feature at its own end — on the device pair at La Fourmigue's band edge, 1.1 km back along the crossing's own leg
  * (2026-10-28 10:28). So every crossing offered — won or lost, a crossing losing by metres while a point on its leg wins —
  * is searched along each leg in one dimension ([Search.searchAlongLegs]), last, a point kept only where it beats the window.
+ *
+ * **A lone turn slides along its own legs too.** One price turn whose two legs are clean, the chord skipping it through
+ * slow water, no S around it: the slow gate opens nothing and no S is offered, yet the turn may stand far from where its
+ * legs would graze the water — "Around"'s 43° turn on the 2026-10-28 18:16 device run, 1.5 km back along its incoming leg
+ * (lone-turns plan). Such a two-span window, after its three- and four-span windows, is searched along its legs from its
+ * own cost, a point kept only where it beats the window.
  */
 internal object RouteApproachPass {
     private const val MAX_SPAN = 4
@@ -108,7 +114,12 @@ internal object RouteApproachPass {
          * **Whether a merge window holding a land turn is skipped** — `true` on every shipped path. A fixture
          * passes `false` to show the merge the rule refuses.
          */
-        keepLandTurns: Boolean = true
+        keepLandTurns: Boolean = true,
+        /**
+         * **Whether a lone turn is slid along its legs** — `true` on every shipped path. A fixture passes `false` to pin
+         * another search's answer without the lone slide that may follow it in the next pass.
+         */
+        slideLoneTurns: Boolean = true
     ): List<LatLng> {
         if (line.size < 3 || !setup.field.hasSoft || setup.paceMps <= 0.0) {
             trace { "APPROACH skipped=no-candidates" }
@@ -164,11 +175,18 @@ internal object RouteApproachPass {
         val unmoved = HashSet<List<LatLng>>()
         val search = Search(ctx, bounds, stepM, paceRadiusM, tally, incumbentFirst, checkCancelled)
 
+        // **A lone turn** — [v] turning at least the corner pass's floor, the chord skipping it through slow water and not
+        // refused for land: a price turn on legs the caller has read clean, which neither the slow gate nor the S read
+        // reaches. Read cheapest first.
+        fun isLone(a: LatLng, v: LatLng, e: LatLng): Boolean =
+            abs(RouteCornerPass.turnDegreesAt(a, v, e)) >= RouteCornerPass.MIN_TURN_DEG && slow(a, e) && !landTurn(a, e)
+
         // **What the window `work[from] … work[from + span]` is offered, read before any read of its own**, or `null`
         // where it is not searched. A crossing and adjoining open water, not an unrelated all-slow or all-free run, is
         // searched around its seed; an S — two opposite turns standing for the one their outer legs' crossing makes —
-        // is offered that crossing, whatever its legs' water. A merge of a land turn is never searched (P1), nor a
-        // window a pass already searched without a move (F1).
+        // is offered that crossing, whatever its legs' water; and a lone turn — a two-span window both of whose legs are
+        // clean — slides along its own legs ([isLone]), unless a split just made its point. A merge of a land turn is never
+        // searched (P1), nor a window a pass already searched without a move (F1).
         fun offerFor(from: Int, span: Int, firstSlow: Boolean, lastSlow: Boolean, splitThisPass: Set<LatLng>): Offer? {
             val to = from + span
             val slowOpen = firstSlow != lastSlow
@@ -178,7 +196,9 @@ internal object RouteApproachPass {
             val radiusM = 2.0 * SpatialOperations.haversine(near, seed)
             val searched = slowOpen && radiusM >= stepM
             val sWindow = span == 3 && isS(work, from)
-            if (!searched && !sWindow) return null
+            val loneTurn = slideLoneTurns && span == 2 && !firstSlow && !lastSlow && work[from + 1] !in splitThisPass &&
+                isLone(work[from], work[from + 1], work[to])
+            if (!searched && !sWindow && !loneTurn) return null
             if (keepLandTurns && span >= 3 && (from + 1 until to).any { landTurn(work[it - 1], work[it + 1]) }) {
                 tally.landTurnWindows++
                 return null
@@ -188,9 +208,15 @@ internal object RouteApproachPass {
                 tally.repeats++
                 return null
             }
-            if (searched) tally.windows++ else tally.sWindows++
+            when {
+                searched -> tally.windows++
+                sWindow -> tally.sWindows++
+                else -> tally.loneWindows++
+            }
             // One whose seed a split just made searches its slide alone, so it is never recorded as searched.
-            return Offer(window, seed, radiusM, searched, sWindow, splitHeld = span == 2 && seed in splitThisPass)
+            return Offer(
+                window, seed, radiusM, searched, sWindow, splitHeld = span == 2 && seed in splitThisPass, loneTurn = loneTurn
+            )
         }
 
         val passMs = mutableListOf<Double>()
@@ -229,6 +255,7 @@ internal object RouteApproachPass {
                     trace {
                         val kind = when {
                             answer.kind == AnswerKind.SPLIT -> "split"
+                            answer.kind == AnswerKind.SLID_LONE -> "lone"
                             span == 2 -> "slide"
                             else -> "merge"
                         }
@@ -252,6 +279,7 @@ internal object RouteApproachPass {
                             tally.splits++
                         }
                         AnswerKind.SLID_CROSSING -> tally.slidCrossings++
+                        AnswerKind.SLID_LONE -> tally.slidLones++
                         else -> Unit
                     }
                     moved++
@@ -264,10 +292,11 @@ internal object RouteApproachPass {
             passEvals += tally.evals - evalsBefore
             if (!changed) break
         }
-        // **The lone turns left (P0)** — read on the line the pass hands on, each point once: both legs clean, a turn of
-        // at least the corner pass's floor, the chord skipping it through slow water and not refused for land — a price
-        // turn no window reaches. Read cheapest first, on the pass's own reads, so every route pays them. Each is named
-        // on its own line with its **slack** — how far along either leg the turn could slide while the rotated leg stays
+        // **The lone turns left (P0)** — read on the line the pass hands on, each point once ([isLone] on clean legs):
+        // what the slide along the legs left — a leg already grazing the water, a slide saving under
+        // `route.approach.lone.minSavedSec`, a split's point, or a turn a second-pass move made after the last pass. Read
+        // on the pass's own reads, mostly memoised by the windows', so every route pays them. Each is named on its own
+        // line with its **slack** — how far along either leg the turn could slide while the rotated leg stays
         // clear and free of slow water, halved to the step (the leg's far end is the skipping chord, slow by the count's
         // own test), and the travel that slide would save — so a reader can tell a cell's quantisation from a misplaced
         // turn. The slack is read inside the trace, on the untallied context, so a route that is not traced pays nothing
@@ -289,11 +318,10 @@ internal object RouteApproachPass {
             val a = work[i - 1]
             val v = work[i]
             val e = work[i + 1]
-            if (slow(a, v) || slow(v, e)) continue
-            val turnDeg = RouteCornerPass.turnDegreesAt(a, v, e)
-            if (abs(turnDeg) < RouteCornerPass.MIN_TURN_DEG || !slow(a, e) || landTurn(a, e)) continue
+            if (slow(a, v) || slow(v, e) || !isLone(a, v, e)) continue
             tally.loneTurns++
             trace {
+                val turnDeg = RouteCornerPass.turnDegreesAt(a, v, e)
                 val backM = slackToward(a, v, e)
                 val onM = slackToward(e, v, a)
                 // The travel a slide to the longer reach saves — the two legs' length less the new pair's, at the pace.
@@ -319,8 +347,10 @@ internal object RouteApproachPass {
         // left unsearched and the S read opened, and `crossings` the crossing candidates of every S window, searched or
         // not (inside `candidates` and `evals`) — the count of S windows a reader of the pass's cost wants;
         // `crossingSlides` the candidates the slide along those crossings' legs read (inside `candidates` and `evals`)
-        // and `slidCrossings` the moves it placed. `loneTurns` are the lone turns left on the line (P0), each with its own
-        // `APPROACH lone` line — their reads inside `slowMs`/`slowLegs` and `landProofs`, the slack's in none. The read
+        // and `slidCrossings` the moves it placed; `loneWindows`, `loneSlides` and `slidLones` the same for the lone turns
+        // slid along their legs (inside `candidates` and `evals`). `loneTurns` are the lone turns left on the line (P0),
+        // each with its own `APPROACH lone` line — their reads inside `slowMs`/`slowLegs` and `landProofs`, the slack's
+        // in none. The read
         // clocks — `nearEdgeMs`, `farEdgeMs`, `fieldPriceMs`, `fieldClearMs` — are each the paid side of one
         // read, inside `priceMs` or `clearMs`; `berthEdgeNone`/`wallEdgeNone` the near reads that found no edge.
         // Each accepted move has its own `APPROACH move` line before this one.
@@ -332,6 +362,7 @@ internal object RouteApproachPass {
                 "splitWindows=${tally.splitWindows} splitEvals=${tally.splitEvals} splits=${tally.splits} " +
                 "splitFloor=${tally.splitFloor} sWindows=${tally.sWindows} crossings=${tally.crossings} " +
                 "crossingSlides=${tally.crossingSlides} slidCrossings=${tally.slidCrossings} " +
+                "loneWindows=${tally.loneWindows} loneSlides=${tally.loneSlides} slidLones=${tally.slidLones} " +
                 "passMs=${passMs.joinToString("/") { fmt(it) }} passEvals=${passEvals.joinToString("/")} " +
                 "evals=${tally.evals} " +
                 "outside=${tally.outside} cutTravel=${tally.cutTravel} cutLeg=${tally.cutLeg} " +
@@ -497,8 +528,8 @@ internal object RouteApproachPass {
 
     /**
      * **What a window is offered** — its points, the seed and radius its slide would search, whether the slow gate
-     * opened it ([searched]), whether it is an S ([sWindow]) and whether its seed is a point a split just made, so it
-     * searches its slide alone ([splitHeld]).
+     * opened it ([searched]), whether it is an S ([sWindow]), whether its seed is a point a split just made, so it
+     * searches its slide alone ([splitHeld]), and whether it is a lone turn ([loneTurn]).
      */
     private data class Offer(
         val window: List<LatLng>,
@@ -506,11 +537,12 @@ internal object RouteApproachPass {
         val radiusM: Double,
         val searched: Boolean,
         val sWindow: Boolean,
-        val splitHeld: Boolean
+        val splitHeld: Boolean,
+        val loneTurn: Boolean
     )
 
     /** Which search placed a window's answer — the move's line and the tally read it. */
-    private enum class AnswerKind { SLIDE, SPLIT, CROSSING, SLID_CROSSING }
+    private enum class AnswerKind { SLIDE, SPLIT, CROSSING, SLID_CROSSING, SLID_LONE }
 
     /**
      * **A window's answer** — the point or points that would replace its inner points, in the line's order (one, or a
@@ -562,7 +594,8 @@ internal object RouteApproachPass {
          * two-span window the split of the slide's own answer (a split of the seed keeps part of legs the slide moved off
          * for their price, and the slid window may no longer touch slow water, so the next pass never offers it — the
          * 2026-10-27 "Balanced" run); in an S, its crossing, then that crossing slid along its own legs, whether it won or
-         * lost (P5b). An S the slow gate or the radius left unsearched starts from the window's own cost.
+         * lost (P5b); a lone turn, slid along its own legs (lone-turns P1). An S the slow gate or the radius left
+         * unsearched starts from the window's own cost, and so does a lone turn.
          */
         fun answerFor(offer: Offer, oldSec: Double): Answer? {
             val window = offer.window
@@ -583,8 +616,20 @@ internal object RouteApproachPass {
                     val sec = evaluate(listOf(a, crossing, e), best.sec, SLIDE_PROOFS)
                     // Only a winning crossing's cost is the same in both evaluation orders; a losing one seeds no leg.
                     val won = best.takes(sec, listOf(crossing), AnswerKind.CROSSING)
-                    best.takes(searchAlongLegs(a, crossing, e, if (won) sec else Double.POSITIVE_INFINITY, best.sec))
+                    best.takes(
+                        searchAlongLegs(
+                            a, crossing, e, if (won) sec else Double.POSITIVE_INFINITY, best.sec, AnswerKind.SLID_CROSSING
+                        )
+                    )
                 }
+            }
+            // A lone turn slides along its own legs from the window's own cost — the same number in both orders — and is
+            // kept only where it saves `route.approach.lone.minSavedSec`: a smaller saving is the grid's rounding.
+            // A turn whose skipping chord's travel alone cannot save the floor is not searched: every point on its legs
+            // costs at least that travel, the price never negative — the same bound in both orders.
+            val loneIncumbent = best.sec - AppConfig.routeApproachLoneMinSavedSec
+            if (offer.loneTurn && SpatialOperations.haversine(a, e) / ctx.paceMps < loneIncumbent) {
+                best.takes(searchAlongLegs(a, window[1], e, oldSec, loneIncumbent, AnswerKind.SLID_LONE))
             }
             return best.answer
         }
@@ -627,16 +672,18 @@ internal object RouteApproachPass {
         }
 
         /**
-         * **An S's crossing slid along its own legs, or `null` where no point on them beats [incumbent]** — P5b, its case
-         * in the class KDoc. Each leg is searched in one dimension — a point `backM` from [x] toward [a], then toward [e], the
-         * route `a → p → e` — by [patternSearch] with a leg's two directions, from half the leg down to the pass's step,
+         * **A point [x] slid along its own legs, or `null` where no point on them beats [incumbent]** — an S's crossing
+         * (P5b) or a lone turn (lone-turns P1), their cases in the class KDoc. Each leg is searched in one dimension — a
+         * point `backM` from [x] toward [a], then toward [e], the route `a → p → e` — by [patternSearch] with a leg's
+         * two directions, from half the leg down to the pass's step,
          * **with no scale cap**, so a leg of any length is read to the step. A point off its leg is refused before any read
          * and counted nowhere.
          *
          * **Each leg's search follows its own best, not the window's.** Its centre moves to every point cheaper than the best
          * found on that leg — seeded with [crossingSec], the crossing's own cost where it was priced in full (it won), `+∞`
-         * where it lost or was refused — so a leg whose middle loses to the window's best is still read past its middle,
-         * where the turn may belong (the device's turn stood 1.1 km along a 1.3 km leg). A point is kept only where it beats
+         * where it lost or was refused, a lone turn's own window cost — so a leg whose middle loses to the window's best is
+         * still read past its middle, where the turn may belong (the device's turn stood 1.1 km along a 1.3 km leg). A
+         * point is kept only where it beats
          * [incumbent] too, and every evaluation ([evaluate]) is priced against the leg's best, so a crossing that lost
          * pays more reads than one that won.
          */
@@ -645,7 +692,9 @@ internal object RouteApproachPass {
             x: LatLng,
             e: LatLng,
             crossingSec: Double,
-            incumbent: Double
+            incumbent: Double,
+            /** The kind a slid point is placed as — [AnswerKind.SLID_CROSSING] or [AnswerKind.SLID_LONE] — and its count. */
+            kind: AnswerKind
         ): Answer? {
             val best = Incumbent(incumbent)
             for (end in listOf(a, e)) {
@@ -659,9 +708,9 @@ internal object RouteApproachPass {
                 ) { backM ->
                     if (backM <= 0.0 || backM >= legM) return@patternSearch false
                     val p = along(x, end, backM / legM)
-                    tally.crossingSlides++
+                    if (kind == AnswerKind.SLID_LONE) tally.loneSlides++ else tally.crossingSlides++
                     val sec = evaluate(listOf(a, p, e), leg.sec, SLIDE_PROOFS)
-                    if (!leg.takes(sec, listOf(p), AnswerKind.SLID_CROSSING)) return@patternSearch false
+                    if (!leg.takes(sec, listOf(p), kind)) return@patternSearch false
                     best.takes(leg.answer)
                     true
                 }
@@ -790,7 +839,8 @@ internal object RouteApproachPass {
         var priceNs = 0L
 
         /**
-         * Nanoseconds in the slow-water test ([hasSlowWater]) — the line's legs, and a lone turn's skipping chord (P0) — each chord read once.
+         * Nanoseconds in the slow-water test ([hasSlowWater]) — the line's legs, and a lone turn's skipping chord — each
+         * chord read once.
          */
         var slowNs = 0L
 
@@ -811,8 +861,8 @@ internal object RouteApproachPass {
 
         /**
          * The lone turns left on the line the pass hands on — points whose two legs are clean, which turn at least
-         * [RouteCornerPass.MIN_TURN_DEG], and whose skipping chord holds slow water and is not refused for land. Instrument
-         * only: none is searched.
+         * [RouteCornerPass.MIN_TURN_DEG], and whose skipping chord holds slow water and is not refused for land — what the
+         * slide along the legs ([slidLones]) left: under the saving floor, a split's point, or made after the last pass.
          */
         var loneTurns = 0
 
@@ -830,6 +880,15 @@ internal object RouteApproachPass {
 
         /** The moves whose point the slide along a crossing's legs placed. */
         var slidCrossings = 0
+
+        /** The lone-turn windows offered their slide along their legs (lone-turns P1) — read from their own cost. */
+        var loneWindows = 0
+
+        /** The candidates the slide along a lone turn's legs evaluated — inside [candidates] and [evals]. */
+        var loneSlides = 0
+
+        /** The moves whose point the slide along a lone turn's legs placed. */
+        var slidLones = 0
 
         /** The merge windows skipped because an inner point is a land turn — never searched. */
         var landTurnWindows = 0

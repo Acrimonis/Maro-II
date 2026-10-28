@@ -768,6 +768,16 @@ object AppConfig {
         private set
 
     /**
+     * The least a lone turn's slide along its own legs must save (s) to be taken —
+     * `route.approach.lone.minSavedSec`, whose value `maro.properties` holds and this default follows, clamped
+     * 0.0..30.0. A smaller saving is the grid's rounding, and taking it sets the approach pass's next pass re-searching
+     * the neighbours it moved.
+     */
+    var routeApproachLoneMinSavedSec: Double = 1.0
+        // Internal so a fixture can pin it without reloading the properties.
+        internal set
+
+    /**
      * The speed zone's outside-margin price as a fraction of the interior's —
      * `route.avoid.speedZone.outsideMargin.costFraction`, default 0.66, clamped 0.0..1.0. A cell
      * outside the ring but within [routeAvoidSpeedZoneOutsideMarginM] prices at the interior excess
@@ -2633,6 +2643,9 @@ object AppConfig {
             }
             props.getProperty("route.turn.reachFraction")?.toDoubleOrNull()?.let {
                 routeTurnReachFraction = it.coerceIn(0.0, 1.0)
+            }
+            props.getProperty("route.approach.lone.minSavedSec")?.toDoubleOrNull()?.let {
+                routeApproachLoneMinSavedSec = it.coerceIn(0.0, 30.0)
             }
             props.getProperty("ui.value.text")?.let { parseColorOrNull(it) }?.let { uiValueText = it }
             props.getProperty("ui.text.scrim")?.let { parseColorOrNull(it) }?.let { uiTextScrim = it }
