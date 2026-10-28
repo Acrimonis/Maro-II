@@ -792,3 +792,7 @@ F4's chunk extent is published safely through `computeIfAbsent`.
     its own gate and names `--rerun`; `forEachInCell` refuses a cell outside the grid; the memory note. **Left,
     named:** the index's box seeds its max with `Double.MIN_VALUE` (wrong for non-positive coordinates) and
     `testOptions.isReturnDefaultValues` is declared twice in `app/build.gradle.kts` — both pre-existing.
+- **2026-10-28 — wave G's device reading (08:39, the same pair, P3 in the same build):** the rungs' `firstMs`
+  5.8 / 5.9 / 6.9 s (Around / Closest / Balanced) against 9.4 / 8.6 / 12.1 s at 23:08 the night before, the
+  approach pass 2.2 / 2.4 / 3.3 s against 4.3 / 3.1 / 6.6 s with more evaluations on "Balanced" (716 candidates
+  against 603); 64 of 64 tiles from the store, the phone's thermal state not controlled.

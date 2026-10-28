@@ -308,3 +308,11 @@ tested; direction symmetry holds, the pass running in canonical orientation.
     the slide and the pivot's split is lost (no fixture or device case shows one; trying both doubles `splitEvals`);
     "seed" names both the line's point in `refine` and the half cut in `searchSplit`. "Closest"'s line is expected to
     move (its tip turn is slid first) and wants a re-read; the cost reading (D2) is owed on the device.
+- **2026-10-28 — P3's device reading (08:39, Lérins → La Salis, 30 kn, `evolutive`): accepted.** "Balanced" splits
+  its bend at sea in the first pass (`kind=split replaced=[43.51450,7.09898:PRICE] at=[43.51077,7.07885
+  43.53230,7.13609] savedSec=17.756`) and turns by Sainte-Marguerite's east end and the zone's corner off Cap
+  d'Antibes, nothing in open water; its `LINE` 15 047.1 m / 1 656.8 s (−94 m, −7.4 s on 23:08), so the ladder
+  reads in order — "Closest" 1 650.7 s, "Balanced" 1 656.8 s, "Around" 1 658.4 s. "Closest" keeps its tip and
+  corner turns (14 992.6 m). D2: the rungs' `firstMs` 5.8 / 5.9 / 6.9 s against 9.4 / 8.6 / 12.1 s at 23:08 and
+  the approach pass 2.2 / 2.4 / 3.3 s against 4.3 / 3.1 / 6.6 s, wave G's coast read in the same build — the
+  split's cost is inside the budget (the store served 64 of 64 tiles; the phone's state is not controlled).
