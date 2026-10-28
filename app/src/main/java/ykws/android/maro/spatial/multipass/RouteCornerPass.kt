@@ -45,8 +45,11 @@ object RouteCornerPass {
     /** The clothoid's Fresnel argument runs at the heading's half-rate, so the pair is read at `τ/√2`. */
     private val SQRT2 = sqrt(2.0)
 
-    /** A corner worth rounding turns by at least this, in degrees. */
-    private const val MIN_TURN_DEG = 10.0
+    /**
+     * A corner worth rounding turns by at least this, in degrees — and `RouteApproachPass` reads an S only where both of
+     * its turns reach it, so the two passes agree on what a turn is.
+     */
+    internal const val MIN_TURN_DEG = 10.0
 
     /** Below this tangent length (m) the legs are too short to round at all. */
     private const val MIN_TANGENT_M = 2.0
@@ -169,7 +172,14 @@ object RouteCornerPass {
         world: MultipassWorld,
         gate: GateRule?,
         marginM: Double,
-        checkCancelled: () -> Unit = {}
+        checkCancelled: () -> Unit = {},
+        /**
+         * **The zone read the pass's wall tests make** — `zoneLimitKnAt`'s own answer, the strictest route
+         * limit at a point or `null` outside every zone. The default is the world's; the engine hands in its
+         * arm's [ZoneSet] over the world's whole list, the same answer with a box reject ahead of every ring
+         * walk, because this read is made at every 2 m sample of every bow of every bisection.
+         */
+        zoneLimitKnAt: (Double, Double) -> Double? = world::zoneLimitKnAt
     ): RoundedLine {
         if (line.size < 3) return RoundedLine(line, { null })
         // **The pass draws in the pair's canonical direction.** The pair merge, the shared-leg split and the
@@ -180,10 +190,10 @@ object RouteCornerPass {
         // own order. The clock that follows still runs along the real travel direction, over boundary
         // vertices it splits in the leg's canonical direction (`RouteEta`), so its points are symmetric too.
         if (!sortsFirst(line.first(), line.last())) {
-            val drawn = roundOriented(line.asReversed(), paceKn, world, gate, marginM, checkCancelled)
+            val drawn = roundOriented(line.asReversed(), paceKn, world, gate, marginM, checkCancelled, zoneLimitKnAt)
             return RoundedLine(drawn.points.reversed(), drawn.ceilingKnAt, drawn.verdicts.reversed())
         }
-        return roundOriented(line, paceKn, world, gate, marginM, checkCancelled)
+        return roundOriented(line, paceKn, world, gate, marginM, checkCancelled, zoneLimitKnAt)
     }
 
     /** [round]'s body over a line whose first point sorts before its last. */
@@ -193,7 +203,8 @@ object RouteCornerPass {
         world: MultipassWorld,
         gate: GateRule?,
         marginM: Double,
-        checkCancelled: () -> Unit
+        checkCancelled: () -> Unit,
+        zoneLimitKnAt: (Double, Double) -> Double?
     ): RoundedLine {
         val paceMps = Units.knotsToMps(paceKn)
         val aLat = AppConfig.routeTurnLateralAccelMps2
@@ -205,24 +216,27 @@ object RouteCornerPass {
         // crossing of its outer legs, so what follows rounds one corner over the pair's whole span — where
         // the crossing and the two extensions reaching it keep the walls at the pair's own floors.
         val corners = compoundLine(line, paceMps, aLat) { b, x, c ->
-            val zoneExcused = world.zoneLimitKnAt(b.latitude, b.longitude) != null ||
-                world.zoneLimitKnAt(c.latitude, c.longitude) != null
-            val walls = wallsAround(world, gate, marginM, ends, listOf(b, c), zoneExcused)
+            val zoneExcused = zoneLimitKnAt(b.latitude, b.longitude) != null ||
+                zoneLimitKnAt(c.latitude, c.longitude) != null
+            val walls = wallsAround(world, gate, marginM, ends, listOf(b, c), zoneExcused, zoneLimitKnAt)
             walls.pointBlocker(x) == null && walls.segmentBlocker(b, x) == null && walls.segmentBlocker(x, c) == null
         }
         if (corners.size < 3) return RoundedLine(corners, { null })
+        // **Each corner's turn, read once.** The shares, the significant legs and the drawing tail each ask
+        // the same vertex's turn again; the angle is pure in its three points, so one array serves them all.
+        val cornerTurnDeg = turnsOf(corners)
         // **A kink too flat to be a corner keeps its point but not the room.** The room a bend may use is
         // the straight to the nearest **significant** vertex on each side — a corner the pass will consider,
         // or the line's own end — so a 3° kink a few metres ahead no longer caps the bend beside it, while
         // the kink itself stays a drawn point of the line until a bow passes it.
-        val legInM = DoubleArray(corners.size) { i -> if (i == 0) 0.0 else significantLegM(corners, i, -1) }
+        val legInM = DoubleArray(corners.size) { i -> if (i == 0) 0.0 else significantLegM(corners, cornerTurnDeg, i, -1) }
         val legOutM = DoubleArray(corners.size) { i ->
-            if (i == corners.lastIndex) 0.0 else significantLegM(corners, i, 1)
+            if (i == corners.lastIndex) 0.0 else significantLegM(corners, cornerTurnDeg, i, 1)
         }
         // **The shared leg**: two bends the pass will curve on one leg take a share each of it, so the
         // pair meets as one continuous S rather than the first taking the whole leg and leaving the
         // second a micro-curve. A stub between long straights shares nothing.
-        val shareM = sharedLegReach(corners)
+        val shareM = sharedLegReach(corners, cornerTurnDeg)
 
         val out = ArrayList<LatLng>(corners.size + 16)
         val ceilings = HashMap<LatLng, Double>()
@@ -245,8 +259,8 @@ object RouteCornerPass {
             val emittedIn = SpatialOperations.haversine(tail, at)
             val attempt = attemptCorner(
                 prev, at, next, emittedIn, legInM[i], legOutM[i], shareM[i], paceMps, aLat, vFloorMps,
-                transitionSec, reachFraction, world, gate, marginM, ends, out
-            ) { tangentM -> passedAhead(corners, i, tangentM).takeIf { it > i + 1 }?.let { corners[it] } }
+                transitionSec, reachFraction, world, gate, marginM, ends, out, zoneLimitKnAt
+            ) { tangentM -> passedAhead(corners, cornerTurnDeg, i, tangentM).takeIf { it > i + 1 }?.let { corners[it] } }
             verdicts.add(attempt.verdict(i, at))
             val rounded = attempt.rounded
             if (rounded == null) {
@@ -271,7 +285,7 @@ object RouteCornerPass {
                 tail = out.last()
                 // The kinks the bow has passed ahead of its corner are not drawn after it, so the line never
                 // runs back along the bow's own overrun; the straight it then draws was measured with the bow.
-                passedThrough = passedAhead(corners, i, rounded.tangentM) - 1
+                passedThrough = passedAhead(corners, cornerTurnDeg, i, rounded.tangentM) - 1
             }
         }
         if (out.last() != corners.last()) out.add(corners.last())
@@ -302,11 +316,12 @@ object RouteCornerPass {
     ): List<LatLng> {
         if (line.size < 4) return line
         val paceRadiusM = paceMps * paceMps / aLat
+        val turnDeg = turnsOf(line)
         val out = ArrayList<LatLng>(line.size)
         out.add(line.first())
         var i = 1
         while (i < line.lastIndex) {
-            val turn = turnDegreesAt(line[i - 1], line[i], line[i + 1])
+            val turn = turnDeg[i]
             if (abs(turn) < MIN_TURN_DEG) {
                 // A kink too flat to be a corner stays a point of the line: the room a bend may use is
                 // measured past it, never by dropping it.
@@ -314,8 +329,8 @@ object RouteCornerPass {
                 i++
                 continue
             }
-            val j = nextBendIndex(line, i)
-            val crossing = (if (j > i) mergeCrossing(line, i, j, turn, paceRadiusM) else null)
+            val j = nextBendIndex(turnDeg, i)
+            val crossing = (if (j > i) mergeCrossing(line, turnDeg, i, j, turn, paceRadiusM) else null)
                 ?.takeIf { keepsWalls(line[i], it, line[j]) }
             if (crossing == null) {
                 out.add(line[i])
@@ -329,12 +344,30 @@ object RouteCornerPass {
         return out
     }
 
+    /**
+     * **Whether two same-way bends [spanM] apart read as one turn** — closer than the tangent a pace-speed curve
+     * of radius [paceRadiusM] needs for their [summedDeg]: such a pair cannot host two curves, so [compoundLine]
+     * draws it over the crossing of its outer legs. `RouteApproachPass` reads the same test to refuse a split
+     * this pass would draw back as the one corner it splits.
+     */
+    internal fun pairIsOneTurn(spanM: Double, summedDeg: Double, paceRadiusM: Double): Boolean =
+        spanM < paceRadiusM * tan(Math.toRadians(summedDeg) / 2.0)
+
     /** The next bend after [i] that the pass will curve, or `-1` where the line holds none. */
-    private fun nextBendIndex(line: List<LatLng>, i: Int): Int {
-        for (k in i + 1 until line.lastIndex) {
-            if (abs(turnDegreesAt(line[k - 1], line[k], line[k + 1])) >= MIN_TURN_DEG) return k
+    private fun nextBendIndex(turnDeg: DoubleArray, i: Int): Int {
+        for (k in i + 1 until turnDeg.lastIndex) {
+            if (abs(turnDeg[k]) >= MIN_TURN_DEG) return k
         }
         return -1
+    }
+
+    /**
+     * **Every vertex's signed turn, read once** — [turnDegreesAt] at each interior vertex, `0.0` at the two
+     * ends, which turn nothing. The angle is pure in its three points, so one array answers every reader
+     * that asked for the same vertex again.
+     */
+    private fun turnsOf(line: List<LatLng>): DoubleArray = DoubleArray(line.size) { i ->
+        if (i == 0 || i == line.lastIndex) 0.0 else turnDegreesAt(line[i - 1], line[i], line[i + 1])
     }
 
     /**
@@ -344,23 +377,40 @@ object RouteCornerPass {
      */
     private fun mergeCrossing(
         line: List<LatLng>,
+        turnDeg: DoubleArray,
         i: Int,
         j: Int,
         turnAtI: Double,
         paceRadiusM: Double
     ): LatLng? {
-        val turnAtJ = turnDegreesAt(line[j - 1], line[j], line[j + 1])
+        val turnAtJ = turnDeg[j]
         if (abs(turnAtJ) < MIN_TURN_DEG || turnAtI * turnAtJ < 0.0) return null
         var spanM = 0.0
         for (k in i + 1..j) spanM += SpatialOperations.haversine(line[k - 1], line[k])
-        val summedDeg = abs(turnAtI) + abs(turnAtJ)
-        if (spanM >= paceRadiusM * tan(Math.toRadians(summedDeg) / 2.0)) return null
+        if (!pairIsOneTurn(spanM, abs(turnAtI) + abs(turnAtJ), paceRadiusM)) return null
+        val crossing = crossingOf(line[i - 1], line[i], line[j], line[j + 1]) ?: return null
+        if (abs(crossing.s) > 1.0 || abs(crossing.t) > 1.0) return null
+        return crossing.at
+    }
 
-        val frame = Frame(line[i])
-        val a = frame.xy(line[i - 1])
-        val b = frame.xy(line[i])
-        val c = frame.xy(line[j])
-        val d = frame.xy(line[j + 1])
+    /**
+     * **Where the line through [a] and [b] crosses the line through [c] and [d]**, or `null` where the two are
+     * parallel — a pair's outer legs, each extended without bound. A crossing of near-parallel legs stands far off;
+     * refusing it is the caller's: [mergeCrossing] keeps its own bounds on top of it, and `RouteApproachPass`, which
+     * offers it to an S, refuses one outside the corridor before any read.
+     */
+    internal fun linesCrossing(a: LatLng, b: LatLng, c: LatLng, d: LatLng): LatLng? = crossingOf(a, b, c, d)?.at
+
+    /** A crossing and where it stands along each leg: `at = b + s·(b − a) = c + t·(d − c)` in [b]'s local frame. */
+    private class Crossing(val at: LatLng, val s: Double, val t: Double)
+
+    /** The crossing of the lines `a–b` and `c–d`, read in [bPoint]'s local frame, or `null` where they are parallel. */
+    private fun crossingOf(aPoint: LatLng, bPoint: LatLng, cPoint: LatLng, dPoint: LatLng): Crossing? {
+        val frame = Frame(bPoint)
+        val a = frame.xy(aPoint)
+        val b = frame.xy(bPoint)
+        val c = frame.xy(cPoint)
+        val d = frame.xy(dPoint)
         val d1x = b.x - a.x
         val d1y = b.y - a.y
         val d2x = d.x - c.x
@@ -371,8 +421,7 @@ object RouteCornerPass {
         val ey = c.y - b.y
         val s = (ex * d2y - ey * d2x) / denom
         val t = (ex * d1y - ey * d1x) / denom
-        if (abs(s) > 1.0 || abs(t) > 1.0) return null
-        return frame.toLatLng(b.x + s * d1x, b.y + s * d1y)
+        return Crossing(frame.toLatLng(b.x + s * d1x, b.y + s * d1y), s, t)
     }
 
     /**
@@ -388,14 +437,14 @@ object RouteCornerPass {
      *
      * `null` where a bend has no bend to its right, so the share never binds there.
      */
-    private fun sharedLegReach(line: List<LatLng>): Array<Double?> {
+    private fun sharedLegReach(line: List<LatLng>, turns: DoubleArray): Array<Double?> {
         val share: Array<Double?> = arrayOfNulls(line.size)
         var prevBend = -1
         var prevWeight = 0.0
         var legM = 0.0
         for (i in 1 until line.lastIndex) {
             legM += SpatialOperations.haversine(line[i - 1], line[i])
-            val turnDeg = abs(turnDegreesAt(line[i - 1], line[i], line[i + 1]))
+            val turnDeg = abs(turns[i])
             if (turnDeg < MIN_TURN_DEG) continue
             val weight = min(tan(Math.toRadians(turnDeg) / 2.0), SHARE_WEIGHT_CAP)
             if (prevBend >= 0 && prevWeight + weight > 0.0) {
@@ -414,7 +463,7 @@ object RouteCornerPass {
      * as one. A kink too flat to be a corner therefore does not end the straight, which is the whole point:
      * the bend beside it takes its room from the real corner beyond, or from the end of the leg.
      */
-    private fun significantLegM(line: List<LatLng>, i: Int, step: Int): Double {
+    private fun significantLegM(line: List<LatLng>, turns: DoubleArray, i: Int, step: Int): Double {
         var total = 0.0
         var k = i
         while (true) {
@@ -423,17 +472,17 @@ object RouteCornerPass {
             total += SpatialOperations.haversine(line[k], line[next])
             k = next
             if (k == 0 || k == line.lastIndex) return total
-            if (abs(turnDegreesAt(line[k - 1], line[k], line[k + 1])) >= MIN_TURN_DEG) return total
+            if (abs(turns[k]) >= MIN_TURN_DEG) return total
         }
     }
 
     /**
      * The turn at [at] between its two legs, in degrees and **signed** by the side it turns to — positive
      * left, negative right — read in the same local frame the fit uses. The attempt reads its own vectors
-     * while it fits; this is the pass's read of the angle alone, taken where only the value is wanted: the
-     * shares two bends take from one leg, and whether a pair turns the one way.
+     * while it fits; this is the pass's read of the angle alone, taken where only the value is wanted, and the
+     * one read of a turn `RouteApproachPass` makes too, so both passes read a turn one way.
      */
-    private fun turnDegreesAt(prev: LatLng, at: LatLng, next: LatLng): Double {
+    internal fun turnDegreesAt(prev: LatLng, at: LatLng, next: LatLng): Double {
         val frame = Frame(at)
         val uIn = frame.direction(prev, at) ?: return 0.0
         val uOut = frame.direction(at, next) ?: return 0.0
@@ -498,6 +547,7 @@ object RouteCornerPass {
         marginM: Double,
         ends: LineEnds,
         drawn: List<LatLng>,
+        zoneLimitKnAt: (Double, Double) -> Double?,
         trailAt: (tangentM: Double) -> LatLng?
     ): Attempt {
         // The legs are the caller's **significant** ones — the straight to the nearest vertex the pass will
@@ -525,7 +575,7 @@ object RouteCornerPass {
         // Whether the vertex itself stands in a speed zone, read before any refusal so every verdict —
         // the shallow, degenerate and reversal exits here, the no-room and bow-wall exits below —
         // reports where the bend stood rather than a default `false`.
-        val cornerInZone = world.zoneLimitKnAt(at.latitude, at.longitude) != null
+        val cornerInZone = zoneLimitKnAt(at.latitude, at.longitude) != null
         val frame = Frame(at)
         val uIn = frame.direction(prev, at) ?: return refused(CornerOutcome.DEGENERATE, 0.0, cornerInZone)
         val uOut = frame.direction(at, next) ?: return refused(CornerOutcome.DEGENERATE, 0.0, cornerInZone)
@@ -552,18 +602,25 @@ object RouteCornerPass {
             return r to l
         }
 
+        // **The bow's end state alone, where only its reach is asked.** The fit bisections read the tangent
+        // and discard the points, so the composite's end state is run without its point loops — the same
+        // arithmetic, the points never fed it — and a full composite is built once where a bow is tested
+        // against the walls or drawn.
         fun tangentOf(v: Double): Double {
             val (r, l) = rAndL(v)
-            return composite(r, l, signedDelta).tangent
+            return composite(r, l, signedDelta, withPoints = false).tangent
         }
 
-        fun build(v: Double): List<LatLng> {
+        fun compositeOf(v: Double): Composite {
             val (r, l) = rAndL(v)
-            val c = composite(r, l, signedDelta)
-            val pts = ArrayList<LatLng>(c.points.size)
-            for (p in c.points) {
-                val x = p.first
-                val y = p.second
+            return composite(r, l, signedDelta, withPoints = true)
+        }
+
+        fun build(c: Composite): List<LatLng> {
+            val pts = ArrayList<LatLng>(c.xs.size)
+            for (k in c.xs.indices) {
+                val x = c.xs[k]
+                val y = c.ys[k]
                 val ux = uIn.x * x - uIn.y * y
                 val uy = uIn.y * x + uIn.x * y
                 pts.add(frame.toLatLng(-uIn.x * c.tangent + ux, -uIn.y * c.tangent + uy))
@@ -572,21 +629,22 @@ object RouteCornerPass {
         }
 
         // The walls a bow may not cross, read **relative to the corner it replaces** ([Walls]).
-        val walls = wallsAround(world, gate, marginM, ends, listOf(at), cornerInZone)
+        val walls = wallsAround(world, gate, marginM, ends, listOf(at), cornerInZone, zoneLimitKnAt)
         // A joining chord is read relative to its corner **and** its fixed end — a point the line already
         // stands on — so it is never refused for water the drawn line reaches anyway.
         val chordWalls = HashMap<LatLng, Walls>()
         fun wallsTo(fixed: LatLng): Walls = chordWalls.getOrPut(fixed) {
-            val zoneExcused = cornerInZone || world.zoneLimitKnAt(fixed.latitude, fixed.longitude) != null
-            wallsAround(world, gate, marginM, ends, listOf(at, fixed), zoneExcused)
+            val zoneExcused = cornerInZone || zoneLimitKnAt(fixed.latitude, fixed.longitude) != null
+            wallsAround(world, gate, marginM, ends, listOf(at, fixed), zoneExcused, zoneLimitKnAt)
         }
         // Which wall the bow drawn at [v] meets first, if any: each point, the straight between each two —
         // the gate measured over it — and the two chords joining it to the line where they follow no leg
         // the line was given: from the last point the drawing tail keeps to the bow's first, and from the
         // bow's last to the first point it has not passed.
         fun firstBlocker(v: Double): CornerOutcome? {
-            val pts = build(v)
-            val tangentM = tangentOf(v)
+            val c = compositeOf(v)
+            val pts = build(c)
+            val tangentM = c.tangent
             val lead = leadPoint(drawn, at, tangentM) ?: drawn.last()
             if (SpatialOperations.pointToSegmentDistance(lead, prev, at) > ON_LEG_M) {
                 wallsTo(lead).segmentBlocker(lead, pts.first())?.let { return it }
@@ -647,11 +705,11 @@ object RouteCornerPass {
         }
         // The bow's own tangent — how far it reaches either side of the corner — travels out with it, since
         // the drawing tail uses it to take back the points the bow has passed.
-        val (rDrawn, lDrawn) = rAndL(v)
+        val drawnBow = compositeOf(v)
         return Attempt(
             CornerOutcome.ROUNDED, turnDeg, legIn, legOut, reachAsk, emittedIn, sharedM, room,
             cornerInZone, Units.mpsToKnots(v),
-            RoundedCorner(build(v), v, composite(rDrawn, lDrawn, signedDelta).tangent)
+            RoundedCorner(build(drawnBow), v, drawnBow.tangent)
         )
     }
 
@@ -659,10 +717,10 @@ object RouteCornerPass {
      * **The first index past the corner at [i] that a bow reaching [tangentM] has not passed** — the line's
      * end, a vertex the pass will consider, or the first kink at least [tangentM] from the corner.
      */
-    private fun passedAhead(corners: List<LatLng>, i: Int, tangentM: Double): Int {
+    private fun passedAhead(corners: List<LatLng>, turns: DoubleArray, i: Int, tangentM: Double): Int {
         var k = i + 1
         while (k < corners.lastIndex &&
-            abs(turnDegreesAt(corners[k - 1], corners[k], corners[k + 1])) < MIN_TURN_DEG &&
+            abs(turns[k]) < MIN_TURN_DEG &&
             SpatialOperations.haversine(corners[k], corners[i]) < tangentM - 1e-6
         ) {
             k++
@@ -690,11 +748,12 @@ object RouteCornerPass {
         marginM: Double,
         ends: LineEnds,
         around: List<LatLng>,
-        zoneExcused: Boolean
+        zoneExcused: Boolean,
+        zoneLimitKnAt: (Double, Double) -> Double?
     ): Walls {
         val coastFloorM = min(marginM, around.minOf { world.distanceToCoastM(it.latitude, it.longitude) })
         val gateFloorM = gate?.let { g -> min(g.preferredM, around.minOf { g.edgeM(it, g.preferredM) }) } ?: 0.0
-        return Walls(world, gate, ends, coastFloorM, gateFloorM, zoneExcused)
+        return Walls(world, gate, ends, coastFloorM, gateFloorM, zoneExcused, zoneLimitKnAt)
     }
 
     /**
@@ -713,7 +772,8 @@ object RouteCornerPass {
         private val ends: LineEnds,
         private val coastFloorM: Double,
         private val gateFloorM: Double,
-        private val zoneExcused: Boolean
+        private val zoneExcused: Boolean,
+        private val zoneLimitKnAt: (Double, Double) -> Double?
     ) {
         /** The floor at [p]; the waiver is read only where the corner itself stands under the wall. */
         private fun gateFloorAt(g: GateRule, p: LatLng): Double =
@@ -723,7 +783,7 @@ object RouteCornerPass {
             CornerOutcome.BOW_COAST.takeIf { world.distanceToCoastM(p.latitude, p.longitude) < coastFloorM - 1e-6 }
 
         private fun zoneBlocker(p: LatLng): CornerOutcome? =
-            CornerOutcome.BOW_ZONE.takeIf { !zoneExcused && world.zoneLimitKnAt(p.latitude, p.longitude) != null }
+            CornerOutcome.BOW_ZONE.takeIf { !zoneExcused && zoneLimitKnAt(p.latitude, p.longitude) != null }
 
         private fun gateBlocker(p: LatLng): CornerOutcome? = gate?.let { g ->
             CornerOutcome.BOW_DEPTH.takeIf { g.isShallow(p) || g.edgeM(p, g.preferredM) < gateFloorAt(g, p) - 1e-6 }
@@ -758,16 +818,25 @@ object RouteCornerPass {
     /**
      * The single-bend curve in a canonical frame: start (0,0) heading 0, end heading [signedDelta]. The
      * curve is the mirror of itself about the corner's bisector — entry spiral, arc, the entry spiral run
-     * backwards — so [tangent], read off its end point, is the reach on **both** legs.
+     * backwards — so [tangent], read off its end point, is the reach on **both** legs. The points ride two
+     * primitive arrays (empty where only the end state was asked for), never a boxed pair each.
      */
-    private data class Composite(val points: List<Pair<Double, Double>>, val tangent: Double)
+    private class Composite(val xs: DoubleArray, val ys: DoubleArray, val tangent: Double)
 
-    private fun composite(r: Double, l: Double, signedDelta: Double): Composite {
+    /**
+     * [Composite] at radius [r], spiral length [l] and turn [signedDelta]. With [withPoints] off the three
+     * point loops are skipped and only the end state — `x`, `y`, `h` — is advanced: the loops feed nothing
+     * back into it, so the [Composite.tangent] is the same double either way, and the fit's bisections, which
+     * read the tangent alone, pay no point.
+     */
+    private fun composite(r: Double, l: Double, signedDelta: Double, withPoints: Boolean): Composite {
         // The clothoid's own argument: the heading runs at `h = τ²/2`, so the position integrates
         // `∫cos(σ²/2)dσ` and `∫sin(σ²/2)dσ` — the Fresnel pair at `τ/√2`, scaled by `√2`. Evaluating
         // them at `τ` outright bows the spiral twice as sharply as its own heading, and the too-deep bow
         // is what made the fit reject corners a true clothoid fits.
-        val pts = ArrayList<Pair<Double, Double>>(96)
+        val xs = DoubleArray(if (withPoints) 48 else 0)
+        val ys = DoubleArray(if (withPoints) 48 else 0)
+        var n = 0
         var x = 0.0
         var y = 0.0
         var h = 0.0
@@ -779,14 +848,16 @@ object RouteCornerPass {
             val a = sqrt(r * l)
             val h0 = h
             val sgn = if (kEnd > 0.0) 1.0 else -1.0
-            for (k in 1..steps) {
-                val s = l * k / steps
-                val tau = s / a
-                val lx = a * SQRT2 * fresnelC(tau / SQRT2)
-                val ly = sgn * a * SQRT2 * fresnelS(tau / SQRT2)
-                val gx = x + lx * cos(h0) - ly * sin(h0)
-                val gy = y + lx * sin(h0) + ly * cos(h0)
-                pts.add(gx to gy)
+            if (withPoints) {
+                for (k in 1..steps) {
+                    val s = l * k / steps
+                    val tau = s / a
+                    val lx = a * SQRT2 * fresnelC(tau / SQRT2)
+                    val ly = sgn * a * SQRT2 * fresnelS(tau / SQRT2)
+                    xs[n] = x + lx * cos(h0) - ly * sin(h0)
+                    ys[n] = y + lx * sin(h0) + ly * cos(h0)
+                    n++
+                }
             }
             val tauEnd = l / a
             val lxEnd = a * SQRT2 * fresnelC(tauEnd / SQRT2)
@@ -802,10 +873,14 @@ object RouteCornerPass {
             val cx = x - sin(h) * radius * sgn
             val cy = y + cos(h) * radius * sgn
             val theta0 = atan2(y - cy, x - cx)
-            for (k in 1..steps) {
-                val frac = k.toDouble() / steps
-                val theta = theta0 + sweep * frac
-                pts.add((cx + radius * cos(theta)) to (cy + radius * sin(theta)))
+            if (withPoints) {
+                for (k in 1..steps) {
+                    val frac = k.toDouble() / steps
+                    val theta = theta0 + sweep * frac
+                    xs[n] = cx + radius * cos(theta)
+                    ys[n] = cy + radius * sin(theta)
+                    n++
+                }
             }
             x = cx + radius * cos(theta0 + sweep)
             y = cy + radius * sin(theta0 + sweep)
@@ -832,12 +907,16 @@ object RouteCornerPass {
             val lyEnd = -sgn * a * SQRT2 * fresnelS(tauEnd / SQRT2)
             val q1x = x + lxEnd * cosEnd - lyEnd * sinEnd
             val q1y = y + lxEnd * sinEnd + lyEnd * cosEnd
-            for (k in 1..steps) {
-                val s = l * k / steps
-                val tau = (l - s) / a
-                val lx = a * SQRT2 * fresnelC(tau / SQRT2)
-                val ly = -sgn * a * SQRT2 * fresnelS(tau / SQRT2)
-                pts.add((q1x - (lx * cosEnd - ly * sinEnd)) to (q1y - (lx * sinEnd + ly * cosEnd)))
+            if (withPoints) {
+                for (k in 1..steps) {
+                    val s = l * k / steps
+                    val tau = (l - s) / a
+                    val lx = a * SQRT2 * fresnelC(tau / SQRT2)
+                    val ly = -sgn * a * SQRT2 * fresnelS(tau / SQRT2)
+                    xs[n] = q1x - (lx * cosEnd - ly * sinEnd)
+                    ys[n] = q1y - (lx * sinEnd + ly * cosEnd)
+                    n++
+                }
             }
             x = q1x
             y = q1y
@@ -849,7 +928,8 @@ object RouteCornerPass {
         appendExitSpiral(sign / r, 16)
 
         val tangent = x - y * cos(signedDelta) / sin(signedDelta)
-        return Composite(pts, tangent)
+        // Without an arc the bow holds 32 points of 48: the arrays are cut to what was drawn.
+        return if (n == xs.size) Composite(xs, ys, tangent) else Composite(xs.copyOf(n), ys.copyOf(n), tangent)
     }
 
     /** Fresnel cosine integral C(t), by its power series. */

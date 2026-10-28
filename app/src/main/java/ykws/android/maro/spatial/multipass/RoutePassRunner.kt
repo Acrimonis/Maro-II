@@ -68,10 +68,13 @@ internal class RoutePassRunner {
         // The guard reads the water the snap guards: for a two-layer walk that is the fine band's own cell,
         // not the interior's, so the tail's prices sit at the resolution the line was resolved at (Phase 6).
         val tailCellM = if ((walk.windows?.layerCount ?: 1) > 1) ctx.fineCellM else cellM
-        // The **clearance** step is the walk's own local cell — `tailCellM` above: the fine band's cell
-        // where the walk is two-layer, the single grid's own cell elsewhere — so it travels per engine
-        // while the pull stays one walk. A step under the fine one would spare nothing at all, and the
-        // caller never hands one: both shipped cells stand well above it.
+        // The clearance **proof** step is the walk's own local cell — `tailCellM` above: the fine band's
+        // cell where the walk is two-layer, the single grid's own cell elsewhere. It governs which fine
+        // marks may skip their hard read, never the verdict (`legClearCause`). **With the shipped 20 m band
+        // cell it spares nothing**: the sampling step is `clearanceStep(marginM)` = 25 m, the proof is floored
+        // to it, and every coarse mark then pays a read of its own; the uniform plan's 100 m does spare them.
+        // The step moves only on a device reading of `hardReads` (the remediation plan's B1), since its
+        // gain is the line's own geometry: open water pays fewer reads, water near the coast pays more.
         val coarseStepM = tailCellM
         // The **price** step is the walk's own cell — never the local band cell above, whose 20 m
         // collapsed the price grouping to one interval a group and made the shared price walk save
@@ -88,13 +91,11 @@ internal class RoutePassRunner {
         val berth = berthLawOf(ctx.plan, ctx.depthGateActive)
         // The water this pass walks, built once here — immediately after the field the walk is handed,
         // and never cached: the corridor-growth paths hand a grown context to a fresh call.
-        val setup = PullSetup(
-            marginM, coarseStepM, priceStepM, guardField, start, aim,
-            gate = gate,
-            berth = berth,
-            berthLambda = lambda,
-            paceMps = Units.knotsToMps(pace)
-        )
+        val setup = pullSetupFor(ctx, guardField, lambda, coarseStepM, start, aim)
+        // **One memo for the pass**: the first pull's marks answer the snap's legs and the final pull's
+        // chords, the same doubles under the same field, so the later walks pay only the marks the first
+        // never read. Made here and never stored — the memo lives exactly as long as this pass.
+        val memo = MarkMemo()
         if (publishStage) publish(RouteStage.SEARCH, null, emptyList(), null)
         // The search reads the family's **lattice** coordinates; the seeds arrive as cells of the interior
         // grid's own local space, so they are translated onto the walk first — a no-op for the single grid,
@@ -105,13 +106,7 @@ internal class RoutePassRunner {
             windows.endCellAt(aim, windows.latticeCell(grid, aimCell.row, aimCell.col)),
             start, aim,
             Units.knotsToMps(pace),
-            zonePriceSec = { cellSizeM, interiorKn, collarKn, bandCollarKn ->
-                slowWaterPriceAt(
-                    cellSizeM, pace, lambda, interiorKn, collarKn, bandCollarKn,
-                    AppConfig.routeAvoidSpeedZoneOutsideMarginCostFraction,
-                    AppConfig.routeAvoidZone300OutsideMarginCostFraction
-                )
-            },
+            zonePriceSec = zonePriceFor(pace, lambda),
             // The berth's own cursor: the grid stores its distance, so the rung's λ is applied here — the
             // same λ the guard field prices the pull's points at.
             berthK = lambda,
@@ -154,13 +149,13 @@ internal class RoutePassRunner {
         // one line from one cell chain (`261020_FEAT_PLN_Route_direction-symmetry.md`).
         val pullSplit = PullSplit()
         val pulled = MultipassPull.pullBothWays(
-            setup, full, refusals, pullTiming, split = pullSplit, checkCancelled = checkCancelled
+            setup, full, refusals, pullTiming, memo = memo, split = pullSplit, checkCancelled = checkCancelled
         )
         trace { splitText("PULL2", pullSplit) }
         trace {
             "PULL zoneM=${fmt(zoneMetres(zones, pulled))} ms=${fmt(msSince(pullStartNs))} " +
                 "clearMs=${fmt(pullTiming.clearanceMs)} priceMs=${fmt(pullTiming.priceMs)} " +
-                "priceReads=${pullTiming.priceReads} marks=${pullTiming.marks} " +
+                "priceReads=${pullTiming.priceReads} hardReads=${pullTiming.hardReads} marks=${pullTiming.marks} " +
                 "memoPriceHits=${pullTiming.memoPriceHits} memoHardHits=${pullTiming.memoHardHits} " +
                 "memoEdgeHits=${pullTiming.memoEdgeHits} farEdgeReads=${pullTiming.farEdgeReads} " +
                 "stepM=${fmt(pullTiming.stepM)} priceStepM=${fmt(pullTiming.priceStepM)}"
@@ -186,19 +181,21 @@ internal class RoutePassRunner {
         // The snap is a forward greedy — a bend's clearance reads its already-snapped predecessor and its
         // not-yet-snapped successor — so it is run in the pair's canonical direction and turned back, and a
         // pair armed from either end snaps one line (`261020_FEAT_PLN_Route_direction-symmetry.md`).
-        val snapped = inCanonicalDirection(pulled, setup) { line, water -> snapToCorners(water, sets, line) }
+        val snapped = inCanonicalDirection(pulled, setup) { line, water -> snapToCorners(water, sets, line, memo) }
         trace { "SNAP zoneM=${fmt(zoneMetres(zones, snapped))} ms=${fmt(msSince(snapStartNs))}" }
         val finalTiming = PullTiming()
         val finalStartNs = System.nanoTime()
         val finalSplit = PullSplit()
         val final = MultipassPull.pullBothWays(
-            setup, snapped, refusals, finalTiming, split = finalSplit, checkCancelled = checkCancelled
+            setup, snapped, refusals, finalTiming, memo = memo, split = finalSplit, checkCancelled = checkCancelled
         )
         trace { splitText("FINAL2", finalSplit) }
+        // The memo's hit counts on this line are the pass's, cumulative over the first pull — the memo is
+        // one per pass — so `memoPriceHits` here includes what the first pull already answered.
         trace {
             "FINAL zoneM=${fmt(zoneMetres(zones, final))} ms=${fmt(msSince(finalStartNs))} " +
                 "clearMs=${fmt(finalTiming.clearanceMs)} priceMs=${fmt(finalTiming.priceMs)} " +
-                "priceReads=${finalTiming.priceReads} marks=${finalTiming.marks} " +
+                "priceReads=${finalTiming.priceReads} hardReads=${finalTiming.hardReads} marks=${finalTiming.marks} " +
                 "memoPriceHits=${finalTiming.memoPriceHits} memoHardHits=${finalTiming.memoHardHits} " +
                 "memoEdgeHits=${finalTiming.memoEdgeHits} farEdgeReads=${finalTiming.farEdgeReads} " +
                 "stepM=${fmt(finalTiming.stepM)} priceStepM=${fmt(finalTiming.priceStepM)}"
@@ -266,6 +263,7 @@ internal class RoutePassRunner {
             val t = walk.tally
             return "${side}Ms=${fmt(walk.ms)} ${side}ClearMs=${fmt(t.clearanceNanos / NANOS_PER_MS)} " +
                 "${side}PriceMs=${fmt(t.priceNanos / NANOS_PER_MS)} ${side}PriceReads=${t.priceReads} " +
+                "${side}HardReads=${t.hardReads} " +
                 "${side}Marks=${t.marks} ${side}PriceHits=${t.priceHits} ${side}HardHits=${t.hardHits} " +
                 "${side}EdgeHits=${t.edgeHits} "
         }

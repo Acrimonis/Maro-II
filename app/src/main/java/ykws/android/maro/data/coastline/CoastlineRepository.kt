@@ -57,6 +57,16 @@ class CoastlineRepository(
         private set
 
     /**
+     * **The loaded coast's content stamp** — [coastlineContentStamp] over the data behind [spatialIndex],
+     * published with it and `0` while none is loaded. It is a value of the points themselves, so the
+     * bundled asset and the re-encoded cache copy of the same data answer one number across launches, which
+     * is what lets the route engine's on-disk fine-tile store find its entries again; a regenerated coast
+     * moves it. Never an identity hash: that would differ every process and make the store write-only.
+     */
+    var coastlineStamp: Long = 0L
+        private set
+
+    /**
      * Progress state (phase name + 0–100) exposed for UI feedback.
      */
     private val _progress = MutableStateFlow(GenerationProgress("", 0))
@@ -153,8 +163,11 @@ class CoastlineRepository(
             (cached == null || bundled.metadata.fetchTimestampMs > cached.metadata.fetchTimestampMs)
         val preloaded = if (preferBundled) bundled else cached
         if (preloaded != null) {
-            val index = withContext(Dispatchers.Default) { CoastlineSpatialIndex(preloaded.allSegments) }
+            val (index, stamp) = withContext(Dispatchers.Default) {
+                CoastlineSpatialIndex(preloaded.allSegments) to coastlineContentStamp(preloaded)
+            }
             coastlineData = preloaded
+            coastlineStamp = stamp
             spatialIndex = index
             index.logGapStats()
             if (preferBundled) withContext(ioDispatcher) { writeToCache(regionId, preloaded) }
@@ -174,8 +187,11 @@ class CoastlineRepository(
                     _progress.value = GenerationProgress(phase, pct)
                 }
             }
-            val index = withContext(Dispatchers.Default) { CoastlineSpatialIndex(result.allSegments) }
+            val (index, stamp) = withContext(Dispatchers.Default) {
+                CoastlineSpatialIndex(result.allSegments) to coastlineContentStamp(result)
+            }
             coastlineData = result
+            coastlineStamp = stamp
             spatialIndex = index
             // Progressive: cache + show the map immediately (no band yet)...
             withContext(ioDispatcher) { writeToCache(regionId, result) }
@@ -437,4 +453,32 @@ class CoastlineRepository(
      * Returns true if the repository has loaded coastline data.
      */
     fun isLoaded(): Boolean = _state.value is CoastlineState.Ready
+}
+
+/**
+ * **A content stamp over a coast's own points** — a 64-bit FNV-1a fold of every segment's point
+ * coordinates, in order, with the point count folded in. It reads the coordinates alone: the 300 m band,
+ * the metadata and the file encoding are not part of it, so the bundled asset and the cache copy written
+ * from the same data (re-encoded, the band added) answer one number, and only a coast with other points
+ * answers another. One pass over the points, paid once per load beside the index build.
+ */
+internal fun coastlineContentStamp(data: CoastlineData): Long {
+    var hash = -0x340d631b7bdddcdbL // the 64-bit FNV-1a offset basis
+    fun fold(bits: Int) {
+        var v = bits
+        repeat(4) {
+            hash = (hash xor (v and 0xFF).toLong()) * 0x100000001b3L
+            v = v ushr 8
+        }
+    }
+    var count = 0
+    for (segment in data.allSegments) {
+        for (point in segment.points) {
+            fold(point.lat.toRawBits())
+            fold(point.lon.toRawBits())
+            count++
+        }
+    }
+    fold(count)
+    return hash
 }

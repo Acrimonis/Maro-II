@@ -118,10 +118,7 @@ fun speedZoneCollarLimitKnAt(
         if (zone.id in excludedIds) continue
         val outer = zone.outerRing
         if (outer.size < 2) continue
-        var nearest = Double.MAX_VALUE
-        for (i in 0 until outer.size - 1) {
-            nearest = min(nearest, SpatialOperations.pointToSegmentDistance(p, outer[i], outer[i + 1]))
-        }
+        val nearest = ringDistanceM(outer, p)
         if (nearest <= marginM && (strictest == null || zone.routeLimitKn < strictest)) {
             strictest = zone.routeLimitKn
         }
@@ -166,13 +163,23 @@ fun speedZonePriceClearanceM(
  * other. `Double.MAX_VALUE` where the ring is degenerate.
  */
 private fun ringArmClearanceM(ring: List<LatLng>, marginM: Double, p: LatLng): Double {
-    if (ring.size < 2) return Double.MAX_VALUE
+    val nearest = ringDistanceM(ring, p)
+    if (nearest == Double.MAX_VALUE) return nearest
+    return min(nearest, abs(nearest - marginM))
+}
+
+/**
+ * **The metres from [p] to [ring]'s nearest edge** — the least [SpatialOperations.pointToSegmentDistance] over
+ * its segments, `Double.MAX_VALUE` for a ring of fewer than two vertices: the collar reads' and the arm
+ * clearance's one walk. A zone ring holds tens of vertices, so no segment is skipped — a box bound measured
+ * no cheaper than the read it would spare on the shipped zones (2026-10-28 profile).
+ */
+internal fun ringDistanceM(ring: List<LatLng>, p: LatLng): Double {
     var nearest = Double.MAX_VALUE
     for (i in 0 until ring.size - 1) {
         nearest = min(nearest, SpatialOperations.pointToSegmentDistance(p, ring[i], ring[i + 1]))
     }
-    if (nearest == Double.MAX_VALUE) return nearest
-    return min(nearest, abs(nearest - marginM))
+    return nearest
 }
 
 /**
@@ -237,11 +244,7 @@ class ZoneSet(val zones: List<SpeedZone>) {
             if (outer.size < 2) continue
             if (strictest != null && zone.routeLimitKn >= strictest) continue
             if (bboxDistanceLowerBoundM(boxes[i], latitude, longitude) > marginM) continue
-            var nearest = Double.MAX_VALUE
-            for (k in 0 until outer.size - 1) {
-                nearest = min(nearest, SpatialOperations.pointToSegmentDistance(p, outer[k], outer[k + 1]))
-            }
-            if (nearest <= marginM) strictest = zone.routeLimitKn
+            if (ringDistanceM(outer, p) <= marginM) strictest = zone.routeLimitKn
         }
         return strictest
     }
@@ -297,9 +300,14 @@ internal fun bboxDistanceLowerBoundM(box: BBox, latitude: Double, longitude: Dou
 /** Whether the emitted line enters [zone], sampled at [stepM] along every leg. */
 fun lineEntersZone(waypoints: List<LatLng>, zone: SpeedZone, stepM: Double = 25.0): Boolean {
     if (waypoints.any { zone.contains(it.latitude, it.longitude) }) return true
+    val box = zone.bbox()
     for (i in 0 until waypoints.size - 1) {
         val a = waypoints[i]
         val b = waypoints[i + 1]
+        // A sample is lat/lon-linear on the chord, so a leg whose own box misses the ring's holds none inside.
+        if (max(a.latitude, b.latitude) < box.latSouth || min(a.latitude, b.latitude) > box.latNorth ||
+            max(a.longitude, b.longitude) < box.lonWest || min(a.longitude, b.longitude) > box.lonEast
+        ) continue
         val dist = SpatialOperations.haversine(a, b)
         val steps = ceil(dist / stepM).toInt().coerceAtLeast(2)
         for (s in 1 until steps) {

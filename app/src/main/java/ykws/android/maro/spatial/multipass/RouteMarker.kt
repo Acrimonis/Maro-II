@@ -1,8 +1,13 @@
 package ykws.android.maro.spatial.multipass
 
 import ykws.android.maro.data.model.LatLng
+import ykws.android.maro.data.model.markers.BBox
 import ykws.android.maro.spatial.SpatialOperations
+import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.max
+import kotlin.math.min
 
 /**
  * **A costed marker as the route engine reads it** — the projection the `spatial/` layer holds in its
@@ -55,6 +60,15 @@ sealed interface RouteMarkerGeometry {
     /** The metres from [p] to the **outer priced edge** — the price walk's declared clearance. */
     fun boundaryDistanceM(p: LatLng): Double
 
+    /**
+     * **The box this marker can reach at all — its body and its collar, grown by [slackM] and a twentieth.**
+     * Beyond it [wellFactor] is `0.0` and [contains] is `false`, so a raster whose box misses it prices and
+     * walls no cell of that raster. The box is written in degrees at the geometry's **own** latitude, the
+     * longitude side at the narrower of its latitudes, so it is never smaller than the reach in metres; the
+     * slack covers the hair the planar reads and the great-circle ones can differ by.
+     */
+    fun reachBox(slackM: Double): BBox
+
     /** A circular body: a flat core within [radiusM] of [center], and a collar of [proximityM] beyond it. */
     data class Circle(
         val center: LatLng,
@@ -69,6 +83,9 @@ sealed interface RouteMarkerGeometry {
 
         override fun boundaryDistanceM(p: LatLng): Double =
             abs(SpatialOperations.haversine(p, center) - (radiusM + proximityM))
+
+        override fun reachBox(slackM: Double): BBox =
+            boxAround(center.latitude, center.latitude, center.longitude, center.longitude, radiusM + proximityM, slackM)
     }
 
     /**
@@ -93,8 +110,45 @@ sealed interface RouteMarkerGeometry {
 
         override fun boundaryDistanceM(p: LatLng): Double =
             abs(SpatialOperations.pointToSegmentDistance(p, p1, p2) - (halfWidthM + proximityM))
+
+        override fun reachBox(slackM: Double): BBox = boxAround(
+            min(p1.latitude, p2.latitude), max(p1.latitude, p2.latitude),
+            min(p1.longitude, p2.longitude), max(p1.longitude, p2.longitude),
+            halfWidthM + proximityM, slackM
+        )
     }
 }
+
+/**
+ * The box `[latSouth, latNorth] x [lonWest, lonEast]` grown on every side by `reachM x 1.05 + slackM`, the
+ * longitude side converted at the box's furthest latitude from the equator — the widest degrees the reach
+ * can need — so the box is a superset of the reach whatever the planar read's own mid-latitude.
+ */
+private fun boxAround(
+    latSouth: Double,
+    latNorth: Double,
+    lonWest: Double,
+    lonEast: Double,
+    reachM: Double,
+    slackM: Double
+): BBox {
+    val growM = reachM * REACH_SLACK_FACTOR + slackM
+    val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
+    val farthestAbsLat = max(abs(latSouth), abs(latNorth))
+    val mPerDegLon = mPerDegLat * cos(Math.toRadians(farthestAbsLat)).coerceAtLeast(1e-6)
+    return BBox(
+        latSouth - growM / mPerDegLat, latNorth + growM / mPerDegLat,
+        lonWest - growM / mPerDegLon, lonEast + growM / mPerDegLon
+    )
+}
+
+/**
+ * **The twentieth a reach is grown by before it is written in degrees** — the over-inclusion that keeps a
+ * reach filter exact: the rasterizer's sweeps expand their boxes at a lattice's reference latitude while they
+ * measure at the points' own, so a reach written to the metre could leave out an edge that still stands
+ * within it by distance. Over-inclusion never moves a byte; under-inclusion could.
+ */
+internal const val REACH_SLACK_FACTOR = 1.05
 
 /**
  * **The well's one fall-off law, in one home.** Full at the body's own edge ([coreM], the flat core) and

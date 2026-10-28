@@ -6,6 +6,7 @@ import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.BBox
 import ykws.android.maro.data.regulation.SpeedZone
 import ykws.android.maro.spatial.SpatialOperations
+import ykws.android.maro.spatial.Units
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -207,6 +208,14 @@ data class BerthLaw(
     val pricesAnything: Boolean
         get() = (secPerM > 0.0 && outerM > marginM) || (hasInnerRamp && innerSecPerM > 0.0)
 
+    /**
+     * **Where the law falls quiet (m)** — the distance off the edge from which [rateSecPerM] is exactly `0.0`
+     * and [clearanceM] is `distanceM − quietM`: the outer edge, or the margin where the clamps leave the outer
+     * edge inside it, the inner ramp then pricing the water up to the margin. A reader that skips a read on a
+     * bound reads this, never [outerM].
+     */
+    val quietM: Double get() = max(outerM, marginM)
+
     /** The rate (s/m, before λ) at [distanceM] off the edge. */
     fun rateSecPerM(distanceM: Double): Double {
         if (distanceM >= marginM) {
@@ -288,7 +297,9 @@ internal fun gateRuleOf(
 internal fun tileCostField(
     world: MultipassWorld,
     baseCostSec: Double,
-    markerStrength: Double
+    markerStrength: Double,
+    /** The costed markers this tile reads — the ones whose reach meets it, the same list its key names. */
+    markers: List<RouteMarker> = world.routeMarkers()
 ): RouteCostField {
     val sources = ArrayList<RouteCostSource>(3)
     sources.add(RouteCostSource.Hard(distanceAt = { p -> world.distanceToCoastM(p.latitude, p.longitude) }))
@@ -297,14 +308,7 @@ internal fun tileCostField(
             depthGateSource(AppConfig.routeAvoidDepthGateMinM) { p -> depthMAt(world, p) }
         )
     }
-    sources.addAll(
-        markerSources(
-            world.routeMarkers(),
-            baseCostSec,
-            markerStrength,
-            AppConfig.routeMarkerEnabled
-        )
-    )
+    sources.addAll(markerSources(markers, baseCostSec, markerStrength, AppConfig.routeMarkerEnabled))
     return RouteCostField(sources)
 }
 
@@ -383,6 +387,42 @@ internal fun limitAtFor(world: MultipassWorld, zones: ZoneSet): (LatLng) -> Doub
 }
 
 /**
+ * **The water one pass's pulls walk, built from the arm's context in one place** — the margin, the proof step
+ * the caller names, the **interior** cell as the price step, the field the pass prices through, the two ends
+ * the pass runs between (the oriented ones where a pass turned the line), the gate's rule, the plan's berth law
+ * at the pass's own λ, and the pace. Three sites built this by hand with the same commentary each
+ * (`RoutePassRunner.runPass`, `RouteFinePass.refineOriented`, `RouteFinePass.solveCrossing`); one home keeps
+ * the price step the interior cell everywhere, which is the grouping the price walk's proof needs.
+ */
+internal fun pullSetupFor(
+    ctx: GridContext,
+    field: RouteCostField,
+    lambda: Double,
+    proofStepM: Double,
+    start: LatLng = ctx.start,
+    aim: LatLng = ctx.aim
+): PullSetup = PullSetup(
+    ctx.marginM, proofStepM, ctx.cellM, field, start, aim,
+    gate = ctx.gate,
+    berth = berthLawOf(ctx.plan, ctx.depthGateActive),
+    berthLambda = lambda,
+    paceMps = Units.knotsToMps(ctx.pace)
+)
+
+/**
+ * **The search's zone price at one pace and one λ** — [slowWaterPriceAt] with the two shipped collar
+ * fractions, the one `ZonePrice` the runner's search and the fine pass's local re-solve both hand the A\*.
+ */
+internal fun zonePriceFor(paceKn: Double, lambda: Double): ZonePrice =
+    ZonePrice { cellSizeM, interiorKn, collarKn, bandCollarKn ->
+        slowWaterPriceAt(
+            cellSizeM, paceKn, lambda, interiorKn, collarKn, bandCollarKn,
+            AppConfig.routeAvoidSpeedZoneOutsideMarginCostFraction,
+            AppConfig.routeAvoidZone300OutsideMarginCostFraction
+        )
+    }
+
+/**
  * **A post-search stage run in the pair's canonical direction.** The pull's corner snap, the fine pass,
  * the sweep, the straightener, the medial nudge and the corner pass each read the line from one end — a
  * predecessor already settled, a successor not yet — so handed the same line reversed they can settle a
@@ -415,10 +455,12 @@ internal inline fun inCanonicalDirection(
 internal fun snapToCorners(
     setup: PullSetup,
     sets: List<CornerSet>,
-    path: List<LatLng>
+    path: List<LatLng>,
+    /** The pass's own memo, so a leg the pull already proved is answered rather than re-read. */
+    memo: MarkMemo? = null
 ): List<LatLng> {
     if (sets.all { it.points.isEmpty() }) return path
-    val ctx = setup.context()
+    val ctx = setup.context(memo = memo)
     val out = path.toMutableList()
     for (i in 1 until path.size - 1) {
         var nearest: LatLng? = null
@@ -471,10 +513,10 @@ internal fun zoneMetres(zones: List<SpeedZone>, points: List<LatLng>): Double {
  * **The ring water, as the share split reads it** — a point inside any priced zone's own ring. It is
  * the world's own interior read, so a collar is a price and never a metre charged to a ring.
  */
-internal fun inZone(zones: List<SpeedZone>): (LatLng) -> Boolean {
-    val set = ZoneSet(zones)
-    return { p -> set.containsAny(p.latitude, p.longitude) }
-}
+internal fun inZone(zones: List<SpeedZone>): (LatLng) -> Boolean = inZone(ZoneSet(zones))
+
+/** [inZone] over a set already built — the arm's own, so no call indexes the zones again. */
+internal fun inZone(set: ZoneSet): (LatLng) -> Boolean = { p -> set.containsAny(p.latitude, p.longitude) }
 
 /**
  * **The band's law water, as the share split reads it** — a point inside the band's own width. The

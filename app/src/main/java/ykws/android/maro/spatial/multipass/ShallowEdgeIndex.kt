@@ -4,7 +4,6 @@ import ykws.android.maro.data.model.DepthGrid
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.BBox
 import ykws.android.maro.spatial.SpatialOperations
-import java.lang.ref.WeakReference
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.PI
@@ -595,16 +594,20 @@ class GateRule(
  * **The edge index over a loaded raster, as the live world reads it** — the router's own depth read
  * ([`DepthGrid.depthAtFilled`]: the chart's EMODnet cutoff excludes, excluded and missing nodes read at the
  * gate depth), and the raster's own lattice with its longitude side measured at the southern edge, where it
- * is widest, so the pad holds over the whole region. The raster is held weakly: an index outlives its raster
- * only until the next search replaces it.
+ * is widest, so the pad holds over the whole region.
+ *
+ * **The raster is held, never weakly.** It was held through a `WeakReference` so a replaced raster would not
+ * be pinned by the session's index until the next search replaced that too — but the chunks are traced
+ * lazily, and a chunk built after the collector took the raster read every node as *no data*: the traced
+ * edge vanished and the gate's wall with it, silently, for whatever the index was asked next. A test over a
+ * raster nothing else referenced showed it (`GateGuardsTest`, under the collector's timing). The index now
+ * pins its raster; a replaced one is released when the next search or pre-warm tile replaces the index,
+ * which follows a regeneration at once.
  */
 fun shallowEdgesOver(grid: DepthGrid, cutoffM: Float, minDepthM: Double): ShallowEdgeIndex {
-    val held = WeakReference(grid)
     val fillM = minDepthM.toFloat()
     return ShallowEdgeIndex(
-        depthAt = { lat, lon ->
-            held.get()?.let { depthMOf(it.depthAtFilled(lat, lon, cutoffM, fillM)) } ?: Double.NaN
-        },
+        depthAt = { lat, lon -> depthMOf(grid.depthAtFilled(lat, lon, cutoffM, fillM)) },
         lattice = DepthLattice(
             grid.boundingBox.latSouth, grid.boundingBox.lonWest,
             grid.cellSizeDegLat, grid.cellSizeDegLon, grid.boundingBox.latSouth

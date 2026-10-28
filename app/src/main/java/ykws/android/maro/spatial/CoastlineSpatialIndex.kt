@@ -18,8 +18,9 @@ import kotlin.math.*
  * 2. Partition it into a uniform grid of [cellSizeM] × [cellSizeM] cells.
  * 3. For each segment a→b, compute its axis-aligned bounding box and insert
  *    its index into every grid cell that overlaps that AABB.
- * 4. Store as a sparse `HashMap<GridCell, List<Int>>` — only occupied cells
- *    consume memory (~30 KB for the Nice–Fréjus coastline).
+ * 4. Store as two flat arrays — each cell's start in one list of segment indices, row-major — so a
+ *    cell is read by arithmetic rather than a hashed key. The starts scale with the box's area in cells
+ *    (about 11 000 for the shipped corridor at 500 m, some 43 KB), the indices with the segments.
  *
  * **Query phase** (per GPS fix):
  * 1. Hash `(lat, lon)` → `(row, col)`.
@@ -35,7 +36,7 @@ import kotlin.math.*
  * |---------------|----------------|
  * | Per-query CPU | ~0.03–0.1 ms   |
  * | Speedup vs. brute-force | 80–150× |
- * | Memory        | ~30–40 KB      |
+ * | Memory        | ~50–100 KB     |
  * | Build time    | ~1–3 ms        |
  *
  * @param segments  The coastline polylines loaded from [CoastlineRepository].
@@ -62,9 +63,6 @@ class CoastlineSpatialIndex(
         val maxLon: Double
     )
 
-    /** Row-major grid cell key. */
-    private data class GridCell(val row: Int, val col: Int)
-
     /** A real island ring (interior = land) with its bbox, for point-in-polygon containment. */
     private class IslandRing(
         val pts: List<LatLng>,
@@ -77,8 +75,15 @@ class CoastlineSpatialIndex(
     /** All segments flattened from all polylines, in order. */
     private val segmentRefs: List<SegmentRef>
 
-    /** Sparse map: grid cell → indices into [segmentRefs]. */
-    private val grid: Map<GridCell, List<Int>>
+    /**
+     * **The grid, flat** — cell `k = row × colCount + col` holds the indices into [segmentRefs] at
+     * `cellSegments[cellStart[k] until cellStart[k + 1]]`, in segment order: the order a cell's list was
+     * always filled in, so every walk visits the same segments in the same order. Read through [forEachInCell].
+     */
+    private val cellStart: IntArray
+
+    /** Every cell's segment indices, concatenated in row-major cell order ([cellStart]). */
+    private val cellSegments: IntArray
 
     /** The original coastline segments (needed for segment IDs). */
     private val segmentsById: List<CoastlineSegment>
@@ -215,7 +220,8 @@ class CoastlineSpatialIndex(
         if (segments.isEmpty() || segments.all { it.points.size < 2 }) {
             // No valid coastline data — index is inert
             segmentRefs = emptyList()
-            grid = emptyMap()
+            cellStart = IntArray(1)
+            cellSegments = IntArray(0)
             minLat = 0.0; maxLat = 0.0; minLon = 0.0; maxLon = 0.0
             cellSizeLat = 1.0; cellSizeLon = 1.0
             rowCount = 0; colCount = 0
@@ -358,21 +364,24 @@ class CoastlineSpatialIndex(
             }
             islandRings = islands
 
-            // — 5. Build sparse grid —
-            val gridBuilder = HashMap<GridCell, MutableList<Int>>()
-            for ((segIdx, ref) in refs.withIndex()) {
+            // — 5. Build the flat grid: count each cell's segments, then fill in segment order —
+            fun forEachCellCovering(ref: SegmentRef, action: (Int) -> Unit) {
                 val minRow = ((ref.minLat - minLat) / cellSizeLat).toInt().coerceIn(0, rowCount - 1)
                 val maxRow = ((ref.maxLat - minLat) / cellSizeLat).toInt().coerceIn(0, rowCount - 1)
                 val minCol = ((ref.minLon - minLon) / cellSizeLon).toInt().coerceIn(0, colCount - 1)
                 val maxCol = ((ref.maxLon - minLon) / cellSizeLon).toInt().coerceIn(0, colCount - 1)
-
                 for (r in minRow..maxRow) {
-                    for (c in minCol..maxCol) {
-                        gridBuilder.getOrPut(GridCell(r, c)) { mutableListOf() }.add(segIdx)
-                    }
+                    for (c in minCol..maxCol) action(r * colCount + c)
                 }
             }
-            grid = gridBuilder
+            val starts = IntArray(rowCount * colCount + 1)
+            for (ref in refs) forEachCellCovering(ref) { starts[it + 1]++ }
+            for (k in 1 until starts.size) starts[k] += starts[k - 1]
+            val fill = starts.copyOf()
+            val segmentsOfCells = IntArray(starts.last())
+            for ((segIdx, ref) in refs.withIndex()) forEachCellCovering(ref) { segmentsOfCells[fill[it]++] = segIdx }
+            cellStart = starts
+            cellSegments = segmentsOfCells
         }
     }
 
@@ -441,12 +450,10 @@ class CoastlineSpatialIndex(
 
         val rowRange = if (startRow <= endRow) startRow..endRow else endRow..startRow
         for (r in rowRange) {
-            grid[GridCell(r, col)]?.let { indices ->
-                for (idx in indices) {
-                    if (seen.add(idx)) {
-                        val ref = segmentRefs[idx]
-                        result.add(ColumnCandidate(ref.a, ref.b, ref.polylineIdx))
-                    }
+            forEachInCell(r, col) { idx ->
+                if (seen.add(idx)) {
+                    val ref = segmentRefs[idx]
+                    result.add(ColumnCandidate(ref.a, ref.b, ref.polylineIdx))
                 }
             }
         }
@@ -498,12 +505,10 @@ class CoastlineSpatialIndex(
 
         for (r in rMin..rMax) {
             for (c in cMin..cMax) {
-                grid[GridCell(r, c)]?.let { indices ->
-                    for (idx in indices) {
-                        if (seen.add(idx)) {
-                            val ref = segmentRefs[idx]
-                            result.add(BboxSegment(ref.a, ref.b, ref.polylineIdx))
-                        }
+                forEachInCell(r, c) { idx ->
+                    if (seen.add(idx)) {
+                        val ref = segmentRefs[idx]
+                        result.add(BboxSegment(ref.a, ref.b, ref.polylineIdx))
                     }
                 }
             }
@@ -653,13 +658,10 @@ class CoastlineSpatialIndex(
 
         for (r in rMin..rMax) {
             for (c in cMin..cMax) {
-                grid[GridCell(r, c)]?.let { indices ->
-                    for (idx in indices) {
-                        if (!seen.add(idx)) continue
+                forEachInCell(r, c) { idx ->
+                    if (seen.add(idx)) {
                         val ref = segmentRefs[idx]
-
-                        if (!SpatialOperations.segmentsIntersect(a, b, ref.a, ref.b)) continue
-                        return true  // land blocks
+                        if (SpatialOperations.segmentsIntersect(a, b, ref.a, ref.b)) return true  // land blocks
                     }
                 }
             }
@@ -781,15 +783,16 @@ class CoastlineSpatialIndex(
         val islandCrossings = HashMap<Int, Int>()
         val seen = HashSet<Int>()
         for (r in startRow until rowCount) {
-            val cell = grid[GridCell(r, col)] ?: continue
-            for (segIdx in cell) {
-                if (!seen.add(segIdx)) continue
-                val ref = segmentRefs[segIdx]
-                if (!SpatialOperations.rayCrossesSegmentNorth(longitude, latitude, rayLatEnd, ref.a, ref.b)) continue
-                if (isRingPoly[ref.polylineIdx]) {
-                    islandCrossings[ref.polylineIdx] = (islandCrossings[ref.polylineIdx] ?: 0) + 1
-                } else {
-                    mainlandCrossings++
+            forEachInCell(r, col) { segIdx ->
+                if (seen.add(segIdx)) {
+                    val ref = segmentRefs[segIdx]
+                    if (SpatialOperations.rayCrossesSegmentNorth(longitude, latitude, rayLatEnd, ref.a, ref.b)) {
+                        if (isRingPoly[ref.polylineIdx]) {
+                            islandCrossings[ref.polylineIdx] = (islandCrossings[ref.polylineIdx] ?: 0) + 1
+                        } else {
+                            mainlandCrossings++
+                        }
+                    }
                 }
             }
         }
@@ -802,6 +805,16 @@ class CoastlineSpatialIndex(
 
     /** One stamp per query, so the walk's own dedupe allocates nothing — the wall index's own idiom. */
     private val stamp = AtomicInteger(0)
+
+    /**
+     * Every segment index in cell ([r], [c]), in segment order. The cell must lie inside the grid — a column past
+     * the last would read the next row's cell where the old map missed, so it is refused.
+     */
+    private inline fun forEachInCell(r: Int, c: Int, action: (Int) -> Unit) {
+        require(r in 0 until rowCount && c in 0 until colCount) { "cell ($r, $c) outside the ${rowCount}x$colCount grid" }
+        val k = r * colCount + c
+        for (slot in cellStart[k] until cellStart[k + 1]) action(cellSegments[slot])
+    }
 
     /**
      * Ring-expanding nearest-segment search used by [query] and [isWater].
@@ -819,6 +832,11 @@ class CoastlineSpatialIndex(
      * strict `d < bestDist` tie-break sees the same candidates in the same sequence and lands on the same
      * segment rather than on an equally distant one. The stop conditions, the `mainlandOnly` skip and the
      * clipping of the ring to the grid are all unchanged.
+     *
+     * **A segment that cannot win is not measured.** Its box's distance at the shortest degree of longitude
+     * any of its points or the query's can take is a lower bound on its distance, and a segment whose bound
+     * already reaches the best so far, plus a micrometre ([SpatialOperations.boxCannotBeat]), is skipped: the
+     * strict `d < bestDist` could not have taken it, so the segment taken and its distance are the full walk's own.
      */
     private fun nearestRef(latitude: Double, longitude: Double, mainlandOnly: Boolean = false): SegmentRef? {
         if (!hasData) return null
@@ -831,6 +849,7 @@ class CoastlineSpatialIndex(
 
         var bestDist = Double.MAX_VALUE
         var bestSegIdx = -1
+        val shortestDegLonM = SpatialOperations.shortestDegLonM(max(abs(latitude), max(abs(minLat), abs(maxLat))))
 
         for (ring in 0..maxRing) {
             val rMin = (row - ring).coerceAtLeast(0)
@@ -844,18 +863,22 @@ class CoastlineSpatialIndex(
                 var c = cMin
                 while (c <= cMax) {
                     if (full || c == cMin || c == cMax) {
-                        val bucket = grid[GridCell(r, c)]
-                        if (bucket != null) {
-                            for (segIdx in bucket) {
-                                if (seen[segIdx] == query) continue  // already evaluated in an inner ring
-                                seen[segIdx] = query
-                                val ref = segmentRefs[segIdx]
-                                if (mainlandOnly && isRingPoly[ref.polylineIdx]) continue
-                                val d = SpatialOperations.pointToSegmentDistance(point, ref.a, ref.b)
-                                if (d < bestDist) {
-                                    bestDist = d
-                                    bestSegIdx = segIdx
-                                }
+                        val k = r * colCount + c
+                        for (slot in cellStart[k] until cellStart[k + 1]) {
+                            val segIdx = cellSegments[slot]
+                            if (seen[segIdx] == query) continue  // already evaluated in an inner ring
+                            seen[segIdx] = query
+                            val ref = segmentRefs[segIdx]
+                            if (mainlandOnly && isRingPoly[ref.polylineIdx]) continue
+                            if (bestSegIdx >= 0 && SpatialOperations.boxCannotBeat(
+                                    latitude, longitude, ref.minLat, ref.maxLat, ref.minLon, ref.maxLon,
+                                    shortestDegLonM, bestDist
+                                )
+                            ) continue
+                            val d = SpatialOperations.pointToSegmentDistance(point, ref.a, ref.b)
+                            if (d < bestDist) {
+                                bestDist = d
+                                bestSegIdx = segIdx
                             }
                         }
                     }

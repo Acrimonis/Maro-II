@@ -34,6 +34,14 @@ class RegulatedZonesRepository(
 ) {
     private val _zoneSet = MutableStateFlow<RegulatedZoneSet?>(null)
     val zoneSet: StateFlow<RegulatedZoneSet?> = _zoneSet.asStateFlow()
+
+    /**
+     * **Whether the first load has answered** — `true` once [loadFrom] has returned, a clean read, an absent
+     * asset and a corrupt one alike, so a reader waiting for the zone list (the route pre-warm, which keys
+     * its tiles on the zones) can tell "no zones" from "not loaded yet". `false` until then.
+     */
+    private val _loaded = MutableStateFlow(false)
+    val loaded: StateFlow<Boolean> = _loaded.asStateFlow()
     private val loadMutex = Mutex()
 
     /** Relative asset path for the prebaked regulated zones binary. */
@@ -53,7 +61,10 @@ class RegulatedZonesRepository(
      * [zoneSet] `null` as much as a clean read leaves it set.
      */
     internal suspend fun loadFrom(openAsset: (String) -> InputStream) = loadMutex.withLock {
-        if (_zoneSet.value != null) return@withLock
+        if (_zoneSet.value != null) {
+            _loaded.value = true
+            return@withLock
+        }
         withContext(Dispatchers.IO) {
             try {
                 openAsset(assetPath()).use { stream ->
@@ -73,6 +84,7 @@ class RegulatedZonesRepository(
                 _zoneSet.value = null
             }
         }
+        _loaded.value = true
     }
 
     /**

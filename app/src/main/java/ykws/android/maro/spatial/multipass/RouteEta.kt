@@ -59,13 +59,63 @@ data class TimedLine(
     val points: List<LatLng>,
     val legTimesSec: List<Double>,
     /**
-     * The **speed made good** over each leg, in m/s — the enforced limit in force at the leg's
-     * midpoint, capped by the pace, so the figure always equals the clock beside it.
+     * The **speed made good** over each leg, in m/s — the enforced limit in force at the leg's midpoint,
+     * capped by the pace, for the enforced clock; the leg's own `distance / time` for the profile.
      */
-    val legSpeedsMps: List<Double> = emptyList()
+    val legSpeedsMps: List<Double> = emptyList(),
+    /**
+     * **The reads the clock made per leg** ([LegFacts]), where the clock that built this line kept them,
+     * so the slow-water readers below re-read none of them; `null` for a line built elsewhere, which they
+     * walk as they always did.
+     */
+    val facts: LegFacts? = null
 ) {
-    val durationSec: Double get() = legTimesSec.sum()
+    /** The planned seconds, summed once. */
+    val durationSec: Double = legTimesSec.sum()
 }
+
+/**
+ * **One leg's facts as the profile clock read them** — its length, its midpoint and the raw limit read
+ * there — so every reader that walks the timed line (the shares, the per-limit table, the ramps) reads the
+ * same haversine, the same midpoint and the same limit from these arrays rather than asking the field and
+ * the coast index again. Each entry is the very double the clock computed, so a reader's sum is unmoved.
+ */
+class LegFacts(
+    val lengthM: DoubleArray,
+    val midpoints: Array<LatLng>,
+    /** `limitKnAt` at the leg's midpoint, raw — `null` outside every limit. */
+    val midLimitKn: Array<Double?>
+)
+
+/**
+ * **One leg's water, read once for a reader that asks it of several functions** — whether the leg's
+ * midpoint stands in a priced ring and in the band's own width, the two predicates the per-limit table and
+ * the ramps both ask of every slow leg. Built by the caller that owns both reads; `null` walks as before.
+ */
+class LegWater(val midInZone: BooleanArray, val midInBand: BooleanArray) {
+    companion object {
+        /** The water of every leg of [timed] under the two predicates, read once per leg. */
+        fun of(timed: TimedLine, inZone: (LatLng) -> Boolean, inBand: (LatLng) -> Boolean): LegWater {
+            val legs = timed.legTimesSec.size
+            val zone = BooleanArray(legs)
+            val band = BooleanArray(legs)
+            for (i in 0 until legs) {
+                val mid = timed.facts?.midpoints?.get(i) ?: midpoint(timed.points[i], timed.points[i + 1])
+                zone[i] = inZone(mid)
+                band[i] = inBand(mid)
+            }
+            return LegWater(zone, band)
+        }
+    }
+}
+
+/** The leg's length (m) — the clock's own where it kept it, the same haversine otherwise. */
+private fun legLengthM(timed: TimedLine, i: Int): Double =
+    timed.facts?.lengthM?.get(i) ?: SpatialOperations.haversine(timed.points[i], timed.points[i + 1])
+
+/** The leg's midpoint — the clock's own where it kept it, the same arithmetic otherwise. */
+private fun legMidpoint(timed: TimedLine, i: Int): LatLng =
+    timed.facts?.midpoints?.get(i) ?: midpoint(timed.points[i], timed.points[i + 1])
 
 /**
  * Splits [waypoints] where [limitKnAt] changes and times each split leg at the limit in force at its
@@ -201,7 +251,7 @@ fun zoneSlowShare(timed: TimedLine, paceKn: Double): Double {
     val paceMps = Units.knotsToMps(paceKn)
     var slow = 0.0
     for (i in 0 until timed.legTimesSec.size) {
-        val dist = SpatialOperations.haversine(timed.points[i], timed.points[i + 1])
+        val dist = legLengthM(timed, i)
         val excess = timed.legTimesSec[i] - dist / paceMps
         if (excess > 0.0) slow += excess
     }
@@ -232,10 +282,10 @@ fun slowShares(
     var band = 0.0
     var ramp = 0.0
     for (i in 0 until timed.legTimesSec.size) {
-        val dist = SpatialOperations.haversine(timed.points[i], timed.points[i + 1])
+        val dist = legLengthM(timed, i)
         val excess = timed.legTimesSec[i] - dist / paceMps
         if (excess <= 0.0) continue
-        val mid = midpoint(timed.points[i], timed.points[i + 1])
+        val mid = legMidpoint(timed, i)
         when {
             inZone(mid) -> zone += excess
             inBand(mid) -> band += excess
@@ -291,25 +341,30 @@ fun slowTimeByLimit(
     limitKnAt: (LatLng) -> Double?,
     inZone: (LatLng) -> Boolean,
     inBand: (LatLng) -> Boolean,
-    bandLimitKn: Double
+    bandLimitKn: Double,
+    /** The legs' water read once by the caller ([LegWater]), or `null` to read it here per leg. */
+    water: LegWater? = null
 ): List<RouteSlowLimit> {
     val legs = timed.legTimesSec.size
     if (legs == 0 || paceKn <= 0.0) return emptyList()
     val paceMps = Units.knotsToMps(paceKn)
+    val facts = timed.facts
     val totals = LinkedHashMap<Pair<Double, Boolean>, Double>()
     for (i in 0 until legs) {
         val a = timed.points[i]
         val b = timed.points[i + 1]
-        val dist = SpatialOperations.haversine(a, b)
+        val dist = legLengthM(timed, i)
         if (timed.legTimesSec[i] - dist / paceMps <= 0.0) continue
-        val mid = midpoint(a, b)
+        val mid = legMidpoint(timed, i)
         val key: Pair<Double, Boolean>
         val inside: (LatLng) -> Boolean
-        if (inZone(mid)) {
-            val zoneKn = limitKnAt(mid) ?: continue // unreachable: inZone is this read's own predicate
+        if (water?.midInZone?.get(i) ?: inZone(mid)) {
+            // The clock's own raw read at the midpoint, kept by the profile where it built this line.
+            val zoneKn = (if (facts != null) facts.midLimitKn[i] else limitKnAt(mid))
+                ?: continue // unreachable: inZone is this read's own predicate
             key = roundHalfKn(zoneKn) to false
             inside = inZone
-        } else if (inBand(mid)) {
+        } else if (water?.midInBand?.get(i) ?: inBand(mid)) {
             key = roundHalfKn(bandLimitKn) to true
             inside = inBand
         } else {
@@ -353,7 +408,9 @@ internal fun rampSlowSeconds(
     limitKnAt: (LatLng) -> Double?,
     inZone: (LatLng) -> Boolean,
     inBand: (LatLng) -> Boolean,
-    ceilingKnAt: (LatLng) -> Double?
+    ceilingKnAt: (LatLng) -> Double?,
+    /** The legs' water read once by the caller ([LegWater]), or `null` to read it here per leg. */
+    water: LegWater? = null
 ): Double {
     val legs = timed.legTimesSec.size
     if (legs == 0 || paceKn <= 0.0) return 0.0
@@ -362,11 +419,12 @@ internal fun rampSlowSeconds(
     for (i in 0 until legs) {
         val a = timed.points[i]
         val b = timed.points[i + 1]
-        val dist = SpatialOperations.haversine(a, b)
+        val dist = legLengthM(timed, i)
         if (timed.legTimesSec[i] - dist / paceMps <= 0.0) continue
-        val mid = midpoint(a, b)
         // The ring and the band are the table's own entries; charging them here would double-count them.
-        if (inZone(mid) || inBand(mid)) continue
+        val inRing = water?.midInZone?.get(i) ?: inZone(legMidpoint(timed, i))
+        val inWidth = water?.midInBand?.get(i) ?: inBand(legMidpoint(timed, i))
+        if (inRing || inWidth) continue
         if (cappedByTheBoat(ceilingKnAt, a, paceKn) || cappedByTheBoat(ceilingKnAt, b, paceKn)) continue
         val servedKn = servedLimitKn(limitKnAt, a, b) ?: continue
         total += timed.legTimesSec[i] * slowWaterSeverity(paceKn, servedKn)
@@ -470,12 +528,17 @@ fun timeLineWithProfile(
     val paceMps = Units.knotsToMps(paceKn)
     val points = splitAtLimitChanges(waypoints, limitKnAt, sampleM)
     val n = points.size - 1
-    fun limitMpsAt(p: LatLng): Double =
-        readLimit(limitKnAt, p)?.let { min(Units.knotsToMps(it), paceMps) } ?: paceMps
     fun ceilingMpsAt(p: LatLng): Double =
         readLimit(ceilingKnAt, p)?.let { min(Units.knotsToMps(it), paceMps) } ?: paceMps
+    // **The legs' facts, read once and kept on the line** ([LegFacts]): each leg's length, its midpoint and
+    // the raw limit there — the reads the slow-water readers make again otherwise.
+    val legLengthM = DoubleArray(n) { i -> SpatialOperations.haversine(points[i], points[i + 1]) }
+    val midpoints = Array(n) { i -> midpoint(points[i], points[i + 1]) }
+    val midLimitKn = Array(n) { i -> limitKnAt(midpoints[i]) }
     // The limit in force along each leg — constant, because a limit change is a boundary vertex.
-    val legLimit = DoubleArray(n) { i -> limitMpsAt(midpoint(points[i], points[i + 1])) }
+    val legLimit = DoubleArray(n) { i ->
+        midLimitKn[i]?.takeIf { it.isFinite() }?.let { min(Units.knotsToMps(it), paceMps) } ?: paceMps
+    }
     // A vertex's speed may not exceed either leg it touches, nor its own curvature ceiling.
     val cap = DoubleArray(n + 1) { j ->
         val base = when (j) {
@@ -489,13 +552,13 @@ fun timeLineWithProfile(
     val speed = DoubleArray(n + 1)
     speed[n] = cap[n]
     for (j in n - 1 downTo 0) {
-        val d = SpatialOperations.haversine(points[j], points[j + 1])
+        val d = legLengthM[j]
         val decelCap = sqrt(speed[j + 1] * speed[j + 1] + 2.0 * accelMps2 * d)
         speed[j] = min(cap[j], decelCap)
     }
     // Forward: acceleration from behind is bounded by comfort and never above the limit.
     for (j in 1..n) {
-        val d = SpatialOperations.haversine(points[j - 1], points[j])
+        val d = legLengthM[j - 1]
         val accelCap = sqrt(speed[j - 1] * speed[j - 1] + 2.0 * accelMps2 * d)
         speed[j] = min(speed[j], accelCap)
     }
@@ -509,7 +572,7 @@ fun timeLineWithProfile(
     val times = ArrayList<Double>(n)
     val speeds = ArrayList<Double>(n)
     for (i in 0 until n) {
-        val d = SpatialOperations.haversine(points[i], points[i + 1])
+        val d = legLengthM[i]
         val v0 = speed[i]
         val v1 = speed[i + 1]
         val capLeg = legLimit[i].coerceAtLeast(MIN_LEG_SPEED_MPS)
@@ -528,7 +591,7 @@ fun timeLineWithProfile(
         times.add(t)
         speeds.add(if (t > 0.0) d / t else 0.0)
     }
-    return TimedLine(points, times, speeds)
+    return TimedLine(points, times, speeds, LegFacts(legLengthM, midpoints, midLimitKn))
 }
 
 private fun midpoint(a: LatLng, b: LatLng): LatLng =

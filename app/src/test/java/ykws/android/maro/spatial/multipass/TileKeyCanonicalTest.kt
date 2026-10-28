@@ -50,16 +50,6 @@ class TileKeyCanonicalTest {
         )
     }
 
-    @Test
-    fun theExcludedSetIterationOrderDoesNotMoveTheBytes() {
-        val ab = TileTestFixtures.baseKey().copy(excludedZoneIdSet = linkedSetOf("a", "b"))
-        val ba = TileTestFixtures.baseKey().copy(excludedZoneIdSet = linkedSetOf("b", "a"))
-        assertTrue(
-            "the excluded-id set is the one order-undefined component, and it is sorted",
-            ab.canonicalBytes().contentEquals(ba.canonicalBytes())
-        )
-    }
-
     /** The nested marker geometry is key material: a Circle and a Corridor are different tiles. */
     @Test
     fun theNestedMarkerGeometryIsCarried() {

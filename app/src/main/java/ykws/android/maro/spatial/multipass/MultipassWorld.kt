@@ -45,8 +45,10 @@ interface MultipassWorld {
     val regionBounds: BBox?
 
     /**
-     * The coastline's **generation stamp** — a reload changes it, so a mask cache keyed on it
-     * invalidates when the coast moves. 0 where the world names none.
+     * The coastline's **content stamp** — a value of the coastline's own points, so it is the same number
+     * on every launch over the same baked data and over the re-encoded cache copy of it, and a re-baked or
+     * regenerated coast moves it. A fine tile is keyed on it; an identity hash here would make the on-disk
+     * tile store write-only across launches. 0 where the world names none.
      */
     val coastlineGenerationStamp: Long get() = 0L
 
@@ -58,21 +60,6 @@ interface MultipassWorld {
 
     /** The chart's EMODnet shallow cutoff (m) — the same setting [depthAt] is gated by. 0 disables it. */
     val emodnetCutoffM: Float get() = 0f
-
-    /**
-     * The speed-zone list's **content stamp** — a rebuilt zone list changes it, so a fine tile keyed on
-     * it invalidates when the zones move, while a moved price slider (which never touches the list) does
-     * not. 0 where the world names none. It is a **content** stamp, not a monotone counter: the cache is
-     * long-lived, and a content hash is the same idiom [coastlineGenerationStamp] already uses.
-     */
-    val zoneGenerationStamp: Long get() = 0L
-
-    /**
-     * The ids of the speed zones the user has **excluded** — the excluded-zone set a fine tile key
-     * carries, because [speedZonesIn] already drops them and a change to the set can move the zones a
-     * tile even-odd-fills. Empty where the world names none.
-     */
-    val excludedZoneIdSet: Set<String> get() = emptySet()
 
     /**
      * **The fixed anchor the walk lattices are drawn from** — the depth raster's own south-west origin and
@@ -121,6 +108,13 @@ interface MultipassWorld {
     fun speedZonesIn(box: BBox): List<SpeedZone> = emptyList()
 
     /**
+     * **Every non-excluded speed zone the world holds** — the list [zoneLimitKnAt] walks, handed whole so an
+     * arm can index it once ([ZoneSet]) and read it per point with a box reject instead of a ring walk per
+     * zone. The default is the whole globe through [speedZonesIn], so a world answering that answers this.
+     */
+    fun allSpeedZones(): List<SpeedZone> = speedZonesIn(BBox(-90.0, 90.0, -180.0, 180.0))
+
+    /**
      * The strictest **route limit** (lowest kn) in force at a point across the non-excluded zones
      * containing it, or `null` outside all of them — the routing-only `speedRoute` override where one is
      * set, else the displayed limit. It is the **price law's** own door: the corner pass's containment
@@ -165,15 +159,6 @@ interface MultipassWorld {
         minDepthM = minDepthM
     )
 }
-
-/**
- * **The zone list's content stamp, one home** — the list's own `hashCode` folded to a `Long`, covering
- * every zone's id, limit, rings and holes because [`SpeedZone`] is a data class. It is the value
- * [LiveMultipassWorld.zoneGenerationStamp] answers: a rebuilt list moves it and a re-read of the same
- * list does not. A content hash rather than a monotone counter, because the cache keyed on it is
- * long-lived and the same idiom [MultipassWorld.coastlineGenerationStamp] already uses.
- */
-internal fun zoneContentStamp(zones: List<SpeedZone>): Long = zones.hashCode().toLong()
 
 /**
  * The live adapter over [CoastlineRepository], [DepthRepository] and the speed-zone list — the one file
@@ -228,21 +213,13 @@ class LiveMultipassWorld(
             LatticeAnchor(it.boundingBox.latSouth, it.boundingBox.lonWest, it.boundingBox.centerLat)
         }
 
-    /** The index's own identity, so a rebuilt coastline changes the stamp and a mask cache invalidates. */
-    override val coastlineGenerationStamp: Long
-        get() = coastline.spatialIndex?.hashCode()?.toLong() ?: 0L
-
     /**
-     * The zone list's own content stamp, read fresh from the provider: a rebuilt list moves it and a
-     * moved price slider, which never touches the list, does not. It is read once per arm beside the
-     * other two stamps, so a fine tile invalidates with the zones the rasterizer even-odd-fills.
+     * The repository's content stamp over the loaded coast's own points ([CoastlineRepository.coastlineStamp])
+     * — the same number for the bundled asset and for the re-encoded cache copy of the same data, so a tile
+     * keyed on it is found again on the next launch; a regenerated coast moves it.
      */
-    override val zoneGenerationStamp: Long
-        get() = zoneContentStamp(zonesProvider())
-
-    /** The user's excluded-zone ids, read fresh so a Settings change reaches the next tile key. */
-    override val excludedZoneIdSet: Set<String>
-        get() = excludedZoneIds()
+    override val coastlineGenerationStamp: Long
+        get() = coastline.coastlineStamp
 
     /** The loaded grid's `fetchTimestampMs`, the value the raster cache already keys on. */
     override val depthGenerationStamp: Long
@@ -293,6 +270,11 @@ class LiveMultipassWorld(
     override fun speedZonesIn(box: BBox): List<SpeedZone> =
         speedZonesInBox(zonesProvider(), box, excludedZoneIds())
 
+    override fun allSpeedZones(): List<SpeedZone> {
+        val excluded = excludedZoneIds()
+        return zonesProvider().filter { it.id !in excluded }
+    }
+
     override fun zoneLimitKnAt(latitude: Double, longitude: Double): Double? =
         strictestLimitKnAt(zonesProvider(), excludedZoneIds(), latitude, longitude)
 
@@ -300,36 +282,40 @@ class LiveMultipassWorld(
     override fun zoneDisplayLimitKnAt(latitude: Double, longitude: Double): Double? =
         strictestDisplayLimitKnAt(zonesProvider(), excludedZoneIds(), latitude, longitude)
 
-    /**
-     * **The costed markers, projected.** Only a `MarkerOrigin.USER` marker that survives
-     * [validRoutingCost] becomes a [RouteMarker]: a Circle, a Corridor, or a **Pin** — a body of radius
-     * `0` whose whole price is its own proximity collar. An auto marker (a record, not a rule) is dropped.
-     *
-     * The wall is the top of the shipped scale ([ROUTING_COST_BLOCKED]) and carries step `0`; a price
-     * carries its own step. **A Pin is never a wall** — a point has no body to bar — so its cost is capped
-     * at the top price ([ROUTING_COST_MAX]) whatever is stored.
-     *
-     * The collar each geometry carries is the marker's own proximity, read through the rule's one home
-     * [markerProximityRangeM] so a legacy marker without a stored override still projects its well.
-     */
-    override fun routeMarkers(): List<RouteMarker> =
-        markersProvider().mapNotNull { m ->
-            if (m.origin != MarkerOrigin.USER) return@mapNotNull null
-            val cost = validRoutingCost(m.routingCost) ?: return@mapNotNull null
-            val proximityM = markerProximityRangeM(
-                m, AppConfig.markerProximityPinM, AppConfig.markerProximityZoneMultiplier
-            )
-            val pin = m.geometry is MarkerGeometry.Pin
-            val geometry = when (val g = m.geometry) {
-                is MarkerGeometry.Circle -> RouteMarkerGeometry.Circle(g.center, g.radiusM, proximityM)
-                is MarkerGeometry.Corridor -> RouteMarkerGeometry.Corridor(g.p1, g.p2, g.widthM, proximityM)
-                is MarkerGeometry.Pin -> RouteMarkerGeometry.Circle(g.position, 0.0, proximityM)
-            }
-            val price = if (pin) cost.coerceAtMost(ROUTING_COST_MAX) else cost
-            val isWall = !pin && price >= ROUTING_COST_BLOCKED
-            RouteMarker(id = m.id, geometry = geometry, step = if (isWall) 0 else price, isWall = isWall)
-        }
+    /** The costed markers, projected ([routeMarkersOf]). */
+    override fun routeMarkers(): List<RouteMarker> = routeMarkersOf(markersProvider())
 }
+
+/**
+ * **The costed markers, projected.** Only a `MarkerOrigin.USER` marker that survives
+ * [validRoutingCost] becomes a [RouteMarker]: a Circle, a Corridor, or a **Pin** — a body of radius
+ * `0` whose whole price is its own proximity collar. An auto marker (a record, not a rule) is dropped.
+ *
+ * The wall is the top of the shipped scale ([ROUTING_COST_BLOCKED]) and carries step `0`; a price
+ * carries its own step. **A Pin is never a wall** — a point has no body to bar — so its cost is capped
+ * at the top price ([ROUTING_COST_MAX]) whatever is stored.
+ *
+ * The collar each geometry carries is the marker's own proximity, read through the rule's one home
+ * [markerProximityRangeM] so a legacy marker without a stored override still projects its well. The live
+ * world's one projection, and a desktop world's over the same stored markers.
+ */
+internal fun routeMarkersOf(markers: List<UserMarker>): List<RouteMarker> =
+    markers.mapNotNull { m ->
+        if (m.origin != MarkerOrigin.USER) return@mapNotNull null
+        val cost = validRoutingCost(m.routingCost) ?: return@mapNotNull null
+        val proximityM = markerProximityRangeM(
+            m, AppConfig.markerProximityPinM, AppConfig.markerProximityZoneMultiplier
+        )
+        val pin = m.geometry is MarkerGeometry.Pin
+        val geometry = when (val g = m.geometry) {
+            is MarkerGeometry.Circle -> RouteMarkerGeometry.Circle(g.center, g.radiusM, proximityM)
+            is MarkerGeometry.Corridor -> RouteMarkerGeometry.Corridor(g.p1, g.p2, g.widthM, proximityM)
+            is MarkerGeometry.Pin -> RouteMarkerGeometry.Circle(g.position, 0.0, proximityM)
+        }
+        val price = if (pin) cost.coerceAtMost(ROUTING_COST_MAX) else cost
+        val isWall = !pin && price >= ROUTING_COST_BLOCKED
+        RouteMarker(id = m.id, geometry = geometry, step = if (isWall) 0 else price, isWall = isWall)
+    }
 
 /**
  * **The live raster's edge index, kept for the session.** A [LiveMultipassWorld] is built per search, so

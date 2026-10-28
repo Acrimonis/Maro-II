@@ -1350,6 +1350,54 @@ class RouteAvoidEngineTest {
         assertEquals("and the ladder crowns the same rung", there.crown, back.crown)
     }
 
+    /**
+     * **The crossing's raster is built once per arm and copied by the rungs, and the lines do not move.** The
+     * raster reads nothing of a rung's λ, so the three rungs' re-solves share one build; the arm run again
+     * with the sharing switched off — every rung building its own — draws the same three lines, point for
+     * point, with the same clocks and the same crown.
+     */
+    @Test
+    fun theCrossingRasterIsBuiltOncePerArmAndTheRungsDrawTheSameLines() = runBlocking {
+        setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
+        // A zone taller than the corridor, so every rung crosses it, with an island inside it so every crossing
+        // line bends inside the zone's own box — the stretch the re-solve exists for; a straight chord
+        // through a zone has no vertex to re-solve.
+        val zone = SpeedZone("z", "Cap", 5.0, rectRing(43.40, 43.60, 7.020, 7.040))
+        val island = circleRing(LatLng(43.5000, 7.0300), radiusM = 120.0)
+        val world = FakeWorld(edges = island.toMutableList(), zones = listOf(zone))
+        val captured = Collections.synchronizedList(ArrayList<String>())
+        fun engine(share: Boolean) = RouteAvoidEngine(
+            paceKn = { paceKn },
+            verdictWeight = { AppConfig.routeAvoidSlowWaterWeight },
+            worldProvider = { world },
+            traceSink = { captured += it },
+            shareCrossingRasters = share
+        )
+        val shared = solveLadder(engine(share = true), origin, aim)
+        val sharedLines = captured.filter { it.startsWith("FINE RASTER ") }
+        // One raster per zone **and grid**: a grown corridor is a second grid with its own box.
+        val boxes = sharedLines.map { it.substringAfter(" box=").substringBefore(" ") }.toSet()
+        assertTrue("the fixture's rungs re-solve the crossing: $sharedLines", sharedLines.size >= 2)
+        assertEquals("one build per zone and grid", boxes.size, sharedLines.count { " built=true" in it })
+        assertTrue("at least one rung read a sibling's build", sharedLines.size > boxes.size)
+        assertTrue("and every re-solve went through the shared memo", sharedLines.all { " shared=true" in it })
+
+        captured.clear()
+        val separate = solveLadder(engine(share = false), origin, aim)
+        val separateLines = captured.filter { it.startsWith("FINE RASTER ") }
+        assertEquals("with the sharing off every rung builds its own", separateLines.size, separateLines.count { " built=true" in it })
+        for (rung in 0 until 3) {
+            val a = separate.results[rung]
+            val b = shared.results[rung]
+            assertNotNull("rung $rung lands over its own raster", a)
+            assertNotNull("rung $rung lands over the shared raster", b)
+            assertEquals("rung $rung draws one line either way", a!!.points, b!!.points)
+            assertEquals("and keeps one clock", a.durationSec, b.durationSec, 0.0)
+            assertEquals("and one slow-water table", a.slowLimitSeconds, b.slowLimitSeconds)
+        }
+        assertEquals("and the ladder crowns the same rung", separate.crown, shared.crown)
+    }
+
     /** One arm's three rungs: each rung's result by ladder index, and the crowned rung's index. */
     private class Ladder(val results: List<RouteResult.Success?>, val crown: Int?)
 

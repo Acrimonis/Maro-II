@@ -120,26 +120,30 @@ class GateCornerTest {
      * that — turns into a leg that runs just past the wall off a shelf on the turn's inside. A bow at the
      * corner's floor would cut that shelf under the wall past the waiver; held to the wall there, it keeps it.
      * The deep water reads 3.5 m so the 3 m line stands two thirds of a node out from the shelf's last node.
+     * Built at `lateralAccelMps2` 0.33 m/s² and `transitionSec` 2 s, pinned here ([TurnConfigFixture]): the bow's floor
+     * radius and spirals are those values'.
      */
     @Test
     fun aWaivedCornersBowKeepsTheWallPastTheWaiver() {
-        val raster = GateTestFixtures.raster(130, 25, 2.0) { n, e ->
-            if (hypot(n - 14.0, e - 27.0) < 2.5 || (e < 12.0 && n > 24.0)) 2.0 else 3.5
+        TurnConfigFixture.withTurn(TurnConfigFixture.BUILT_AT_MPS2, TurnConfigFixture.BUILT_AT_TRANSITION_SEC) {
+            val raster = GateTestFixtures.raster(130, 25, 2.0) { n, e ->
+                if (hypot(n - 14.0, e - 27.0) < 2.5 || (e < 12.0 && n > 24.0)) 2.0 else 3.5
+            }
+            val gate = GateTestFixtures.gateOver(raster, hardM = floorM)
+            val world = GateTestFixtures.RasterWorld(raster)
+            val start = at(20.0, 5.0)
+            val corner = at(20.0, 24.0)
+            val given = listOf(start, corner, at(220.0, 24.0))
+            assertTrue("the corner stands inside the start's waiver", gate.waives(corner, start, given.last()))
+            assertTrue("and under the wall", gate.edgeM(corner, 100.0) < floorM)
+            assertTrue("while the given line keeps the wall past it", keepsWallPast(gate, given, floorM, 20.5))
+            assertTrue("by under a metre", !keepsWallPast(gate, given, floorM + 1.0, 20.5))
+
+            val rounded = RouteCornerPass.round(given, 12.0, world, gate, 50.0)
+
+            assertEquals(RouteCornerPass.CornerOutcome.ROUNDED, rounded.verdicts.single().outcome)
+            assertTrue("no bow point past the waiver comes under the wall", keepsWallPast(gate, rounded.points, floorM, 20.5))
         }
-        val gate = GateTestFixtures.gateOver(raster, hardM = floorM)
-        val world = GateTestFixtures.RasterWorld(raster)
-        val start = at(20.0, 5.0)
-        val corner = at(20.0, 24.0)
-        val given = listOf(start, corner, at(220.0, 24.0))
-        assertTrue("the corner stands inside the start's waiver", gate.waives(corner, start, given.last()))
-        assertTrue("and under the wall", gate.edgeM(corner, 100.0) < floorM)
-        assertTrue("while the given line keeps the wall past it", keepsWallPast(gate, given, floorM, 20.5))
-        assertTrue("by under a metre", !keepsWallPast(gate, given, floorM + 1.0, 20.5))
-
-        val rounded = RouteCornerPass.round(given, 12.0, world, gate, 50.0)
-
-        assertEquals(RouteCornerPass.CornerOutcome.ROUNDED, rounded.verdicts.single().outcome)
-        assertTrue("no bow point past the waiver comes under the wall", keepsWallPast(gate, rounded.points, floorM, 20.5))
     }
 
     /**

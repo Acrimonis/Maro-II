@@ -175,7 +175,8 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         // same for every point inside the box, at the cost of walking every ring of it per sample. They are
         // the world's zones in the box, **whatever the price switch says**: a switch prices water, it never
         // suspends a limit, so the clock's set is read off the world and never off the grid's gated `zones`.
-        val limitAt = limitAtFor(world, ZoneSet(world.speedZonesIn(box)))
+        val zoneSet = ZoneSet(world.speedZonesIn(box))
+        val limitAt = limitAtFor(world, zoneSet)
         // Named construction, never a positional 27th: the `windows` seam defaults to `null` here, which is
         // exactly this single-grid walk — `avoid`'s answer, cell for cell.
         return GridContext(
@@ -184,6 +185,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
             zoneOutsideMarginM = zoneOutsideMarginM, pace = pace, markerStrength = markerStrength, grid = grid,
             startCell = startCell, aimCell = aimCell, start = start, aim = aim, sets = sets,
             limitAt = limitAt, zones = zones, priced = priced,
+            zoneSet = zoneSet, worldZoneSet = ZoneSet(world.allSpeedZones()),
             depthGateActive = depthGateActive, minDepthM = minDepthM,
             regionSaturated = regionSaturated, plan = plan, gate = gate
         )
@@ -249,25 +251,20 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         // cells the walk could reach, at a fraction of the allocation. With no band there is no mask to bound
         // the layer and **no fine layer at all**: the walk is the coarse grid alone, which is `avoid`'s shape.
         val coarseBox = family.coarse.snapOutward(box)
-        // **The plan's own fine water** — the seam Phase 1 moved the cut onto. `evolutive` answers today's
-        // coastal ribbon, byte for byte; `avoid` answers nothing and never takes this path. The
-        // `bandSpec == null` short-circuit is gone: the walk's fine layer is the plan's answer, not the
-        // band's.
-        val depthGateActive = AppConfig.routeAvoidDepthGateEnabled && world.depthReady
-        val minDepthM = AppConfig.routeAvoidDepthGateMinM
-        val gate = gateRuleOf(world, plan, depthGateActive, minDepthM)
-        val fineWater = plan.fineWater(
-            FineWaterQuery(
-                world = world, box = box, edges = edges, openCoast = openCoast,
-                marginM = marginM, baseCellM = cellM
-            )
-        )
+        // **The fine layer's own values, derived once for the arm** ([FineLayerSpec]): the plan's fine water
+        // — `evolutive` answers today's coastal ribbon, `avoid` answers nothing and never takes this path —
+        // beside the gate, the costed markers and the stamps every tile of the arm is keyed and built from,
+        // so nothing is re-read per tile and the key and the fill cannot disagree.
+        val spec = fineLayerSpec(world, box, edges, openCoast, cellM, markerStrength, marginM, zoneOutsideMarginM, bandSpec)
+        val depthGateActive = spec.depthGateActive
+        val minDepthM = spec.minDepthM
+        val gate = spec.gate
+        val fineWater = spec.fineWater
         val fineBoxes = if (fineWater.isEmpty) {
             emptyList()
         } else {
             fineWindowBoxes(world, family.fine, box, edges, openCoast, fineWater)
         }
-        val fineMask = if (fineWater.isEmpty) null else fineWater.toMask()
         // The walk's own ceiling, asked **before** anything is rastered: both layers' cells are pure
         // arithmetic off the boxes, and a walk over the ceiling is refused rather than attempted — the
         // grown retry then answers the line it already has instead of doubling into the heap.
@@ -300,12 +297,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         for (fineBox in fineBoxes) {
             // The tile is the same water; the window is assembled from the cached tiles that cover it, so
             // the marking is paid once per tile and a second arming pays only the tiles it newly needs.
-            val bandGrid = fineWindowGrid(
-                world, anchor, family.fine, fineBox, pace, marginM, zoneOutsideMarginM,
-                priced, bandSpec, fineMask, edges, openCoast,
-                minDepthM, depthGateActive, gate, fineWater.depthCollarM,
-                fineWater, markerStrength, trace
-            )
+            val bandGrid = fineWindowGrid(world, anchor, family.fine, fineBox, pace, spec, trace)
             fineCells += bandGrid.rows * bandGrid.cols
             windows.add(
                 WalkWindow(
@@ -367,13 +359,15 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
                 )
             )
         }
-        val limitAt = limitAtFor(world, ZoneSet(world.speedZonesIn(box)))
+        val zoneSet = ZoneSet(world.speedZonesIn(box))
+        val limitAt = limitAtFor(world, zoneSet)
         return GridContext(
             world = world, from = from, to = to, box = box, edges = edges, openCoast = openCoast,
             capLatNorth = capLatNorth, cellM = cellM, fineCellM = fineCellM, marginM = marginM,
             zoneOutsideMarginM = zoneOutsideMarginM, pace = pace, markerStrength = markerStrength, grid = interiorGrid,
             startCell = startCell, aimCell = aimCell, start = from.toLatLng(), aim = to.toLatLng(),
             sets = sets, limitAt = limitAt, zones = zones, priced = priced,
+            zoneSet = zoneSet, worldZoneSet = ZoneSet(world.allSpeedZones()),
             depthGateActive = depthGateActive, minDepthM = minDepthM,
             regionSaturated = regionSaturated, plan = plan,
             windows = walk, gate = gate
@@ -393,19 +387,7 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         fine: WalkLattice,
         fineBox: BBox,
         pace: Double,
-        marginM: Double,
-        zoneOutsideMarginM: Double,
-        priced: List<ZoneRing>,
-        bandSpec: BandLaw?,
-        fineMask: FineMask?,
-        edges: List<MultipassEdge>,
-        openCoast: List<List<LatLng>>,
-        minDepthM: Double,
-        depthGateActive: Boolean,
-        gate: GateRule?,
-        collarReachM: Double,
-        fineWater: FineWater,
-        markerStrength: Double,
+        spec: FineLayerSpec,
         trace: (() -> String) -> Unit
     ): MultipassGrid {
         val rows = ceil((fineBox.latNorth - fineBox.latSouth) / fine.cellSizeDegLat).toInt().coerceAtLeast(1)
@@ -427,19 +409,13 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         val fineTiles = FineTileCache.shared ?: ownTiles
         for (tileRow in firstTileRow..lastTileRow) {
             for (tileCol in firstTileCol..lastTileCol) {
-                val key = fineTileKey(
-                    world, anchor, fine, tileRow, tileCol, marginM, zoneOutsideMarginM,
-                    bandSpec, fineMask, fineWater, priced, minDepthM, depthGateActive, collarReachM, markerStrength
-                )
+                val water = tileWater(world, spec, fine, tileRow, tileCol)
+                val key = fineTileKey(spec, anchor, fine, tileRow, tileCol, water)
                 val tile = fineTiles.get(key) {
                     // Only a **miss** reaches here, so the count of these lines is the arm's own tile
                     // builds — the signal that a second arming reuses tiles rather than re-marking (D54).
                     trace { "TILE built row=$tileRow col=$tileCol" }
-                    buildFineTile(
-                        world, fine, tileRow, tileCol, marginM, zoneOutsideMarginM,
-                        priced, bandSpec, fineMask, edges, openCoast, gate, collarReachM,
-                        markerStrength
-                    )
+                    buildFineTile(world, spec, fine, tileRow, tileCol, water)
                 }
                 tile.writeInto(grid, windowRow, windowCol)
             }
@@ -467,27 +443,16 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         val lattice = fineLatticeOf(world, box) ?: return emptyList()
         val fine = lattice.fine
         val anchor = lattice.anchor
-        val cellM = lattice.coarseCellM
-        val fineCellM = lattice.fineCellM
         val edges = world.segmentsIn(box)
         val openCoast = world.openCoastIn(box)
         val marginM = AppConfig.routeAvoidObstacleMarginM
         val zoneOutsideMarginM = AppConfig.routeAvoidSpeedZoneOutsideMarginM
-        val zones = if (AppConfig.routeAvoidSpeedZoneEnabled) world.speedZonesIn(box) else emptyList()
-        val priced = zones.map { z -> ZoneRing(z.outerRing, z.holes, z.routeLimitKn) }
-        val bandSpec = bandLaw(world)
-        val depthGateActive = AppConfig.routeAvoidDepthGateEnabled && world.depthReady
-        val minDepthM = AppConfig.routeAvoidDepthGateMinM
-        val gate = gateRuleOf(world, plan, depthGateActive, minDepthM)
-        val fineWater = plan.fineWater(
-            FineWaterQuery(
-                world = world, box = box, edges = edges, openCoast = openCoast,
-                marginM = marginM, baseCellM = cellM
-            )
+        val spec = fineLayerSpec(
+            world, box, edges, openCoast, lattice.coarseCellM, markerStrength, marginM, zoneOutsideMarginM,
+            bandLaw(world)
         )
-        if (fineWater.isEmpty) return emptyList()
-        val fineBoxes = fineWindowBoxes(world, fine, box, edges, openCoast, fineWater)
-        val fineMask = fineWater.toMask()
+        if (spec.fineWater.isEmpty) return emptyList()
+        val fineBoxes = fineWindowBoxes(world, fine, box, edges, openCoast, spec.fineWater)
         val requests = LinkedHashMap<TileKey, FineTileRequest>()
         for (fineBox in fineBoxes) {
             val rows = ceil((fineBox.latNorth - fineBox.latSouth) / fine.cellSizeDegLat).toInt().coerceAtLeast(1)
@@ -500,23 +465,15 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
             val lastTileCol = Math.floorDiv(windowCol + cols - 1, FINE_TILE_CELLS)
             for (tileRow in firstTileRow..lastTileRow) {
                 for (tileCol in firstTileCol..lastTileCol) {
-                    val key = fineTileKey(
-                        world, anchor, fine, tileRow, tileCol, marginM, zoneOutsideMarginM,
-                        bandSpec, fineMask, fineWater, priced, minDepthM, depthGateActive,
-                        fineWater.depthCollarM, markerStrength
-                    )
+                    val water = tileWater(world, spec, fine, tileRow, tileCol)
+                    val key = fineTileKey(spec, anchor, fine, tileRow, tileCol, water)
                     if (requests.containsKey(key)) continue
-                    val inner = fineTileBox(fine, tileRow, tileCol)
                     val center = LatLng(
-                        (inner.latSouth + inner.latNorth) / 2.0,
-                        (inner.lonWest + inner.lonEast) / 2.0
+                        (water.box.latSouth + water.box.latNorth) / 2.0,
+                        (water.box.lonWest + water.box.lonEast) / 2.0
                     )
                     requests[key] = FineTileRequest(key, center) {
-                        buildFineTile(
-                            world, fine, tileRow, tileCol, marginM, zoneOutsideMarginM,
-                            priced, bandSpec, fineMask, edges, openCoast,
-                            gate, fineWater.depthCollarM, markerStrength
-                        )
+                        buildFineTile(world, spec, fine, tileRow, tileCol, water)
                     }
                 }
             }
@@ -564,55 +521,199 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
     )
 
     /**
+     * **The fine layer's own values, derived once per arm** — everything a tile's key, harvest and raster
+     * read beyond the lattice and the tile's own coordinates: the margin, the zone margin and the zone
+     * switch, the band law, the plan's fine water and its mask, the depth gate, the marker price's strength
+     * and the costed markers, with the three stamps and the region's cap read **once**.
+     * One value for the arm and the pre-warm alike, so `buildLayeredGrid` and [fineTilesOver] derive the
+     * fine layer from one home, nothing is re-read per tile, and the key and the fill cannot disagree.
+     */
+    internal class FineLayerSpec(
+        val marginM: Double,
+        val zoneOutsideMarginM: Double,
+        /** Whether the zone price is armed — a tile then reads the world's zones meeting its reach ([tileWater]). */
+        val zonesEnabled: Boolean,
+        val bandSpec: BandLaw?,
+        val fineWater: FineWater,
+        val minDepthM: Double,
+        val depthGateActive: Boolean,
+        val gate: GateRule?,
+        val markerStrength: Double,
+        /** The world's costed markers, read once — a tile reads the ones whose reach meets it ([tileWater]). */
+        val markers: List<RouteMarker>,
+        val bandWidthM: Double,
+        /** The three switches the key names, read once with the rest — the rasterizer reads them per cell. */
+        val bandEnabled: Boolean,
+        val markerPriceEnabled: Boolean,
+        /** The depth gate's own margin (m) — the wall on `avoid`, the berth's joint on `evolutive`. */
+        val gateMarginM: Double,
+        val depthGenerationStamp: Long,
+        val coastlineGenerationStamp: Long,
+        val emodnetCutoffM: Float,
+        /** The open-coast closure's cap — the region's north, or `null` where the world names none. */
+        val regionLatNorth: Double?,
+        val berth: BerthLaw?
+    ) {
+        /** The plan's fine mask, or `null` where it keeps no fine water. */
+        val fineMask: FineMask? = if (fineWater.isEmpty) null else fineWater.toMask()
+
+        /** The low-depth collar's reach (m), `0.0` where the plan asks none. */
+        val collarReachM: Double get() = fineWater.depthCollarM
+
+        /**
+         * **The furthest any coast sweep of a tile's raster reaches (m)** — the margin band, the band law's
+         * reach and the fine mask's upper edge, the three sweeps `rasterizeFrame` runs over the harvested
+         * coast. A segment further from the raster than this writes no cell of it, which is what lets the
+         * tile harvest its own coast ([buildFineTile]).
+         */
+        val harvestReachM: Double = maxOf(
+            marginM,
+            bandSpec?.let { bandReachM(it.widthM, it.outsideMarginM) } ?: 0.0,
+            fineWater.coastBandsM.maxOfOrNull { it.endInclusive } ?: 0.0
+        )
+    }
+
+    /** [FineLayerSpec] over [box] — the one derivation the arm and the pre-warm share. */
+    private fun fineLayerSpec(
+        world: MultipassWorld,
+        box: BBox,
+        edges: List<MultipassEdge>,
+        openCoast: List<List<LatLng>>,
+        cellM: Double,
+        markerStrength: Double,
+        marginM: Double,
+        zoneOutsideMarginM: Double,
+        bandSpec: BandLaw?
+    ): FineLayerSpec {
+        val depthGateActive = AppConfig.routeAvoidDepthGateEnabled && world.depthReady
+        val minDepthM = AppConfig.routeAvoidDepthGateMinM
+        return FineLayerSpec(
+            marginM = marginM,
+            zoneOutsideMarginM = zoneOutsideMarginM,
+            zonesEnabled = AppConfig.routeAvoidSpeedZoneEnabled,
+            bandSpec = bandSpec,
+            fineWater = plan.fineWater(
+                FineWaterQuery(
+                    world = world, box = box, edges = edges, openCoast = openCoast,
+                    marginM = marginM, baseCellM = cellM
+                )
+            ),
+            minDepthM = minDepthM,
+            depthGateActive = depthGateActive,
+            gate = gateRuleOf(world, plan, depthGateActive, minDepthM),
+            markerStrength = markerStrength,
+            markers = world.routeMarkers(),
+            bandWidthM = world.bandWidthM,
+            bandEnabled = AppConfig.routeAvoidZone300Enabled,
+            markerPriceEnabled = AppConfig.routeMarkerEnabled,
+            gateMarginM = AppConfig.routeAvoidDepthGateMarginM,
+            depthGenerationStamp = world.depthGenerationStamp,
+            coastlineGenerationStamp = world.coastlineGenerationStamp,
+            emodnetCutoffM = world.emodnetCutoffM,
+            regionLatNorth = world.regionBounds?.latNorth,
+            berth = berthLawOf(plan, depthGateActive)
+        )
+    }
+
+    /**
+     * **The water one tile is built from** — its inner block, the grown box its raster covers (the collar
+     * halo), and the rings and the markers whose reach meets that raster: the exact sets its key names and
+     * its fill reads, so a corridor meeting other, farther zones or markers names the same tile.
+     */
+    private class TileWater(
+        val box: BBox,
+        val grown: BBox,
+        val halo: Int,
+        val rings: List<ZoneRing>,
+        val markers: List<RouteMarker>
+    )
+
+    /**
+     * [TileWater] for one tile. **The zones and the markers are the world's, read over the tile's own reach**
+     * — never a corridor's or a pre-warm box's list, which a zone inside the tile but outside that box would
+     * be missing from, so a tile built by one box would lack a limit the next box needs. **The filters
+     * over-include by construction**: a reach is grown by a twentieth and two fine cells before it is written
+     * in degrees ([reachWithSlack]), because the rasterizer's sweeps expand their boxes at the lattice's
+     * reference latitude while they measure at the points' own, so a ring or a marker just past a
+     * degree-exact reach could still stand within it by distance. Over-inclusion never moves a byte of the
+     * tile; under-inclusion could move a collar cell. **The rings are keyed in id order**, so two launches
+     * whose provider lists the zones differently still name one tile; the fill's writes keep the strictest
+     * limit and paint land idempotently, so the order moves no byte. The markers keep the world's order.
+     */
+    private fun tileWater(
+        world: MultipassWorld,
+        spec: FineLayerSpec,
+        fine: WalkLattice,
+        tileRow: Int,
+        tileCol: Int
+    ): TileWater {
+        val box = fineTileBox(fine, tileRow, tileCol)
+        // **The collar halo.** The tile's BFS must see shallow water across a seam, so the raster is
+        // grown by the collar's reach and only the inner block is kept — a member at the inner edge then
+        // carries the distance to a shallow cell in the next tile.
+        val halo = if (spec.collarReachM > 0.0) ceil(spec.collarReachM / fine.cellM).toInt().coerceAtLeast(1) else 0
+        val grown = if (halo > 0) inflateBox(box, halo * fine.cellM) else box
+        // A ring further from the raster than the zone's outside margin fills no cell of it: its even-odd
+        // crossings toggle an even count or none inside the box, and the collar sweep is clamped to the grid.
+        val zoneReach = inflateBox(grown, reachWithSlack(spec.zoneOutsideMarginM, fine.cellM))
+        val rings =
+            if (spec.zonesEnabled) {
+                world.speedZonesIn(zoneReach).sortedBy { it.id }.map { ZoneRing(it.outerRing, it.holes, it.routeLimitKn) }
+            } else {
+                emptyList()
+            }
+        // A marker beyond its body and collar prices and walls no cell: `collarFactor` is zero past them.
+        val markerSlackM = reachWithSlack(0.0, fine.cellM)
+        val markers = spec.markers.filter { it.geometry.reachBox(markerSlackM).overlaps(grown) }
+        return TileWater(box, grown, halo, rings, markers)
+    }
+
+    /**
      * Rasterises one fixed tile block on the fine lattice — the marking the tile map caches.
      *
      * The block is rasterised over its own inner box, exactly the water the merged window holds, so a
      * tile and the window it replaces agree cell for cell.
      *
-     * **The open coast is capped at the tile's own box north (D52).** The window the tile replaces closed
-     * its coast at the corridor's cap; here it closes at the tile's, and the two agree on the block
-     * because the tile's cap is north of that block: the even-odd fill seals every landward cell up to the
-     * cap, so the cap's exact latitude never reaches the block, and the land the window sealed stays
-     * sealed. The equivalence rests on that — a cap south of the block would move it.
+     * **The harvest is the tile's own.** The coast it is rastered from is read over the tile's grown box
+     * inflated by [FineLayerSpec.harvestReachM] with the filter's slack — never a caller's corridor or
+     * pre-warm box. A tile is cached as its whole block and served to every box that meets it, so a harvest
+     * clipped to the building box would leave the part of a block outside that box as water where another
+     * box's coast stands; harvested at its own reach, the tile is a function of the lattice, the world and
+     * its key alone, and a segment beyond the reach writes no cell of it.
+     *
+     * **The open coast is capped at the region's north, or the tile's own (D52).** The window the tile
+     * replaces closed its coast at the corridor's cap; here it closes at the region's — north of every
+     * block, so the even-odd fill seals every landward cell up to it and the cap's exact latitude never
+     * reaches the block.
      */
     private fun buildFineTile(
         world: MultipassWorld,
+        spec: FineLayerSpec,
         fine: WalkLattice,
         tileRow: Int,
         tileCol: Int,
-        marginM: Double,
-        zoneOutsideMarginM: Double,
-        priced: List<ZoneRing>,
-        bandSpec: BandLaw?,
-        fineMask: FineMask?,
-        edges: List<MultipassEdge>,
-        openCoast: List<List<LatLng>>,
-        gate: GateRule?,
-        collarReachM: Double,
-        markerStrength: Double
+        /** The tile's own water, read once by the caller beside the key ([tileWater]). */
+        water: TileWater
     ): FineTile {
-        val box = fineTileBox(fine, tileRow, tileCol)
-        // **The collar halo.** The tile's BFS must see shallow water across a seam, so the raster is
-        // grown by the collar's reach and only the inner block is kept — a member at the inner edge then
-        // carries the distance to a shallow cell in the next tile.
-        val halo = if (collarReachM > 0.0) ceil(collarReachM / fine.cellM).toInt().coerceAtLeast(1) else 0
-        val grown = if (halo > 0) inflateBox(box, halo * fine.cellM) else box
-        val capLatNorth = world.regionBounds?.latNorth ?: grown.latNorth
+        val harvestBox = inflateBox(water.grown, reachWithSlack(spec.harvestReachM, fine.cellM))
+        val edges = world.segmentsIn(harvestBox)
+        val openCoast = world.openCoastIn(harvestBox)
+        val capLatNorth = spec.regionLatNorth ?: water.grown.latNorth
         // **The unit base (D4).** The tile's own field prices its markers at `1.0 × factor` and the grid
         // opens at `1.0`, so the raster's own source cost *is* the pace-free factor `extract` reads, and the
         // pace reaches no stored byte. The field is the tile's own (D5) — the depth gate's wall and the
         // marker price at the unit base — so one base governs a member's cost at this cell size, and the
         // berth distance a cached tile carries is the one an arm's fresh build writes. `paceKn` is
         // deliberately inert here: the base is overridden, so the frame never derives it.
-        val tileField = tileCostField(world, baseCostSec = 1.0, markerStrength)
+        val tileField = tileCostField(world, baseCostSec = 1.0, spec.markerStrength, water.markers)
         val raster = rasterizeWindow(
-            grown, fine, paceKn = 0.0, marginM = marginM, edges = edges, openCoast = openCoast,
-            capLatNorth = capLatNorth, field = tileField, zones = priced,
-            zoneOutsideMarginM = zoneOutsideMarginM, band = bandSpec,
-            gate = gate, collarReachM = collarReachM,
-            fineMask = fineMask, baseCostSecOverride = 1.0
+            water.grown, fine, paceKn = 0.0, marginM = spec.marginM, edges = edges, openCoast = openCoast,
+            capLatNorth = capLatNorth, field = tileField, zones = water.rings,
+            zoneOutsideMarginM = spec.zoneOutsideMarginM, band = spec.bandSpec,
+            gate = spec.gate, collarReachM = spec.collarReachM,
+            fineMask = spec.fineMask, baseCostSecOverride = 1.0
         )
-        return FineTile.extract(raster, tileRow, tileCol, FINE_TILE_CELLS, halo)
+        return FineTile.extract(raster, tileRow, tileCol, FINE_TILE_CELLS, water.halo)
     }
 
     /** One tile's **inner** box on the anchored fine lattice — pure arithmetic on the anchor, never a corridor. */
@@ -624,60 +725,53 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
         return BBox(latSouth, latSouth + sideLat, lonWest, lonWest + sideLon)
     }
 
-    /** The key one tile is cached under — every value its rasterisation reads, per the plan's own list. */
+    /**
+     * The key one tile is cached under — every value its rasterisation reads, per the plan's own list: the
+     * lattice, the stamps, the law, the switches, and **the tile's own water** ([tileWater], read once by the
+     * caller for the key and the build alike) — the rings and the markers whose reach meets it, never the
+     * whole corridor's. The cap is the one the raster closes the coast at: the region's north, or the
+     * grown box's own where the world names no region.
+     */
     private fun fineTileKey(
-        world: MultipassWorld,
+        spec: FineLayerSpec,
         anchor: LatticeAnchor,
         fine: WalkLattice,
         tileRow: Int,
         tileCol: Int,
-        marginM: Double,
-        zoneOutsideMarginM: Double,
-        bandSpec: BandLaw?,
-        fineMask: FineMask?,
-        fineWater: FineWater,
-        priced: List<ZoneRing>,
-        minDepthM: Double,
-        depthGateActive: Boolean,
-        depthCollarM: Double,
-        markerStrength: Double
+        water: TileWater
     ): TileKey {
-        val berth = berthLawOf(plan, depthGateActive)
         return TileKey(
-        anchorLatSouth = anchor.latSouth,
-        anchorLonWest = anchor.lonWest,
-        referenceLat = anchor.referenceLat,
-        fineCellM = fine.cellM,
-        tileRow = tileRow,
-        tileCol = tileCol,
-        tileCells = FINE_TILE_CELLS,
-        capLatNorth = world.regionBounds?.latNorth
-            ?: fineTileBox(fine, tileRow, tileCol).latNorth,
-        depthGenerationStamp = world.depthGenerationStamp,
-        coastlineGenerationStamp = world.coastlineGenerationStamp,
-        emodnetCutoffM = world.emodnetCutoffM,
-        obstacleMarginM = marginM,
-        gateMinDepthM = minDepthM,
-        gateMarginM = AppConfig.routeAvoidDepthGateMarginM,
-        depthGateEnabled = depthGateActive,
-        bandWidthM = world.bandWidthM,
-        bandLimitKn = bandSpec?.limitKn ?: 0.0,
-        bandOutsideMarginM = bandSpec?.outsideMarginM ?: 0.0,
-        bandEnabled = AppConfig.routeAvoidZone300Enabled,
-        zoneOutsideMarginM = zoneOutsideMarginM,
-        zonesEnabled = AppConfig.routeAvoidSpeedZoneEnabled,
-        coastBandsM = fineWater.coastBandsM,
-        excludedZoneIdSet = world.excludedZoneIdSet,
-        zoneGenerationStamp = world.zoneGenerationStamp,
-        zoneRings = priced,
-        markers = world.routeMarkers(),
-        markerStrength = markerStrength,
-        markerPriceEnabled = AppConfig.routeMarkerEnabled,
-        berthOuterM = berth?.outerM ?: 0.0,
-        depthCollarM = depthCollarM,
-        berthFloorM = berth?.floorM ?: 0.0
-    )
-}
+            anchorLatSouth = anchor.latSouth,
+            anchorLonWest = anchor.lonWest,
+            referenceLat = anchor.referenceLat,
+            fineCellM = fine.cellM,
+            tileRow = tileRow,
+            tileCol = tileCol,
+            tileCells = FINE_TILE_CELLS,
+            capLatNorth = spec.regionLatNorth ?: water.grown.latNorth,
+            depthGenerationStamp = spec.depthGenerationStamp,
+            coastlineGenerationStamp = spec.coastlineGenerationStamp,
+            emodnetCutoffM = spec.emodnetCutoffM,
+            obstacleMarginM = spec.marginM,
+            gateMinDepthM = spec.minDepthM,
+            gateMarginM = spec.gateMarginM,
+            depthGateEnabled = spec.depthGateActive,
+            bandWidthM = spec.bandWidthM,
+            bandLimitKn = spec.bandSpec?.limitKn ?: 0.0,
+            bandOutsideMarginM = spec.bandSpec?.outsideMarginM ?: 0.0,
+            bandEnabled = spec.bandEnabled,
+            zoneOutsideMarginM = spec.zoneOutsideMarginM,
+            zonesEnabled = spec.zonesEnabled,
+            coastBandsM = spec.fineWater.coastBandsM,
+            zoneRings = water.rings,
+            markers = water.markers,
+            markerStrength = spec.markerStrength,
+            markerPriceEnabled = spec.markerPriceEnabled,
+            berthOuterM = spec.berth?.outerM ?: 0.0,
+            depthCollarM = spec.collarReachM,
+            berthFloorM = spec.berth?.floorM ?: 0.0
+        )
+    }
 
     /**
      * **The end's own cell carries a measured gate distance.** The margin sweep paints a coast-side cell land
@@ -984,3 +1078,10 @@ internal class RouteGridBuilder(private val plan: RouteGridPlan = UniformGridPla
             "limit=${fmt(grid.zoneLimitKn(cell.row, cell.col))}kn)"
     }
 }
+
+/**
+ * **A reach grown for a degree-written filter** — [REACH_SLACK_FACTOR] of it plus two cells of [cellM]: the
+ * over-inclusion that keeps a reach filter exact against the rasterizer's reference-latitude boxes and the
+ * raster's own `ceil` at its far edge. Over-inclusion never moves a byte; under-inclusion could.
+ */
+internal fun reachWithSlack(reachM: Double, cellM: Double): Double = reachM * REACH_SLACK_FACTOR + 2.0 * cellM

@@ -70,6 +70,60 @@ class CoastlineSpatialIndexTest {
         assertTrue("expected a dense sweep, only checked $checked", checked > 2000)
     }
 
+    /**
+     * **A segment skipped on its box's bound never changes the answer.** The walk measures a segment only where
+     * its box could still beat the best so far, so the distance it returns must be the exhaustive scan's own to
+     * the last bit, and where one segment alone holds that minimum it must be the one taken — near the coast,
+     * where boxes overlap the best, up to a kilometre off, where the walk spans many rings and skips almost every
+     * segment it meets (further out, past the walk's own ring cap, the index answers no coast at all, as it always
+     * has), and on each vertex's own longitude a few metres off, where a box's bound is tight to its segment.
+     */
+    @Test
+    fun `query takes the exhaustive nearest segment exactly, near and far`() {
+        val fine = CoastlineSpatialIndex(listOf(coast), cellSizeM = 100.0)
+        val coarse = CoastlineSpatialIndex(listOf(coast))
+        val probes = buildList {
+            var lat = 43.483
+            while (lat <= 43.517) {
+                var lon = 6.988
+                while (lon <= 7.042) {
+                    add(lat to lon)
+                    lon += 0.0004
+                }
+                lat += 0.0004
+            }
+            for (v in coast.points) {
+                for (offsetDeg in listOf(-0.00003, -0.000001, 0.000001, 0.00003)) {
+                    add(v.lat.toDouble() + offsetDeg to v.lon.toDouble())
+                }
+            }
+        }
+        for ((lat, lon) in probes) {
+            val (expected, segment, unique) = bruteForceNearest(lat, lon)
+            for ((name, index) in listOf("fine" to fine, "default" to coarse)) {
+                val r = index.query(lat, lon)
+                assertEquals("$name cells at ($lat, $lon)", expected, r.distanceMeters, 0.0)
+                if (unique) assertEquals("$name cells' segment at ($lat, $lon)", segment, r.vertexIndex)
+            }
+        }
+        assertTrue("expected a wide sweep, only ${probes.size}", probes.size > 9000)
+    }
+
+    /** The exhaustive minimum, its segment, and whether no other segment measures the same. */
+    private fun bruteForceNearest(lat: Double, lon: Double): Triple<Double, Int, Boolean> {
+        val p = LatLng(lat, lon)
+        val pts = coast.points
+        val d = (0 until pts.size - 1).map { i ->
+            SpatialOperations.pointToSegmentDistance(
+                p,
+                LatLng(pts[i].lat.toDouble(), pts[i].lon.toDouble()),
+                LatLng(pts[i + 1].lat.toDouble(), pts[i + 1].lon.toDouble())
+            )
+        }
+        val best = d.min()
+        return Triple(best, d.indexOf(best), d.count { it == best } == 1)
+    }
+
     @Test
     fun `query returns the closest segment's vertex info`() {
         val index = CoastlineSpatialIndex(listOf(coast), cellSizeM = 100.0)

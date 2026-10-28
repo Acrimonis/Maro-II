@@ -714,36 +714,38 @@ object AppConfig {
     /**
      * The rate (m/s²) every transition in the route's own speed profile ramps at — the boat eases
      * down to a zone's limit over `(v0² − v1²) / 2a` metres **before** the ring and climbs back to
-     * the pace after leaving it. 0.1–2.0, default 1.0: a purposeful ease, light bracing, 2.0 the
-     * briskest a planing hull is read at, 0.1 the floor where a ramp still means something. **The ETA's
-     * clock alone** — it moves the reported time and never the drawn line, which the search has already
-     * chosen. One home for the rate: this value, and the key it is read from.
+     * the pace after leaving it — `route.speed.accelMps2`, whose value `maro.properties` holds and this default
+     * follows, clamped 0.1..2.0: 2.0 the briskest a planing hull is read at, 0.1 the floor where a ramp still
+     * means something. **The ETA's clock alone** — it moves the reported time and never the drawn line, which the
+     * search has already chosen. One home for the rate: this value, and the key it is read from.
      */
-    var routeSpeedAccelMps2: Double = 1.0
+    var routeSpeedAccelMps2: Double = 0.666667
         private set
 
     /**
-     * The turn-rounding **lateral-acceleration limit** (m/s²) — `route.turn.lateralAccelMps2`,
-     * default 0.33 (~0.03 g), clamped 0.1..2.94.
+     * The turn-rounding **lateral-acceleration limit** (m/s²) — `route.turn.lateralAccelMps2`, whose value
+     * `maro.properties` holds and this default follows, clamped 0.1..2.94.
      *
      * A corner is drawn as a curve whose radius is `r = v² / a_lat`, so a high value gives a tight,
      * hard turn and a low value a wide, gentle one; the fitter caps a bend's radius at the pace's own
      * `v_pace² / a_lat` and never draws it tighter than the speed's own minimum, `v² / a_lat`. One
      * home for the ceiling: this value and the key it is read from.
      */
-    var routeTurnLateralAccelMps2: Double = 0.33
-        private set
+    var routeTurnLateralAccelMps2: Double = 0.666667
+        // Internal so a test fixture built at another value can pin it without reloading the properties (TurnConfigFixture).
+        internal set
 
     /**
-     * The turn's **spiral roll-in time** (s) — `route.turn.transitionSec`, default 2.0, clamped
-     * 0.5..5.0.
+     * The turn's **spiral roll-in time** (s) — `route.turn.transitionSec`, whose value `maro.properties` holds and
+     * this default follows, clamped 0.5..5.0.
      *
-     * It gives the spiral length `L = v · transitionSec` at the bend's own speed — ~29 m at 28 kn,
-     * ~10 m at 10 kn — so the entry inertia scales with speed; the curvature rate follows,
-     * `κ̇ = v / (r · L)`. One home for the time: this value and the key it is read from.
+     * It gives the spiral length `L = v · transitionSec` at the bend's own speed, so the entry inertia scales
+     * with speed; the curvature rate follows, `κ̇ = v / (r · L)`. One home for the time: this value and the key
+     * it is read from.
      */
-    var routeTurnTransitionSec: Double = 2.0
-        private set
+    var routeTurnTransitionSec: Double = 3.333333
+        // Internal so a test fixture built at another value can pin it without reloading the properties (TurnConfigFixture).
+        internal set
 
     /**
      * The speed a bend's drawing **aims** for (kn) — `route.turn.minSpeedKn`, default 5, clamped
@@ -764,6 +766,16 @@ object AppConfig {
      */
     var routeTurnReachFraction: Double = 1.0
         private set
+
+    /**
+     * The least a lone turn's slide along its own legs must save (s) to be taken —
+     * `route.approach.lone.minSavedSec`, whose value `maro.properties` holds and this default follows, clamped
+     * 0.0..30.0. A smaller saving is the grid's rounding, and taking it sets the approach pass's next pass re-searching
+     * the neighbours it moved.
+     */
+    var routeApproachLoneMinSavedSec: Double = 1.0
+        // Internal so a fixture can pin it without reloading the properties.
+        internal set
 
     /**
      * The speed zone's outside-margin price as a fraction of the interior's —
@@ -1936,38 +1948,26 @@ object AppConfig {
      *    lives in ui.properties with its token, not here.
      */
     fun init(context: Context) {
+        val props = Properties()
+        // maro.properties, then ui.properties (spacing/dimension/font tokens), then colors.properties, so any
+        // colour key still resolves from colors.properties (colors win). Each is optional: defaults apply if absent.
+        for (name in listOf("maro.properties", "ui.properties", "colors.properties")) {
+            try {
+                context.assets.open(name).use { stream -> props.load(stream) }
+            } catch (_: Exception) {
+                // An absent file keeps its keys' defaults.
+            }
+        }
+        applyProperties(props)
+    }
+
+    /**
+     * **The values the bundled `.properties` hold, applied** — [init]'s whole reading once its files are loaded,
+     * apart from the Android assets so a JVM harness can apply the very files the app ships and route over the
+     * device's own values rather than the code's defaults.
+     */
+    internal fun applyProperties(props: Properties) {
         try {
-            val props = Properties()
-
-            // Load maro.properties (optional — if missing, defaults are kept).
-            try {
-                context.assets.open("maro.properties").use { stream ->
-                    props.load(stream)
-                }
-            } catch (_: Exception) {
-                // maro.properties is optional; defaults apply if absent.
-            }
-
-            // Load ui.properties (optional — UI spacing/dimension/font tokens).
-            // Loaded AFTER maro.properties but BEFORE colors.properties so that any
-            // colour keys still resolve from colors.properties (colors win).
-            try {
-                context.assets.open("ui.properties").use { stream ->
-                    props.load(stream)
-                }
-            } catch (_: Exception) {
-                // ui.properties is optional; defaults apply if absent.
-            }
-
-            // Load colors.properties (optional — defaults apply if absent).
-            try {
-                context.assets.open("colors.properties").use { stream ->
-                    props.load(stream)
-                }
-            } catch (_: Exception) {
-                // colors.properties is optional; defaults apply if absent.
-            }
-
             // Resolve ${key} interpolation — run BEFORE individual property reads so that
             // references like ${ui.dashboard.status.success} are expanded in-place.
             val refPattern = Regex("""\$\{([^}]+)\}""")
@@ -2643,6 +2643,9 @@ object AppConfig {
             }
             props.getProperty("route.turn.reachFraction")?.toDoubleOrNull()?.let {
                 routeTurnReachFraction = it.coerceIn(0.0, 1.0)
+            }
+            props.getProperty("route.approach.lone.minSavedSec")?.toDoubleOrNull()?.let {
+                routeApproachLoneMinSavedSec = it.coerceIn(0.0, 30.0)
             }
             props.getProperty("ui.value.text")?.let { parseColorOrNull(it) }?.let { uiValueText = it }
             props.getProperty("ui.text.scrim")?.let { parseColorOrNull(it) }?.let { uiTextScrim = it }

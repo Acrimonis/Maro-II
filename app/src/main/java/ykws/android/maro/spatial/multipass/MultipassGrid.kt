@@ -362,6 +362,23 @@ class MultipassGrid(
     }
 
     /**
+     * **A copy of this grid, every array verbatim** — the seven primitive arrays copied into a grid of the
+     * same frame, so a shared raster (a crossing re-solve's, built once per arm) hands each rung its own
+     * water to free its ends on. The copy shares nothing with the original.
+     */
+    fun copy(): MultipassGrid {
+        val copy = MultipassGrid(latSouth, lonWest, cellSizeDegLat, cellSizeDegLon, rows, cols, cellM, baseCostSec)
+        cellState.copyInto(copy.cellState)
+        cellSourceCostSec.copyInto(copy.cellSourceCostSec)
+        zoneLimitKn.copyInto(copy.zoneLimitKn)
+        collarLimitKn.copyInto(copy.collarLimitKn)
+        bandLimitKn.copyInto(copy.bandLimitKn)
+        bandCollarLimitKn.copyInto(copy.bandCollarLimitKn)
+        gateDistanceM.copyInto(copy.gateDistanceM)
+        return copy
+    }
+
+    /**
      * A copy of this grid with every **restrictive** zone interior marked impassable: a cell carrying
      * a limit slower than [paceKn] becomes land, a cell at or above the pace stays open water.
      *
@@ -376,14 +393,7 @@ class MultipassGrid(
      * `null` blocks every restrictive cell as before.
      */
     fun blockedCopy(paceKn: Double, stayOpen: ((LatLng) -> Boolean)? = null): MultipassGrid {
-        val copy = MultipassGrid(latSouth, lonWest, cellSizeDegLat, cellSizeDegLon, rows, cols, cellM, baseCostSec)
-        cellState.copyInto(copy.cellState)
-        cellSourceCostSec.copyInto(copy.cellSourceCostSec)
-        zoneLimitKn.copyInto(copy.zoneLimitKn)
-        collarLimitKn.copyInto(copy.collarLimitKn)
-        bandLimitKn.copyInto(copy.bandLimitKn)
-        bandCollarLimitKn.copyInto(copy.bandCollarLimitKn)
-        gateDistanceM.copyInto(copy.gateDistanceM)
+        val copy = copy()
         for (i in 0 until rows * cols) {
             val limit = zoneLimitKn[i]
             if (cellState[i] != LAND_ORDINAL && limit > 0.0 && limit < paceKn &&

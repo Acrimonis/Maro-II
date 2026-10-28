@@ -47,6 +47,40 @@ object SpatialOperations {
     }
 
     /**
+     * **The metres in a degree of longitude at [widestLat]** — the shortest degree [pointToSegmentDistance] can
+     * project with, where [widestLat] is the latitude furthest from the equator its point or its segment can
+     * take: that read scales longitude at the three points' mean latitude, never further out than this.
+     */
+    fun shortestDegLonM(widestLat: Double): Double = EARTH_RADIUS_M * PI / 180.0 * cos(Math.toRadians(widestLat))
+
+    /**
+     * **Whether no segment inside the box [minLat]..[maxLat] × [minLon]..[maxLon] can measure under [bestM]** in
+     * [pointToSegmentDistance] — the point's distance to the box, its longitude read at [shortestDegLonM]'s
+     * degree, which no projection of the segment can make shorter, already reaching [bestM] plus
+     * [BOX_BOUND_SLACK_M]. A walk that skips such a segment skips only one a strict `d < best` could never have
+     * taken: the slack is absolute, so it stands above the read's own rounding (about a nanometre on products of
+     * millions of metres) however near the coast the point is.
+     */
+    fun boxCannotBeat(
+        latitude: Double,
+        longitude: Double,
+        minLat: Double,
+        maxLat: Double,
+        minLon: Double,
+        maxLon: Double,
+        shortestDegLonM: Double,
+        bestM: Double
+    ): Boolean {
+        val northM = max(0.0, max(minLat - latitude, latitude - maxLat)) * (EARTH_RADIUS_M * PI / 180.0)
+        val eastM = max(0.0, max(minLon - longitude, longitude - maxLon)) * shortestDegLonM
+        val reachM = bestM + BOX_BOUND_SLACK_M
+        return northM * northM + eastM * eastM >= reachM * reachM
+    }
+
+    /** [boxCannotBeat]'s slack (m) — a micrometre, far above the distance read's own rounding. */
+    private const val BOX_BOUND_SLACK_M = 1e-6
+
+    /**
      * Minimum distance from point [p] to line segment [a]→[b], in meters.
      *
      * Uses a local planar projection (Lambert-like) centered at the midpoint
