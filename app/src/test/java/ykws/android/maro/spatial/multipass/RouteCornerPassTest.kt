@@ -318,13 +318,13 @@ class RouteCornerPassTest {
     /**
      * **Scope 3** — the floor is a target. A 90° bend whose room (10 m) cannot fit the floor's own
      * ~23 m tangent is still curved — at the largest radius whose **drawn** curve reaches no further
-     * than the 10 m room, taken below the 5 kn floor. Built at `lateralAccelMps2` 0.33 m/s², pinned here
-     * ([TurnConfigFixture]); assumes the other code defaults, the properties not being loaded in a JVM test:
-     * `minSpeedKn` 5 kn, `transitionSec` 2 s, `reachFraction` 1.0; the fitted ceiling is ≈ 3.16 kn.
+     * than the 10 m room, taken below the 5 kn floor. Built at `lateralAccelMps2` 0.33 m/s² and
+     * `transitionSec` 2 s, pinned here ([TurnConfigFixture]); assumes the other code defaults, the properties
+     * not being loaded in a JVM test: `minSpeedKn` 5 kn, `reachFraction` 1.0; the fitted ceiling is ≈ 3.16 kn.
      */
     @Test
     fun aBendTooRoomTightForTheFloorIsStillCurved() {
-        TurnConfigFixture.withLateralAccel(TurnConfigFixture.BUILT_AT_MPS2) {
+        TurnConfigFixture.withTurn(TurnConfigFixture.BUILT_AT_MPS2, TurnConfigFixture.BUILT_AT_TRANSITION_SEC) {
             val corner = LatLng(43.5, 7.0)
             val prev = offset(corner, 0.0, -10.0)
             val next = offset(corner, 100.0, 0.0)
@@ -391,12 +391,11 @@ class RouteCornerPassTest {
      * 140° bend whose room exactly holds the drawn curve at 1.02 kn is still curved, its ceiling just
      * above the bottom; the same bend given a hair less room — one that holds only a 0.98 kn curve — is
      * left standing. The pair brackets the guard at 1 kn, which the parked near-reversal alone cannot.
-     * Built at `lateralAccelMps2` 0.33 m/s², pinned here ([TurnConfigFixture]); assumes the code default
-     * `transitionSec` 2 s.
+     * Built at `lateralAccelMps2` 0.33 m/s² and `transitionSec` 2 s, pinned here ([TurnConfigFixture]).
      */
     @Test
     fun aBendAtTheHardBottomCurvesAndAHairLessStands() {
-        TurnConfigFixture.withLateralAccel(TurnConfigFixture.BUILT_AT_MPS2) {
+        TurnConfigFixture.withTurn(TurnConfigFixture.BUILT_AT_MPS2, TurnConfigFixture.BUILT_AT_TRANSITION_SEC) {
             val corner = LatLng(43.5, 7.0)
             val next = offset(corner, 50.0 * sin(Math.toRadians(140.0)), 50.0 * cos(Math.toRadians(140.0)))
             // The drawn tangent a 140° curve needs at 1.02 kn (≈2.666 m) and at 0.98 kn (≈2.469 m) — the

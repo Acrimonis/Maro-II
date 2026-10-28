@@ -714,12 +714,12 @@ object AppConfig {
     /**
      * The rate (m/s²) every transition in the route's own speed profile ramps at — the boat eases
      * down to a zone's limit over `(v0² − v1²) / 2a` metres **before** the ring and climbs back to
-     * the pace after leaving it. 0.1–2.0, default 1.0: a purposeful ease, light bracing, 2.0 the
-     * briskest a planing hull is read at, 0.1 the floor where a ramp still means something. **The ETA's
-     * clock alone** — it moves the reported time and never the drawn line, which the search has already
-     * chosen. One home for the rate: this value, and the key it is read from.
+     * the pace after leaving it — `route.speed.accelMps2`, whose value `maro.properties` holds and this default
+     * follows, clamped 0.1..2.0: 2.0 the briskest a planing hull is read at, 0.1 the floor where a ramp still
+     * means something. **The ETA's clock alone** — it moves the reported time and never the drawn line, which the
+     * search has already chosen. One home for the rate: this value, and the key it is read from.
      */
-    var routeSpeedAccelMps2: Double = 1.0
+    var routeSpeedAccelMps2: Double = 0.666667
         private set
 
     /**
@@ -736,15 +736,16 @@ object AppConfig {
         internal set
 
     /**
-     * The turn's **spiral roll-in time** (s) — `route.turn.transitionSec`, default 2.0, clamped
-     * 0.5..5.0.
+     * The turn's **spiral roll-in time** (s) — `route.turn.transitionSec`, whose value `maro.properties` holds and
+     * this default follows, clamped 0.5..5.0.
      *
-     * It gives the spiral length `L = v · transitionSec` at the bend's own speed — ~29 m at 28 kn,
-     * ~10 m at 10 kn — so the entry inertia scales with speed; the curvature rate follows,
-     * `κ̇ = v / (r · L)`. One home for the time: this value and the key it is read from.
+     * It gives the spiral length `L = v · transitionSec` at the bend's own speed, so the entry inertia scales
+     * with speed; the curvature rate follows, `κ̇ = v / (r · L)`. One home for the time: this value and the key
+     * it is read from.
      */
-    var routeTurnTransitionSec: Double = 2.0
-        private set
+    var routeTurnTransitionSec: Double = 3.333333
+        // Internal so a test fixture built at another value can pin it without reloading the properties (TurnConfigFixture).
+        internal set
 
     /**
      * The speed a bend's drawing **aims** for (kn) — `route.turn.minSpeedKn`, default 5, clamped

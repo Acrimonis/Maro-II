@@ -120,11 +120,12 @@ class GateCornerTest {
      * that — turns into a leg that runs just past the wall off a shelf on the turn's inside. A bow at the
      * corner's floor would cut that shelf under the wall past the waiver; held to the wall there, it keeps it.
      * The deep water reads 3.5 m so the 3 m line stands two thirds of a node out from the shelf's last node.
-     * Built at `lateralAccelMps2` 0.33 m/s², pinned here ([TurnConfigFixture]): the bow's floor radius is that value's.
+     * Built at `lateralAccelMps2` 0.33 m/s² and `transitionSec` 2 s, pinned here ([TurnConfigFixture]): the bow's floor
+     * radius and spirals are those values'.
      */
     @Test
     fun aWaivedCornersBowKeepsTheWallPastTheWaiver() {
-        TurnConfigFixture.withLateralAccel(TurnConfigFixture.BUILT_AT_MPS2) {
+        TurnConfigFixture.withTurn(TurnConfigFixture.BUILT_AT_MPS2, TurnConfigFixture.BUILT_AT_TRANSITION_SEC) {
             val raster = GateTestFixtures.raster(130, 25, 2.0) { n, e ->
                 if (hypot(n - 14.0, e - 27.0) < 2.5 || (e < 12.0 && n > 24.0)) 2.0 else 3.5
             }

@@ -361,6 +361,66 @@ class RouteApproachPassTest {
     }
 
     /**
+     * **A lone turn is counted, and only counted (P0).** One turn past a slow disc, both legs clean and the chord
+     * skipping it through the disc: no window opens on it, so it is named and the line kept. Past a small disc and far
+     * off a wide one its line reads slack — a step or more along a leg still clears the water; a turn whose legs graze
+     * the wide disc reads none. The small disc's window with the turn under the corner pass's floor, or with a rock on the chord —
+     * a land turn — is not counted.
+     */
+    @Test
+    fun aLoneTurnIsCountedAndTheLineKept() {
+        val a = point(1400.0, -500.0)
+        val e = point(2600.0, -500.0)
+        val small = setup(field(smallDiscs = listOf(point(2000.0, -480.0) to 50.0)), start = a, aim = e)
+        val wide = setup(field(moreDiscs = listOf(point(2000.0, -300.0))), start = a, aim = e)
+        val rockOnTheChord = setup(
+            field(
+                extraHard = RouteCostSource.Hard(distanceAt = {
+                    (SpatialOperations.haversine(it, point(2000.0, -500.0)) - 20.0).coerceAtLeast(0.0)
+                }),
+                smallDiscs = listOf(point(2000.0, -480.0) to 50.0)
+            ),
+            start = a, aim = e
+        )
+        data class Case(val name: String, val setup: PullSetup, val v: LatLng, val lone: Int, val slack: Int)
+        val cases = listOf(
+            Case("past a small disc", small, point(2000.0, -600.0), lone = 1, slack = 1),
+            Case("far off a wide disc", wide, point(2000.0, -650.0), lone = 1, slack = 1),
+            Case("grazing a wide disc", wide, point(2000.0, -609.0), lone = 1, slack = 0),
+            Case("under the floor", small, point(2000.0, -545.0), lone = 0, slack = 0),
+            Case("land turn", rockOnTheChord, point(2000.0, -600.0), lone = 0, slack = 0)
+        )
+        for (case in cases) {
+            val line = listOf(a, case.v, e)
+            assertClear(case.setup, line)
+            // Each case is what it is named for: clean legs — travel alone — and the reason it is or is not counted.
+            val ctx = case.setup.context()
+            for ((u, w) in line.zipWithNext()) {
+                assertEquals(
+                    "${case.name}: a clean leg", SpatialOperations.haversine(u, w) / ctx.paceMps,
+                    MultipassPull.totalSec(u, w, ctx), 1e-9
+                )
+            }
+            val turn = abs(RouteCornerPass.turnDegreesAt(a, case.v, e))
+            assertEquals(
+                "${case.name}: under the floor or not ($turn°)",
+                case.name == "under the floor", turn < RouteCornerPass.MIN_TURN_DEG
+            )
+            assertEquals(
+                "${case.name}: a land turn or not",
+                case.name == "land turn", MultipassPull.legClearCause(a, e, ctx) == ChordRefusal.LAND
+            )
+            val trace = mutableListOf<String>()
+            val kept = RouteApproachPass.refine(case.setup, line, bounds, 20.0, memo = MarkMemo(), trace = { trace += it() })
+            assertEquals("${case.name}: lone turns (${summary(trace)})", case.lone, count(summary(trace), "loneTurns"))
+            val lines = trace.filter { it.startsWith("APPROACH lone ") }
+            assertEquals("${case.name}: named on its own line", case.lone, lines.size)
+            assertEquals("${case.name}: with slack ($lines)", case.slack, lines.count { count(it, "slackM") >= 20 })
+            assertEquals("${case.name}: and the line is kept", line, kept)
+        }
+    }
+
+    /**
      * **An S whose crossing is priced keeps its two turns.** The same S, with a third slow disc standing on the
      * crossing's second leg, off all three of the line's own: the crossing is offered and loses on price, and the line
      * is the one handed in.
@@ -766,7 +826,7 @@ class RouteApproachPassTest {
      */
     @Test
     fun aTurnRoundOneHeadlandIsNotSplit() {
-        TurnConfigFixture.withLateralAccel(TurnConfigFixture.BUILT_AT_MPS2) {
+        TurnConfigFixture.withTurn(TurnConfigFixture.BUILT_AT_MPS2) {
             val start = point(290.0, 0.0)
             val bend = point(590.0, 0.0)
             val aim = point(740.0, -259.8)
