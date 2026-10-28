@@ -261,4 +261,9 @@ tasks.withType<Test>().configureEach {
     // RouteBendHarnessTest's own gate — it writes the shipped values into the JVM's AppConfig, so it never rides
     // the shared prebake gate into a broad filtered run.
     systemProperty("maro.bendHarness", System.getProperty("maro.bendHarness", "false"))
+    // RouteBendHarnessTest's pair — `<lat>,<lon>` each; blank keeps its Lérins → La Salis pair.
+    systemProperty("maro.harness.start", System.getProperty("maro.harness.start", ""))
+    systemProperty("maro.harness.aim", System.getProperty("maro.harness.aim", ""))
+    // A device's swept line for RouteBendHarnessTest to hand the approach pass alone — `<lat>,<lon>` points, space-separated.
+    systemProperty("maro.harness.replay", System.getProperty("maro.harness.replay", ""))
 }

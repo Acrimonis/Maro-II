@@ -47,12 +47,29 @@ import kotlin.math.sin
  * window therefore also tries two points in place of the point its slide found, each on one of that point's legs
  * ([searchSplit]); the window takes the cheaper of its slide and its split. A split the corner pass would draw
  * back as the one corner it splits is refused, and a point a split made is not split again in the same pass.
+ *
+ * **Two turns standing for one are merged at their crossing.** The pull commits the grid path's own point at each
+ * refused chord, so where a leg leaves one feature and the next reaches another the line can carry an S — a turn one
+ * way, then the other — on open water, each point kept because the chord skipping it is priced, and no slow water on
+ * the legs for the gate above to open (the 2026-10-28 La Salis → Le Village Englouti "Balanced" line, between La
+ * Fourmigue's band and the 10 kn zone off Cap d'Antibes). A three-span window whose two inner points turn opposite ways
+ * is offered one candidate, the crossing of its outer legs, whatever its legs' water; where the slow gate opened the
+ * window too, the crossing is read after the window's own search, against its best, so that search is never moved.
+ *
+ * **The crossing then slides along its own legs.** The crossing is right in its legs' directions, not in where along them
+ * it turns: the outer leg a feature pins at its far end is right, and the turn belongs where the other leg just clears
+ * the feature at its own end — on the device pair at La Fourmigue's band edge, 1.1 km back along the crossing's own leg
+ * (2026-10-28 10:28). So every crossing offered — won or lost, a crossing losing by metres while a point on its leg wins —
+ * is searched along each leg in one dimension ([searchAlongLegs]), last, a point kept only where it beats the window.
  */
 internal object RouteApproachPass {
     private const val MAX_SPAN = 4
     private const val MAX_PASSES = 2
     private const val MAX_SCALES = 6
     private const val DIRECTIONS = 8
+
+    /** A leg's two directions — toward its far end and back — for the one-dimensional search along it. */
+    private const val LEG_DIRECTIONS = 2
 
     /** A slide's legs are proved in their own order, the one the replacement's two proofs have always had. */
     private val SLIDE_PROOFS = listOf(0, 1)
@@ -97,6 +114,8 @@ internal object RouteApproachPass {
             trace { "APPROACH skipped=no-candidates" }
             return line
         }
+        // Every search here halves its steps down to this floor; the slide along a crossing's legs has no other end.
+        require(stepM > 0.0) { "the approach pass's step must be positive: $stepM" }
         // Use the same orientation even when this pass is called directly rather than by finePass.
         val reversed = !sortsFirst(line.first(), line.last())
         val work = (if (reversed) line.asReversed() else line).toMutableList()
@@ -143,6 +162,37 @@ internal object RouteApproachPass {
         // The windows searched without a move, by a copy of their points — `subList` is a view the next splice
         // would change inside the set.
         val unmoved = HashSet<List<LatLng>>()
+        val search = Search(ctx, bounds, stepM, paceRadiusM, tally, incumbentFirst, checkCancelled)
+
+        // **What the window `work[from] … work[from + span]` is offered, read before any read of its own**, or `null`
+        // where it is not searched. A crossing and adjoining open water, not an unrelated all-slow or all-free run, is
+        // searched around its seed; an S — two opposite turns standing for the one their outer legs' crossing makes —
+        // is offered that crossing, whatever its legs' water. A merge of a land turn is never searched (P1), nor a
+        // window a pass already searched without a move (F1).
+        fun offerFor(from: Int, span: Int, firstSlow: Boolean, lastSlow: Boolean, splitThisPass: Set<LatLng>): Offer? {
+            val to = from + span
+            val slowOpen = firstSlow != lastSlow
+            if (!slowOpen) tally.slowSkipped++
+            val seed = work[if (firstSlow) from + 1 else to - 1]
+            val near = if (firstSlow) work[from] else work[to]
+            val radiusM = 2.0 * SpatialOperations.haversine(near, seed)
+            val searched = slowOpen && radiusM >= stepM
+            val sWindow = span == 3 && isS(work, from)
+            if (!searched && !sWindow) return null
+            if (keepLandTurns && span >= 3 && (from + 1 until to).any { landTurn(work[it - 1], work[it + 1]) }) {
+                tally.landTurnWindows++
+                return null
+            }
+            val window = work.subList(from, to + 1).toList()
+            if (skipRepeats && window in unmoved) {
+                tally.repeats++
+                return null
+            }
+            if (searched) tally.windows++ else tally.sWindows++
+            // One whose seed a split just made searches its slide alone, so it is never recorded as searched.
+            return Offer(window, seed, radiusM, searched, sWindow, splitHeld = span == 2 && seed in splitThisPass)
+        }
+
         val passMs = mutableListOf<Double>()
         val passEvals = mutableListOf<Int>()
         for (pass in 0 until MAX_PASSES) {
@@ -155,84 +205,54 @@ internal object RouteApproachPass {
             var from = 0
             while (from < work.size - 2) {
                 checkCancelled()
-                val a = work[from]
-                val firstSlow = slow(a, work[from + 1])
+                val firstSlow = slow(work[from], work[from + 1])
                 for (span in minOf(MAX_SPAN, work.lastIndex - from) downTo 2) {
                     val to = from + span
-                    val e = work[to]
-                    val lastSlow = slow(work[to - 1], e)
-                    // A crossing and adjoining open water, not an unrelated all-slow or all-free run.
-                    if (firstSlow == lastSlow) continue
-                    val seedIndex = if (firstSlow) from + 1 else to - 1
-                    val seed = work[seedIndex]
-                    val near = if (firstSlow) a else e
-                    val radiusM = 2.0 * SpatialOperations.haversine(near, seed)
-                    if (radiusM < stepM) continue
-                    if (keepLandTurns && span >= 3 && (from + 1 until to).any { landTurn(work[it - 1], work[it + 1]) }) {
-                        tally.landTurnWindows++
-                        continue
-                    }
-                    val window = work.subList(from, to + 1).toList()
-                    if (skipRepeats && window in unmoved) {
-                        tally.repeats++
-                        continue
-                    }
-                    tally.windows++
+                    val offer = offerFor(from, span, firstSlow, slow(work[to - 1], work[to]), splitThisPass) ?: continue
                     val oldStartNs = System.nanoTime()
                     val oldSec = (from until to).sumOf {
                         MultipassPull.totalSec(work[it], work[it + 1], ctx)
                     }
                     tally.priceNs += System.nanoTime() - oldStartNs
-                    val slide = searchSlide(a, seed, e, radiusM, ctx, bounds, stepM, tally, incumbentFirst, checkCancelled)
-                    val pivot = slide.p
-                    val bestSec = slide.sec
-                    // A slide's window also tries a split — of the slide's own answer, on the legs it found, against
-                    // that answer where it beats the window. A split of the seed keeps part of legs the slide moved off
-                    // for their price, and the slid window may no longer touch slow water, so the next pass never
-                    // offers it (the 2026-10-27 "Balanced" run). Where the slide found nothing the pivot is the seed.
-                    // One whose seed a split just made searched its slide alone, so it is never recorded as searched.
-                    val splitHeld = span == 2 && seed in splitThisPass
-                    val split = if (span == 2 && !splitHeld) {
-                        tally.splitWindows++
-                        searchSplit(
-                            a, pivot, e, ctx, bounds, stepM, minOf(oldSec, bestSec), paceRadiusM, tally,
-                            incumbentFirst, checkCancelled
-                        )
-                    } else {
-                        null
-                    }
-                    val newSec = split?.sec ?: bestSec
-                    if (newSec >= oldSec || !newSec.isFinite()) {
-                        if (!splitHeld) unmoved += window
+                    val answer = search.answerFor(offer, oldSec)
+                    if (answer == null) {
+                        if (!offer.splitHeld) unmoved += offer.window
                         continue
                     }
-                    savedSec += oldSec - newSec
+                    savedSec += oldSec - answer.sec
                     // **The move's own line**, each replaced point named with the reason it stood — the window's own
                     // points, captured before the splice, so the line says what the move replaced whenever it is
                     // written. A slide's one point is replaced, not deleted, so `LAND` there is no breach of the rule;
                     // a split's `at=` names its two points in the line's order.
                     val windowFrom = from
-                    val windowPivot = pivot
-                    val windowSplit = split
-                    val windowSavedSec = oldSec - newSec
+                    val windowSavedSec = oldSec - answer.sec
                     trace {
-                        val kind = if (windowSplit != null) "split" else if (span == 2) "slide" else "merge"
-                        val at = windowSplit?.let { "[${MultipassPull.atText(it.p)} ${MultipassPull.atText(it.q)}]" }
-                            ?: MultipassPull.atText(windowPivot)
+                        val kind = when {
+                            answer.kind == AnswerKind.SPLIT -> "split"
+                            span == 2 -> "slide"
+                            else -> "merge"
+                        }
+                        val at = if (answer.points.size == 2) {
+                            "[${MultipassPull.atText(answer.points[0])} ${MultipassPull.atText(answer.points[1])}]"
+                        } else {
+                            MultipassPull.atText(answer.points.single())
+                        }
                         "APPROACH move pass=${pass + 1} from=$windowFrom span=$span kind=$kind replaced=[" +
-                            window.windowed(3).joinToString(" ") { (u, v, w) ->
+                            offer.window.windowed(3).joinToString(" ") { (u, v, w) ->
                                 "${MultipassPull.atText(v)}:${keepCause(u, v, w, untallied)}"
                             } +
                             "] at=$at savedSec=${fmt(windowSavedSec, 3)}"
                     }
                     work.subList(from + 1, to).clear()
-                    if (split != null) {
-                        work.addAll(from + 1, listOf(split.p, split.q))
-                        // Only `q` is ever a later window's seed in this pass: `p` stands at an index it has passed.
-                        splitThisPass += split.q
-                        tally.splits++
-                    } else {
-                        work.add(from + 1, pivot)
+                    work.addAll(from + 1, answer.points)
+                    when (answer.kind) {
+                        AnswerKind.SPLIT -> {
+                            // Only `q` is ever a later window's seed in this pass: `p` stands at an index it has passed.
+                            splitThisPass += answer.points.last()
+                            tally.splits++
+                        }
+                        AnswerKind.SLID_CROSSING -> tally.slidCrossings++
+                        else -> Unit
                     }
                     moved++
                     changed = true
@@ -252,16 +272,23 @@ internal object RouteApproachPass {
         // are the windows the second pass skipped, `landTurnWindows` the merges never searched for holding a land
         // turn (its `landProofs` inside `clearMs`), and `passMs`/`passEvals` each pass's own share. `splitWindows`
         // are the slide windows a split was searched in, `splitEvals` its candidates (inside `candidates` and
-        // `evals`), `splits` the splits spliced and `splitFloor` the cuts refused under the corner pass's span. The read
+        // `evals`), `splits` the splits spliced and `splitFloor` the cuts refused under the corner pass's span.
+        // `slowSkipped` are the windows the slow-water gate closed, `sWindows` the S windows the slow gate or the radius
+        // left unsearched and the S read opened, and `crossings` the crossing candidates of every S window, searched or
+        // not (inside `candidates` and `evals`) — the count of S windows a reader of the pass's cost wants;
+        // `crossingSlides` the candidates the slide along those crossings' legs read (inside `candidates` and `evals`)
+        // and `slidCrossings` the moves it placed. The read
         // clocks — `nearEdgeMs`, `farEdgeMs`, `fieldPriceMs`, `fieldClearMs` — are each the paid side of one
         // read, inside `priceMs` or `clearMs`; `berthEdgeNone`/`wallEdgeNone` the near reads that found no edge.
         // Each accepted move has its own `APPROACH move` line before this one.
         trace {
             "APPROACH moved=$moved candidates=${tally.candidates} savedSec=${fmt(savedSec, 3)} " +
                 "ms=${fmt(msSince(startNs))} windows=${tally.windows} repeats=${tally.repeats} " +
+                "slowSkipped=${tally.slowSkipped} " +
                 "landTurnWindows=${tally.landTurnWindows} landProofs=${tally.landProofs} " +
                 "splitWindows=${tally.splitWindows} splitEvals=${tally.splitEvals} splits=${tally.splits} " +
-                "splitFloor=${tally.splitFloor} " +
+                "splitFloor=${tally.splitFloor} sWindows=${tally.sWindows} crossings=${tally.crossings} " +
+                "crossingSlides=${tally.crossingSlides} slidCrossings=${tally.slidCrossings} " +
                 "passMs=${passMs.joinToString("/") { fmt(it) }} passEvals=${passEvals.joinToString("/")} " +
                 "evals=${tally.evals} " +
                 "outside=${tally.outside} cutTravel=${tally.cutTravel} cutLeg=${tally.cutLeg} " +
@@ -285,7 +312,10 @@ internal object RouteApproachPass {
         return if (reversed) work.asReversed().toList() else work.toList()
     }
 
-    /** Source-owned price arms identify slow water; marker/depth prices alone do not trigger a search. */
+    /**
+     * Source-owned price arms identify slow water; marker/depth prices alone do not open the slow gate (an S window is
+     * offered its crossing whatever its water).
+     */
     private fun hasSlowWater(
         a: LatLng,
         b: LatLng,
@@ -422,62 +452,230 @@ internal object RouteApproachPass {
         return sec
     }
 
-    /** A slide's point — the window's seed where nothing beat it — and the window's cost through it. */
-    private class Slide(val p: LatLng, val sec: Double)
+    /**
+     * **What a window is offered** — its points, the seed and radius its slide would search, whether the slow gate
+     * opened it ([searched]), whether it is an S ([sWindow]) and whether its seed is a point a split just made, so it
+     * searches its slide alone ([splitHeld]).
+     */
+    private data class Offer(
+        val window: List<LatLng>,
+        val seed: LatLng,
+        val radiusM: Double,
+        val searched: Boolean,
+        val sWindow: Boolean,
+        val splitHeld: Boolean
+    )
+
+    /** Which search placed a window's answer — the move's line and the tally read it. */
+    private enum class AnswerKind { SLIDE, SPLIT, CROSSING, SLID_CROSSING }
 
     /**
-     * **The window's one point, searched around its [seed]** — the seed's own cost first ([replacementSec], so a
-     * seed the pass's proof refuses starts the window with no finite best), then eight directions at each scale
-     * from half [radiusM] down to [stepM], halving, the centre moving to each winner and no candidate further than
-     * [radiusM] from the seed. The candidates are evaluated in the window's own order — [candidateSec] pricing
-     * first, [replacementSec] proving first — so both orders decide alike.
+     * **A window's answer** — the point or points that would replace its inner points, in the line's order (one, or a
+     * split's two), and the window's cost through them (`+∞` for a slide whose seed the proof refused).
      */
-    private fun searchSlide(
-        a: LatLng,
-        seed: LatLng,
-        b: LatLng,
-        radiusM: Double,
-        ctx: PullContext,
-        bounds: BBox,
-        stepM: Double,
-        tally: ApproachTally,
-        incumbentFirst: Boolean,
-        checkCancelled: () -> Unit
-    ): Slide {
-        var pivot = seed
-        var bestSec = replacementSec(listOf(a, pivot, b), ctx, bounds, tally, SLIDE_PROOFS, seed = true)
-        var scaleM = radiusM / 2.0
-        for (scale in 0 until MAX_SCALES) {
-            if (scaleM < stepM) break
-            val centre = pivot
-            for (direction in 0 until DIRECTIONS) {
-                checkCancelled()
-                val angle = direction * 2.0 * PI / DIRECTIONS
-                val candidate = offset(centre, scaleM * cos(angle), scaleM * sin(angle))
-                if (SpatialOperations.haversine(seed, candidate) > radiusM) continue
-                tally.candidates++
-                val route = listOf(a, candidate, b)
-                val sec = if (incumbentFirst) {
-                    candidateSec(route, ctx, bounds, bestSec, tally, SLIDE_PROOFS)
-                } else {
-                    replacementSec(route, ctx, bounds, tally, SLIDE_PROOFS)
-                }
-                if (sec < bestSec) {
-                    bestSec = sec
-                    pivot = candidate
-                }
-            }
-            scaleM /= 2.0
+    private data class Answer(val points: List<LatLng>, val sec: Double, val kind: AnswerKind)
+
+    /**
+     * **The best so far, and the one rule that replaces it** — a cost and the answer that holds it, taken over only by
+     * a strictly cheaper one ([takes]). Every search keeps its best in one: the slide's from its seed, the split's from
+     * its incumbent, the window's from its own cost, each leg's from the crossing's cost — or `+∞` where it lost.
+     */
+    private class Incumbent(sec: Double, answer: Answer? = null) {
+        var sec: Double = sec
+            private set
+        var answer: Answer? = answer
+            private set
+
+        /** Takes [points] at [sec] where it is strictly cheaper; whether it did. */
+        fun takes(sec: Double, points: List<LatLng>, kind: AnswerKind): Boolean =
+            sec < this.sec && takes(Answer(points, sec, kind))
+
+        /** Takes [candidate] where there is one and it is strictly cheaper; whether it did. */
+        fun takes(candidate: Answer?): Boolean {
+            if (candidate == null || !(candidate.sec < sec)) return false
+            sec = candidate.sec
+            answer = candidate
+            return true
         }
-        return Slide(pivot, bestSec)
     }
 
-    /** A split's two points, in the line's order, and the window's cost through them. */
-    private class Split(val p: LatLng, val q: LatLng, val sec: Double)
+    /**
+     * **What every search of a window reads with** — the context, the corridor, the pass's step, the corner pass's
+     * pace-speed radius (the split's floor), the tally, the evaluation order and the cancel read — the one evaluation
+     * every candidate takes ([evaluate]) and the window's answer ([answerFor]).
+     */
+    private class Search(
+        val ctx: PullContext,
+        val bounds: BBox,
+        val stepM: Double,
+        val paceRadiusM: Double,
+        val tally: ApproachTally,
+        val incumbentFirst: Boolean,
+        val checkCancelled: () -> Unit
+    ) {
+        /**
+         * **The window's answer, or `null` where nothing beats [oldSec]** — each search read after the one before,
+         * against the best so far, so a later one never moves an earlier one (§11 R1): the slide round the seed; in a
+         * two-span window the split of the slide's own answer (a split of the seed keeps part of legs the slide moved off
+         * for their price, and the slid window may no longer touch slow water, so the next pass never offers it — the
+         * 2026-10-27 "Balanced" run); in an S, its crossing, then that crossing slid along its own legs, whether it won or
+         * lost (P5b). An S the slow gate or the radius left unsearched starts from the window's own cost.
+         */
+        fun answerFor(offer: Offer, oldSec: Double): Answer? {
+            val window = offer.window
+            val a = window.first()
+            val e = window.last()
+            val best = Incumbent(oldSec)
+            if (offer.searched) {
+                val slide = searchSlide(a, offer.seed, e, offer.radiusM, this)
+                best.takes(slide)
+                if (window.size == 3 && !offer.splitHeld) {
+                    tally.splitWindows++
+                    best.takes(searchSplit(a, slide.points.single(), e, best.sec, this))
+                }
+            }
+            if (offer.sWindow) {
+                RouteCornerPass.linesCrossing(a, window[1], window[2], e)?.let { crossing ->
+                    tally.crossings++
+                    val sec = evaluate(listOf(a, crossing, e), best.sec, SLIDE_PROOFS)
+                    // Only a winning crossing's cost is the same in both evaluation orders; a losing one seeds no leg.
+                    val won = best.takes(sec, listOf(crossing), AnswerKind.CROSSING)
+                    best.takes(searchAlongLegs(a, crossing, e, if (won) sec else Double.POSITIVE_INFINITY, best.sec, this))
+                }
+            }
+            return best.answer
+        }
+
+        /**
+         * **One candidate's cost where it can beat [incumbent]** — [candidateSec] pricing first, or [replacementSec]
+         * proving first where a fixture asks the order this replaced — so both orders decide alike. Each call is one
+         * of the tally's `candidates`.
+         */
+        fun evaluate(route: List<LatLng>, incumbent: Double, proofs: List<Int>): Double {
+            tally.candidates++
+            return if (incumbentFirst) {
+                candidateSec(route, ctx, bounds, incumbent, tally, proofs)
+            } else {
+                replacementSec(route, ctx, bounds, tally, proofs)
+            }
+        }
+
+        /** A window's seed — the line's own point — proved first and priced, never one of the `candidates`. */
+        fun seedSec(route: List<LatLng>): Double = replacementSec(route, ctx, bounds, tally, SLIDE_PROOFS, seed = true)
+    }
+
+    /**
+     * **The pass's one pattern search** — from [start], [directions] candidates at each scale round a centre held for
+     * that scale ([candidateAt], from the centre, the scale's per-axis steps and the direction's angle), the centre
+     * moving to each candidate [tries] accepts; the steps start at [firstSteps] and halve, and the search ends once
+     * every step is under [floorM] or after [maxScales] scales. [tries] decides what a candidate is worth and counts it;
+     * one it refuses unread is simply not accepted. Returns the last accepted point, [start] where none was.
+     */
+    private inline fun <T> patternSearch(
+        start: T,
+        firstSteps: DoubleArray,
+        directions: Int,
+        floorM: Double,
+        maxScales: Int,
+        checkCancelled: () -> Unit,
+        candidateAt: (centre: T, steps: DoubleArray, angle: Double) -> T,
+        tries: (T) -> Boolean
+    ): T {
+        var best = start
+        val steps = firstSteps.copyOf()
+        for (scale in 0 until maxScales) {
+            if (steps.all { it < floorM }) break
+            val centre = best
+            for (direction in 0 until directions) {
+                checkCancelled()
+                val angle = direction * 2.0 * PI / directions
+                val candidate = candidateAt(centre, steps, angle)
+                if (tries(candidate)) best = candidate
+            }
+            for (i in steps.indices) steps[i] /= 2.0
+        }
+        return best
+    }
+
+    /**
+     * **The window's one point, searched around its [seed]** — the seed's own cost first ([Search.seedSec], so a seed
+     * the pass's proof refuses starts the slide with no finite best), then eight directions at each scale from half
+     * [radiusM] down to the pass's step, halving, the centre moving to each winner and no candidate further than
+     * [radiusM] from the seed.
+     */
+    private fun searchSlide(a: LatLng, seed: LatLng, b: LatLng, radiusM: Double, search: Search): Answer {
+        val seedSec = search.seedSec(listOf(a, seed, b))
+        val best = Incumbent(seedSec, Answer(listOf(seed), seedSec, AnswerKind.SLIDE))
+        patternSearch(
+            seed, doubleArrayOf(radiusM / 2.0), DIRECTIONS, search.stepM, MAX_SCALES, search.checkCancelled,
+            candidateAt = { centre, steps, angle -> offset(centre, steps[0] * cos(angle), steps[0] * sin(angle)) }
+        ) { candidate ->
+            SpatialOperations.haversine(seed, candidate) <= radiusM && best.takes(
+                search.evaluate(listOf(a, candidate, b), best.sec, SLIDE_PROOFS), listOf(candidate), AnswerKind.SLIDE
+            )
+        }
+        return best.answer!!
+    }
+
+    /**
+     * **Whether the window `work[from] … work[from + 3]` is an S** — its two inner points turning opposite ways, each
+     * by at least the turn the corner pass rounds ([RouteCornerPass.MIN_TURN_DEG]), read with that pass's own signed
+     * turn ([RouteCornerPass.turnDegreesAt]). Bearings alone: it reads no field value.
+     */
+    private fun isS(work: List<LatLng>, from: Int): Boolean {
+        val first = RouteCornerPass.turnDegreesAt(work[from], work[from + 1], work[from + 2])
+        val second = RouteCornerPass.turnDegreesAt(work[from + 1], work[from + 2], work[from + 3])
+        return first * second < 0.0 &&
+            abs(first) >= RouteCornerPass.MIN_TURN_DEG && abs(second) >= RouteCornerPass.MIN_TURN_DEG
+    }
+
+    /**
+     * **An S's crossing slid along its own legs, or `null` where no point on them beats [incumbent]** — P5b, its case
+     * in the class KDoc. Each leg is searched in one dimension — a point `backM` from [x] toward [a], then toward [e], the
+     * route `a → p → e` — by [patternSearch] with a leg's two directions, from half the leg down to the pass's step,
+     * **with no scale cap**, so a leg of any length is read to the step. A point off its leg is refused before any read
+     * and counted nowhere.
+     *
+     * **Each leg's search follows its own best, not the window's.** Its centre moves to every point cheaper than the best
+     * found on that leg — seeded with [crossingSec], the crossing's own cost where it was priced in full (it won), `+∞`
+     * where it lost or was refused — so a leg whose middle loses to the window's best is still read past its middle,
+     * where the turn may belong (the device's turn stood 1.1 km along a 1.3 km leg). A point is kept only where it beats
+     * [incumbent] too, and every evaluation ([Search.evaluate]) is priced against the leg's best, so a crossing that lost
+     * pays more reads than one that won.
+     */
+    private fun searchAlongLegs(
+        a: LatLng,
+        x: LatLng,
+        e: LatLng,
+        crossingSec: Double,
+        incumbent: Double,
+        search: Search
+    ): Answer? {
+        val best = Incumbent(incumbent)
+        for (end in listOf(a, e)) {
+            val legM = SpatialOperations.haversine(x, end)
+            // An unbounded loop ends on its floor: a leg it could never halve under is not searched.
+            if (!legM.isFinite() || legM <= 0.0) continue
+            val leg = Incumbent(crossingSec)
+            patternSearch(
+                0.0, doubleArrayOf(legM / 2.0), LEG_DIRECTIONS, search.stepM, Int.MAX_VALUE, search.checkCancelled,
+                candidateAt = { centre, steps, angle -> centre + steps[0] * cos(angle) }
+            ) { backM ->
+                if (backM <= 0.0 || backM >= legM) return@patternSearch false
+                val p = along(x, end, backM / legM)
+                search.tally.crossingSlides++
+                val sec = search.evaluate(listOf(a, p, e), leg.sec, SLIDE_PROOFS)
+                if (!leg.takes(sec, listOf(p), AnswerKind.SLID_CROSSING)) return@patternSearch false
+                best.takes(leg.answer)
+                true
+            }
+        }
+        return best.answer
+    }
 
     /**
      * **The best split of [v]'s turn that beats [incumbent], or `null`** — two points in place of [v], `p` on the leg
-     * from [a] and `q` on the leg to [b], searched by the slide's own loop in the plane of their distances from [v]:
+     * from [a] and `q` on the leg to [b], searched by [patternSearch] in the plane of their distances from [v]:
      * seeded at the half cut, eight directions, each axis's step a quarter of its own leg and halving, the centre
      * moving to each winner. [v] is the window's slide answer — the line's own point where the slide found nothing —
      * so `a→p` and `q→b` lie on legs already priced, and `p→q` is shorter than `p→v→q`: a split loses only where its
@@ -488,72 +686,41 @@ internal object RouteApproachPass {
      * that pass would draw such a pair back over the crossing of their outer legs, which is [v] itself. The floor
      * reads the span test alone — not that pass's flat-kink and crossing-within-the-legs checks — so it also refuses
      * some pairs that pass would keep as two: it errs toward the one point, never the other way. Every other cut is
-     * one candidate, evaluated in the window's own order — [candidateSec] pricing first, [replacementSec] proving
-     * first, the new chord proved before the two legs it joins — so both orders decide alike.
+     * one evaluation ([Search.evaluate]), the new chord proved before the two legs it joins.
      */
     private fun searchSplit(
         a: LatLng,
         v: LatLng,
         b: LatLng,
-        ctx: PullContext,
-        bounds: BBox,
-        stepM: Double,
         incumbent: Double,
-        paceRadiusM: Double,
-        tally: ApproachTally,
-        incumbentFirst: Boolean,
-        checkCancelled: () -> Unit
-    ): Split? {
+        search: Search
+    ): Answer? {
         val inM = SpatialOperations.haversine(a, v)
         val outM = SpatialOperations.haversine(v, b)
-        var best: Split? = null
-        var bestSec = incumbent
-        fun wins(cutInM: Double, cutOutM: Double): Boolean {
+        val best = Incumbent(incumbent)
+        fun wins(cuts: Pair<Double, Double>): Boolean {
+            val (cutInM, cutOutM) = cuts
             if (cutInM <= 0.0 || cutInM >= inM || cutOutM <= 0.0 || cutOutM >= outM) return false
             val p = along(v, a, cutInM / inM)
             val q = along(v, b, cutOutM / outM)
             val summedDeg = abs(RouteCornerPass.turnDegreesAt(a, p, q)) + abs(RouteCornerPass.turnDegreesAt(p, q, b))
-            if (RouteCornerPass.pairIsOneTurn(SpatialOperations.haversine(p, q), summedDeg, paceRadiusM)) {
-                tally.splitFloor++
+            if (RouteCornerPass.pairIsOneTurn(SpatialOperations.haversine(p, q), summedDeg, search.paceRadiusM)) {
+                search.tally.splitFloor++
                 return false
             }
-            tally.candidates++
-            tally.splitEvals++
-            val route = listOf(a, p, q, b)
-            val sec = if (incumbentFirst) {
-                candidateSec(route, ctx, bounds, bestSec, tally, SPLIT_PROOFS)
-            } else {
-                replacementSec(route, ctx, bounds, tally, SPLIT_PROOFS)
-            }
-            if (!(sec < bestSec)) return false
-            bestSec = sec
-            best = Split(p, q, sec)
-            return true
+            search.tally.splitEvals++
+            return best.takes(search.evaluate(listOf(a, p, q, b), best.sec, SPLIT_PROOFS), listOf(p, q), AnswerKind.SPLIT)
         }
-        var cutIn = inM / 2.0
-        var cutOut = outM / 2.0
+        val halfCut = Pair(inM / 2.0, outM / 2.0)
         // The seed is a candidate like any other: the search centres on it whether or not it wins.
-        wins(cutIn, cutOut)
-        var scaleIn = inM / 4.0
-        var scaleOut = outM / 4.0
-        for (scale in 0 until MAX_SCALES) {
-            if (scaleIn < stepM && scaleOut < stepM) break
-            val centreIn = cutIn
-            val centreOut = cutOut
-            for (direction in 0 until DIRECTIONS) {
-                checkCancelled()
-                val angle = direction * 2.0 * PI / DIRECTIONS
-                val candidateIn = centreIn + scaleIn * cos(angle)
-                val candidateOut = centreOut + scaleOut * sin(angle)
-                if (wins(candidateIn, candidateOut)) {
-                    cutIn = candidateIn
-                    cutOut = candidateOut
-                }
+        wins(halfCut)
+        patternSearch(
+            halfCut, doubleArrayOf(inM / 4.0, outM / 4.0), DIRECTIONS, search.stepM, MAX_SCALES, search.checkCancelled,
+            candidateAt = { (centreIn, centreOut), steps, angle ->
+                Pair(centreIn + steps[0] * cos(angle), centreOut + steps[1] * sin(angle))
             }
-            scaleIn /= 2.0
-            scaleOut /= 2.0
-        }
-        return best
+        ) { wins(it) }
+        return best.answer
     }
 
     /** The point a share [t] of the way from [from] to [to]. */
@@ -592,6 +759,27 @@ internal object RouteApproachPass {
         /** The windows the second pass skipped — searched by the first without a move, their points unchanged. */
         var repeats = 0
 
+        /**
+         * The windows the slow-water gate closed — both end legs slow or both free, so no crossing beside open water —
+         * counted once per window offered, before any read of its own, whether or not the S read then opens it.
+         */
+        var slowSkipped = 0
+
+        /**
+         * The S windows the slow gate or the radius left unsearched and the S read opened — read at their crossing
+         * alone. An S the slow gate opens is a searched window ([windows]); [crossings] counts both.
+         */
+        var sWindows = 0
+
+        /** The crossing candidates evaluated, in every S window — inside [candidates] and [evals]. */
+        var crossings = 0
+
+        /** The candidates the slide along a crossing's legs evaluated — inside [candidates] and [evals]. */
+        var crossingSlides = 0
+
+        /** The moves whose point the slide along a crossing's legs placed. */
+        var slidCrossings = 0
+
         /** The merge windows skipped because an inner point is a land turn — never searched. */
         var landTurnWindows = 0
 
@@ -610,7 +798,10 @@ internal object RouteApproachPass {
         /** The split cuts refused before any read, their points closer than the corner pass's span. */
         var splitFloor = 0
 
-        /** The candidates evaluated: the slides' and merges' around their seed, and the splits' on their legs. */
+        /**
+         * The candidates evaluated: the slides' and merges' around their seed, the splits' on their legs, the S
+         * windows' crossings and the points along those crossings' legs.
+         */
         var candidates = 0
 
         /** The replacements evaluated: each window's seed and every candidate. */
@@ -622,7 +813,10 @@ internal object RouteApproachPass {
         /** The candidates a clearance proof refused — would-be winners in the price-first order. */
         var refusedClear = 0
 
-        /** The windows' seeds a clearance proof refused — the window then starts with no finite best. */
+        /**
+         * The windows' seeds a clearance proof refused — the slide then starts with no finite best, the window from its
+         * own cost.
+         */
         var seedsRefused = 0
 
         /** Candidates rejected on their legs' travel alone — no price read, no proof. */

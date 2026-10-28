@@ -45,8 +45,11 @@ object RouteCornerPass {
     /** The clothoid's Fresnel argument runs at the heading's half-rate, so the pair is read at `τ/√2`. */
     private val SQRT2 = sqrt(2.0)
 
-    /** A corner worth rounding turns by at least this, in degrees. */
-    private const val MIN_TURN_DEG = 10.0
+    /**
+     * A corner worth rounding turns by at least this, in degrees — and `RouteApproachPass` reads an S only where both of
+     * its turns reach it, so the two passes agree on what a turn is.
+     */
+    internal const val MIN_TURN_DEG = 10.0
 
     /** Below this tangent length (m) the legs are too short to round at all. */
     private const val MIN_TANGENT_M = 2.0
@@ -385,12 +388,29 @@ object RouteCornerPass {
         var spanM = 0.0
         for (k in i + 1..j) spanM += SpatialOperations.haversine(line[k - 1], line[k])
         if (!pairIsOneTurn(spanM, abs(turnAtI) + abs(turnAtJ), paceRadiusM)) return null
+        val crossing = crossingOf(line[i - 1], line[i], line[j], line[j + 1]) ?: return null
+        if (abs(crossing.s) > 1.0 || abs(crossing.t) > 1.0) return null
+        return crossing.at
+    }
 
-        val frame = Frame(line[i])
-        val a = frame.xy(line[i - 1])
-        val b = frame.xy(line[i])
-        val c = frame.xy(line[j])
-        val d = frame.xy(line[j + 1])
+    /**
+     * **Where the line through [a] and [b] crosses the line through [c] and [d]**, or `null` where the two are
+     * parallel — a pair's outer legs, each extended without bound. A crossing of near-parallel legs stands far off;
+     * refusing it is the caller's: [mergeCrossing] keeps its own bounds on top of it, and `RouteApproachPass`, which
+     * offers it to an S, refuses one outside the corridor before any read.
+     */
+    internal fun linesCrossing(a: LatLng, b: LatLng, c: LatLng, d: LatLng): LatLng? = crossingOf(a, b, c, d)?.at
+
+    /** A crossing and where it stands along each leg: `at = b + s·(b − a) = c + t·(d − c)` in [b]'s local frame. */
+    private class Crossing(val at: LatLng, val s: Double, val t: Double)
+
+    /** The crossing of the lines `a–b` and `c–d`, read in [bPoint]'s local frame, or `null` where they are parallel. */
+    private fun crossingOf(aPoint: LatLng, bPoint: LatLng, cPoint: LatLng, dPoint: LatLng): Crossing? {
+        val frame = Frame(bPoint)
+        val a = frame.xy(aPoint)
+        val b = frame.xy(bPoint)
+        val c = frame.xy(cPoint)
+        val d = frame.xy(dPoint)
         val d1x = b.x - a.x
         val d1y = b.y - a.y
         val d2x = d.x - c.x
@@ -401,8 +421,7 @@ object RouteCornerPass {
         val ey = c.y - b.y
         val s = (ex * d2y - ey * d2x) / denom
         val t = (ex * d1y - ey * d1x) / denom
-        if (abs(s) > 1.0 || abs(t) > 1.0) return null
-        return frame.toLatLng(b.x + s * d1x, b.y + s * d1y)
+        return Crossing(frame.toLatLng(b.x + s * d1x, b.y + s * d1y), s, t)
     }
 
     /**
@@ -460,9 +479,8 @@ object RouteCornerPass {
     /**
      * The turn at [at] between its two legs, in degrees and **signed** by the side it turns to — positive
      * left, negative right — read in the same local frame the fit uses. The attempt reads its own vectors
-     * while it fits; this is the pass's read of the angle alone, taken where only the value is wanted: the
-     * shares two bends take from one leg, and whether a pair turns the one way — and `RouteApproachPass`'s
-     * split floor, so both passes read a turn one way.
+     * while it fits; this is the pass's read of the angle alone, taken where only the value is wanted, and the
+     * one read of a turn `RouteApproachPass` makes too, so both passes read a turn one way.
      */
     internal fun turnDegreesAt(prev: LatLng, at: LatLng, next: LatLng): Double {
         val frame = Frame(at)

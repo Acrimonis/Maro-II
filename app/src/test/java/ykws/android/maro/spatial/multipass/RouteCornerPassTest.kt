@@ -160,8 +160,8 @@ class RouteCornerPassTest {
      * Two bends the pass will curve on one leg **share** it, so the pair reads as one continuous S rather
      * than the first taking the whole leg and leaving the second a micro-curve. Two 45° bends sit 800 m
      * apart — wider than the pace's own tangent for their summed 90°, so the pass keeps them as two — between
-     * 1500 m straights in a coast-free world, read on the code defaults (`a_lat` 0.33, floor 5 kn,
-     * transition 2 s, reach 1.0): the first is capped at its **share** of the leg, never at the leg.
+     * 1500 m straights in a coast-free world, read on the code defaults (`route.turn.*` as `AppConfig` holds them,
+     * the properties not being loaded in a JVM test): the first is capped at its **share** of the leg, never at the leg.
      */
     @Test
     fun twoBendsOnOneLegShareItAndMeet() {
@@ -217,8 +217,7 @@ class RouteCornerPassTest {
     /**
      * **Scope 1** — a bend too flat to round writes no corner ceiling, and its verdict reads the pace.
      *
-     * Assumes `AppConfig`'s code defaults, the properties not being loaded in a JVM test:
-     * `lateralAccelMps2` 0.33 m/s², `minSpeedKn` 5 kn, `transitionSec` 2 s, `reachFraction` 1.0.
+     * Assumes `AppConfig`'s code defaults for `route.turn.*`, the properties not being loaded in a JVM test.
      */
     @Test
     fun aShallowBendKeepsItsLimitAndReadsThePace() {
@@ -244,8 +243,8 @@ class RouteCornerPassTest {
      * **Scope 2** — a bend on a short stub is rounded, not refused. A 48° bend carrying a 34 m stub
      * between a 790 m and a 1541 m straight takes its room from the whole **significant** in-leg — the
      * stub folded into the 790 m feed, the 3.3° stub being a point of the line rather than a corner —
-     * so it is drawn at the pace, never collapsed to the stub. Assumes `AppConfig`'s code defaults:
-     * `lateralAccelMps2` 0.33 m/s², `minSpeedKn` 5 kn, `transitionSec` 2 s, `reachFraction` 1.0.
+     * so it is drawn at the pace, never collapsed to the stub. Assumes `AppConfig`'s code defaults for
+     * `route.turn.*`.
      */
     @Test
     fun aBendOnAShortStubIsRoundedNotRefused() {
@@ -284,8 +283,7 @@ class RouteCornerPassTest {
      * the kink's own few metres — never the few metres to the kink. The kink is too flat to be a corner,
      * so it is a point of the line and nothing for the new bow to overlap: before this change the guard
      * measured to that drawn kink and read `room` as its 12 m distance alone, collapsing the bend beside
-     * it. Assumes `AppConfig`'s code defaults, the properties not being loaded in a JVM test:
-     * `lateralAccelMps2` 0.33 m/s², `minSpeedKn` 5 kn, `transitionSec` 2 s, `reachFraction` 1.0.
+     * it. Assumes `AppConfig`'s code defaults for `route.turn.*`, the properties not being loaded in a JVM test.
      */
     @Test
     fun aKinkTooFlatToBeACornerDoesNotCapTheBendBesideIt() {
@@ -320,51 +318,53 @@ class RouteCornerPassTest {
     /**
      * **Scope 3** — the floor is a target. A 90° bend whose room (10 m) cannot fit the floor's own
      * ~23 m tangent is still curved — at the largest radius whose **drawn** curve reaches no further
-     * than the 10 m room, taken below the 5 kn floor. Assumes `AppConfig`'s code defaults, the
-     * properties not being loaded in a JVM test: `lateralAccelMps2` 0.33 m/s², `minSpeedKn` 5 kn,
-     * `transitionSec` 2 s, `reachFraction` 1.0; the fitted ceiling is ≈ 3.16 kn.
+     * than the 10 m room, taken below the 5 kn floor. Built at `lateralAccelMps2` 0.33 m/s², pinned here
+     * ([TurnConfigFixture]); assumes the other code defaults, the properties not being loaded in a JVM test:
+     * `minSpeedKn` 5 kn, `transitionSec` 2 s, `reachFraction` 1.0; the fitted ceiling is ≈ 3.16 kn.
      */
     @Test
     fun aBendTooRoomTightForTheFloorIsStillCurved() {
-        val corner = LatLng(43.5, 7.0)
-        val prev = offset(corner, 0.0, -10.0)
-        val next = offset(corner, 100.0, 0.0)
-        val rounded = RouteCornerPass.round(
-            listOf(prev, corner, next), 28.0, CoastWorld(emptyList()), null, 50.0
-        )
-        val verdict = rounded.verdicts.single()
-        assertEquals(
-            "the bend is drawn, not refused",
-            RouteCornerPass.CornerOutcome.ROUNDED, verdict.outcome
-        )
-        assertEquals("the room is the whole shorter leg", 10.0, verdict.reachAskM, 0.5)
-        assertTrue("the corner vertex is replaced by the arc", corner !in rounded.points)
-        // The fit is the drawn curve's own tangent, spirals included — not the shorter circular arc's —
-        // so the ceiling is the ~1.664 m/s that fitted radius allows, not the arc-only ≈ 1.817 m/s. (It
-        // read 1.6245 m/s while the exit was drawn as a second entry spiral, whose longer inbound reach was
-        // the one the fit measured; the mirror-symmetric bow reaches 10 m on both legs at 1.6642 m/s.)
-        val expectedKn = Units.mpsToKnots(1.6642)
-        val ceilings = rounded.points.mapNotNull { rounded.ceilingKnAt(it) }
-        assertTrue("a ceiling is written across the arc", ceilings.isNotEmpty())
-        for (c in ceilings) {
-            assertTrue("the ceiling is below the 5 kn floor", c < 5.0)
-            assertEquals("at the widest radius whose drawn curve fits", expectedKn, c, 0.05)
+        TurnConfigFixture.withLateralAccel(TurnConfigFixture.BUILT_AT_MPS2) {
+            val corner = LatLng(43.5, 7.0)
+            val prev = offset(corner, 0.0, -10.0)
+            val next = offset(corner, 100.0, 0.0)
+            val rounded = RouteCornerPass.round(
+                listOf(prev, corner, next), 28.0, CoastWorld(emptyList()), null, 50.0
+            )
+            val verdict = rounded.verdicts.single()
+            assertEquals(
+                "the bend is drawn, not refused",
+                RouteCornerPass.CornerOutcome.ROUNDED, verdict.outcome
+            )
+            assertEquals("the room is the whole shorter leg", 10.0, verdict.reachAskM, 0.5)
+            assertTrue("the corner vertex is replaced by the arc", corner !in rounded.points)
+            // The fit is the drawn curve's own tangent, spirals included — not the shorter circular arc's —
+            // so the ceiling is the ~1.664 m/s that fitted radius allows, not the arc-only ≈ 1.817 m/s. (It
+            // read 1.6245 m/s while the exit was drawn as a second entry spiral, whose longer inbound reach was
+            // the one the fit measured; the mirror-symmetric bow reaches 10 m on both legs at 1.6642 m/s.)
+            val expectedKn = Units.mpsToKnots(1.6642)
+            val ceilings = rounded.points.mapNotNull { rounded.ceilingKnAt(it) }
+            assertTrue("a ceiling is written across the arc", ceilings.isNotEmpty())
+            for (c in ceilings) {
+                assertTrue("the ceiling is below the 5 kn floor", c < 5.0)
+                assertEquals("at the widest radius whose drawn curve fits", expectedKn, c, 0.05)
+            }
+            // The drawn curve's own tangent, read off the line as the corner-to-endpoint distances: both
+            // must stay inside the 10 m room the curve was fitted to. The old arc-only formula reached
+            // ~12.2 m past the corner, which is the defect this assertion now guards.
+            val curve = rounded.points.subList(1, rounded.points.size - 1)
+            val startReach = SpatialOperations.haversine(corner, curve.first())
+            val endReach = SpatialOperations.haversine(corner, curve.last())
+            assertTrue("the drawn curve begins within the room", startReach <= 10.0 + 0.05)
+            assertTrue("the drawn curve ends within the room", endReach <= 10.0 + 0.05)
+            assertTrue("and the room is used, not wasted", maxOf(startReach, endReach) >= 10.0 - 0.5)
         }
-        // The drawn curve's own tangent, read off the line as the corner-to-endpoint distances: both
-        // must stay inside the 10 m room the curve was fitted to. The old arc-only formula reached
-        // ~12.2 m past the corner, which is the defect this assertion now guards.
-        val curve = rounded.points.subList(1, rounded.points.size - 1)
-        val startReach = SpatialOperations.haversine(corner, curve.first())
-        val endReach = SpatialOperations.haversine(corner, curve.last())
-        assertTrue("the drawn curve begins within the room", startReach <= 10.0 + 0.05)
-        assertTrue("the drawn curve ends within the room", endReach <= 10.0 + 0.05)
-        assertTrue("and the room is used, not wasted", maxOf(startReach, endReach) >= 10.0 - 0.5)
     }
 
     /**
      * **Scope 3's guard** — a near-reversal whose room (3 m) fits no radius above the pass's own 1 kn
      * bottom is still left standing, ceiling at the floor. Assumes `AppConfig`'s code defaults: at 170°
-     * the drawn fit's tangent reaches the 3 m room at only ≈ 0.44 kn, under the 1 kn bottom — so this
+     * the drawn fit's tangent reaches the 3 m room only well under the 1 kn bottom — so this
      * parked shape reaches the guard but cannot pin the bottom's value, which
      * [aBendAtTheHardBottomCurvesAndAHairLessStands] does with a plain bend.
      */
@@ -391,39 +391,42 @@ class RouteCornerPassTest {
      * 140° bend whose room exactly holds the drawn curve at 1.02 kn is still curved, its ceiling just
      * above the bottom; the same bend given a hair less room — one that holds only a 0.98 kn curve — is
      * left standing. The pair brackets the guard at 1 kn, which the parked near-reversal alone cannot.
-     * Assumes `AppConfig`'s code defaults: `lateralAccelMps2` 0.33 m/s², `transitionSec` 2 s.
+     * Built at `lateralAccelMps2` 0.33 m/s², pinned here ([TurnConfigFixture]); assumes the code default
+     * `transitionSec` 2 s.
      */
     @Test
     fun aBendAtTheHardBottomCurvesAndAHairLessStands() {
-        val corner = LatLng(43.5, 7.0)
-        val next = offset(corner, 50.0 * sin(Math.toRadians(140.0)), 50.0 * cos(Math.toRadians(140.0)))
-        // The drawn tangent a 140° curve needs at 1.02 kn (≈2.666 m) and at 0.98 kn (≈2.469 m) — the
-        // mirror-symmetric bow's own reach, read off its end point (3.288 / 3.086 m while the exit was
-        // drawn as a second entry spiral).
-        val curvedRoom = 2.6655
-        val standingRoom = 2.4689
+        TurnConfigFixture.withLateralAccel(TurnConfigFixture.BUILT_AT_MPS2) {
+            val corner = LatLng(43.5, 7.0)
+            val next = offset(corner, 50.0 * sin(Math.toRadians(140.0)), 50.0 * cos(Math.toRadians(140.0)))
+            // The drawn tangent a 140° curve needs at 1.02 kn (≈2.666 m) and at 0.98 kn (≈2.469 m) — the
+            // mirror-symmetric bow's own reach, read off its end point (3.288 / 3.086 m while the exit was
+            // drawn as a second entry spiral).
+            val curvedRoom = 2.6655
+            val standingRoom = 2.4689
 
-        val curved = RouteCornerPass.round(
-            listOf(offset(corner, 0.0, -curvedRoom), corner, next),
-            28.0, CoastWorld(emptyList()), null, 50.0
-        )
-        assertEquals(
-            "a curve just above the hard bottom is drawn",
-            RouteCornerPass.CornerOutcome.ROUNDED, curved.verdicts.single().outcome
-        )
-        val ceiling = curved.points.mapNotNull { curved.ceilingKnAt(it) }.first()
-        assertEquals("its ceiling is the bottom, not the floor", 1.02, ceiling, 0.05)
+            val curved = RouteCornerPass.round(
+                listOf(offset(corner, 0.0, -curvedRoom), corner, next),
+                28.0, CoastWorld(emptyList()), null, 50.0
+            )
+            assertEquals(
+                "a curve just above the hard bottom is drawn",
+                RouteCornerPass.CornerOutcome.ROUNDED, curved.verdicts.single().outcome
+            )
+            val ceiling = curved.points.mapNotNull { curved.ceilingKnAt(it) }.first()
+            assertEquals("its ceiling is the bottom, not the floor", 1.02, ceiling, 0.05)
 
-        val standing = RouteCornerPass.round(
-            listOf(offset(corner, 0.0, -standingRoom), corner, next),
-            28.0, CoastWorld(emptyList()), null, 50.0
-        )
-        assertEquals(
-            "a hair less room leaves it standing",
-            RouteCornerPass.CornerOutcome.FLOOR_ROOM, standing.verdicts.single().outcome
-        )
-        assertTrue("the bend stands as its bare vertex", corner in standing.points)
-        assertEquals("and is taken at the turn floor", 5.0, standing.ceilingKnAt(corner)!!, 0.01)
+            val standing = RouteCornerPass.round(
+                listOf(offset(corner, 0.0, -standingRoom), corner, next),
+                28.0, CoastWorld(emptyList()), null, 50.0
+            )
+            assertEquals(
+                "a hair less room leaves it standing",
+                RouteCornerPass.CornerOutcome.FLOOR_ROOM, standing.verdicts.single().outcome
+            )
+            assertTrue("the bend stands as its bare vertex", corner in standing.points)
+            assertEquals("and is taken at the turn floor", 5.0, standing.ceilingKnAt(corner)!!, 0.01)
+        }
     }
 
     /**

@@ -1,7 +1,7 @@
 <!-- scope: feature -->
 # Route search panel — the order moves on landings, the last landing selects the winner
 
-Follow-up to [`261019_FEAT_PLN_Route_route-sch-sort.md`](xxArchive/261019_FEAT_PLN_Route_route-sch-sort.md), written the same day after the user's answers. Where the two disagree, this one stands: the earlier plan's one-second gate, its `route.panel.orderRefreshMs` key and its *provisional rows by time* order group are withdrawn.
+Follow-up to [`261019_FEAT_PLN_Route_route-sch-sort.md`](261019_FEAT_PLN_Route_route-sch-sort.md), written the same day after the user's answers. Where the two disagree, this one stands: the earlier plan's one-second gate, its `route.panel.orderRefreshMs` key and its *provisional rows by time* order group are withdrawn.
 
 ## Rules (user, 2026-10-19)
 
@@ -37,3 +37,11 @@ Follow-up to [`261019_FEAT_PLN_Route_route-sch-sort.md`](xxArchive/261019_FEAT_P
 
 - Rules 1–6 as above; `RouteOrderGate.kt`, `RouteOrderGateTest.kt`, the property and its `AppConfig` field deleted.
 - The Ask review found no blocker; it flagged the hand pick across a fold, fixed here with a test.
+
+## Outcome
+
+Shipped as planned (2026-10-19, `feature/route-gogo`): the search panel's rows move only on a landing, a refusal or a
+merge; ranked rows lead, then landed rows by time, then the ladder's order; a hand pick holds through the search and
+across a fold; the last landing moves the selection to the top row, with `route_best_selected_toast` where that moved a
+pick. The one-second order gate, its class, tests and property were deleted. Both open points (a pick held for good when
+nothing is crowned, a pick on a computing route refusing *Select*) were accepted. Archived 2026-10-28.

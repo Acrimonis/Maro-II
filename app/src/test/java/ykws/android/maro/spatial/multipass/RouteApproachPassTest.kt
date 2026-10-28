@@ -7,6 +7,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
+import ykws.android.maro.data.model.markers.BBox
 import ykws.android.maro.spatial.SpatialOperations
 import kotlin.math.abs
 import kotlin.math.hypot
@@ -156,14 +157,16 @@ class RouteApproachPassTest {
 
     /**
      * **Pricing first and proving only the winners answers the very line the proof-first order did.** Eight
-     * seeded lines around the rock, each refined over six waters — free water, a mild slow disc whose best is
+     * seeded lines around the rock, four seeded S lines (a turn right, then left) leaving the rock's disc and the S
+     * fixture's line and its mirror on open water, each refined over six waters
+     * — free water, a mild slow disc whose best is
      * mostly travel time (where the travel cut fires), a second rock standing on the
      * free answer (so a would-be winner is refused by its proof), a shoal behind the measured gate, the same
      * shoal with the gate's berth priced (the one price whose sign rests on a config clamp), and a marker-only
-     * price that searches nothing — return the same points in both orders. Every path the new order can take is
+     * price whose slow gate opens nothing — return the same points in both orders. Every path the new order can take is
      * shown to run somewhere on these lines, asserted as **present** rather than counted so a fixture tweak does
-     * not break it: the travel cut, the first-leg cut, a full price that loses, a proof that refuses, and a
-     * search over berth-priced water.
+     * not break it: the travel cut, the first-leg cut, a full price that loses, a proof that refuses, a search over
+     * berth-priced water, a split, an S's crossing, and that crossing slid along its legs to a move.
      */
     @Test
     fun pricingFirstAnswersTheProofFirstLine() {
@@ -172,13 +175,27 @@ class RouteApproachPassTest {
         val paths = linkedMapOf("cutTravel" to 0.0, "cutLeg" to 0.0, "lost" to 0.0, "refusedClear" to 0.0)
         var berthWindows = 0.0
         var splitEvals = 0.0
-        repeat(8) {
-            val line = listOf(
+        var crossings = 0.0
+        var crossingSlides = 0.0
+        var slidCrossings = 0.0
+        val lines = List(8) {
+            listOf(
                 original[0],
                 point(random.nextDouble() * 200.0 - 100.0, 260.0 + random.nextDouble() * 120.0),
                 point(1800.0 + random.nextDouble() * 1200.0, random.nextDouble() * 700.0 - 100.0),
                 original[3]
             )
+        } + List(4) {
+            // An S off the rock's disc — a turn right, then left — whose window the slow gate opens: its crossing is
+            // read after the window's own search, in both orders.
+            listOf(
+                original[0],
+                point(1500.0 + random.nextDouble() * 200.0 - 100.0, 250.0 + random.nextDouble() * 200.0 - 100.0),
+                point(1800.0 + random.nextDouble() * 200.0 - 100.0, -300.0 + random.nextDouble() * 200.0 - 100.0),
+                original[3]
+            )
+        } + listOf(sLine, sLine.map(::mirrored)) // S lines on open water, whose crossing wins and slides
+        for (line in lines) {
             for ((name, setup) in setups) {
                 val proofFirst = mutableListOf<String>()
                 val old = RouteApproachPass.refine(
@@ -193,6 +210,9 @@ class RouteApproachPassTest {
                 for (path in paths.keys) paths[path] = paths.getValue(path) + figure(priceFirst, path)
                 if (name == "berth") berthWindows += figure(priceFirst, "windows")
                 splitEvals += figure(priceFirst, "splitEvals")
+                crossings += figure(priceFirst, "crossings")
+                crossingSlides += figure(priceFirst, "crossingSlides")
+                slidCrossings += figure(priceFirst, "slidCrossings")
             }
         }
         for ((path, count) in paths) {
@@ -200,7 +220,396 @@ class RouteApproachPassTest {
         }
         assertTrue("the berth-priced water is searched, not skipped", berthWindows > 0.0)
         assertTrue("splits are searched in both orders on these lines", splitEvals > 0.0)
+        assertTrue("an S's crossing is evaluated in both orders on these lines", crossings > 0.0)
+        assertTrue("and slid along its legs", crossingSlides > 0.0)
+        assertTrue("a slid crossing placing a move", slidCrossings > 0.0)
     }
+
+    /**
+     * **An S standing for one turn is merged at its crossing.** The line leaves just north of the rock's slow disc
+     * eastward, its chord to the second point cutting the disc, then turns right and, 626 m on, left past a second slow
+     * disc its chord to the aim would cut: two price turns on open water, the 2026-10-28 La Salis → Le Village Englouti
+     * "Balanced" S. No leg is slow, so the slow gate opens nothing; the S read offers the crossing of the outer legs,
+     * which is one 24° turn, 189 m shorter, and clear of both discs — and the pass takes it.
+     */
+    @Test
+    fun anSStandingForOneTurnIsMergedAtItsCrossing() {
+        val setup = sSetup()
+        val line = sLine
+        assertClear(setup, line)
+        val ctx = setup.context()
+        for (i in 1..2) {
+            assertEquals("no land turn at $i", null, MultipassPull.legClearCause(line[i - 1], line[i + 1], ctx))
+            assertTrue(
+                "but a price turn at $i",
+                MultipassPull.totalSec(line[i - 1], line[i + 1], ctx) >
+                    MultipassPull.totalSec(line[i - 1], line[i], ctx) + MultipassPull.totalSec(line[i], line[i + 1], ctx)
+            )
+        }
+        assertTrue(
+            "the two turn opposite ways",
+            RouteCornerPass.turnDegreesAt(line[0], line[1], line[2]) * RouteCornerPass.turnDegreesAt(line[1], line[2], line[3]) < 0.0
+        )
+
+        val trace = mutableListOf<String>()
+        val merged = RouteApproachPass.refine(setup, line, bounds, 20.0, memo = MarkMemo(), trace = { trace += it() })
+        val summary = summary(trace)
+        assertEquals("the slow gate opened nothing ($summary)", 0, count(summary, "windows"))
+        assertEquals("the S read opened its window", 1, count(summary, "sWindows"))
+        assertEquals("and offered its one crossing", 1, count(summary, "crossings"))
+        assertTrue(
+            "the move is a merge of two price turns ($trace)",
+            trace.any { it.startsWith("APPROACH move ") && it.contains(" kind=merge ") && it.split(":PRICE").size == 3 }
+        )
+        assertEquals("one point stands for the two ($merged)", 3, merged.size)
+        val crossing = RouteCornerPass.linesCrossing(line[0], line[1], line[2], line[3])!!
+        // The crossing wins, then slides along its own legs (P5b): the point stands on one of them, no dearer.
+        assertTrue(
+            "on one of the crossing's legs ($merged)",
+            onSegment(merged[1], line.first(), crossing) || onSegment(merged[1], crossing, line.last())
+        )
+        assertTrue(
+            "no dearer than the crossing",
+            cost(setup, merged) <= cost(setup, listOf(line.first(), crossing, line.last()))
+        )
+        assertEquals("and the slide placed it here", 1, count(summary, "slidCrossings"))
+        assertEquals(line.first(), merged.first())
+        assertEquals(line.last(), merged.last())
+        assertClear(setup, merged)
+        assertTrue("the line is cheaper", cost(setup, merged) < cost(setup, line))
+        assertTrue("and shorter", polylineLengthM(merged) < polylineLengthM(line) - 150.0)
+        assertEquals(
+            "proof-first draws the same line",
+            merged, RouteApproachPass.refine(setup, line, bounds, 20.0, memo = MarkMemo(), incumbentFirst = false)
+        )
+        assertEquals(
+            "a second pass searching every window draws the same line",
+            merged, RouteApproachPass.refine(setup, line, bounds, 20.0, memo = MarkMemo(), skipRepeats = false)
+        )
+        assertEquals(
+            "and the pair armed from the other end the same line, turned back",
+            merged.reversed(), RouteApproachPass.refine(setup.reversed(), line.reversed(), bounds, 20.0, memo = MarkMemo())
+        )
+    }
+
+    /**
+     * **An S the slow gate opens keeps its search's own answer where its crossing loses.** The S leaves inside the
+     * rock's slow disc, so its window is searched around its seed as before P4; its crossing is cheaper than that seed
+     * and dearer than the search's best — the one case where offering the crossing *before* the search would move the
+     * search's centre and its answer. Read after, it moves nothing: the line is the one the pass drew before the S
+     * read existed, recorded from that build (2026-10-28), and the crossing was offered.
+     */
+    @Test
+    fun aSlowOpenedSKeepsItsSearchsAnswerWhereItsCrossingLoses() {
+        val setup = setup(field())
+        val line = listOf(original[0], point(1500.0, 250.0), point(1800.0, -300.0), original[3])
+        val ctx = setup.context()
+        fun sec(route: List<LatLng>): Double {
+            assertClear(setup, route)
+            return route.zipWithNext().sumOf { (u, w) -> MultipassPull.totalSec(u, w, ctx) }
+        }
+        val crossing = RouteCornerPass.linesCrossing(line[0], line[1], line[2], line[3])!!
+        assertTrue(
+            "the crossing beats the window's seed",
+            sec(listOf(line[0], crossing, line[3])) < sec(listOf(line[0], line[1], line[3]))
+        )
+
+        val trace = mutableListOf<String>()
+        val refined = RouteApproachPass.refine(setup, line, bounds, 20.0, memo = MarkMemo(), trace = { trace += it() })
+        assertEquals("the crossing was offered (${summary(trace)})", 1, count(summary(trace), "crossings"))
+        assertTrue("and lost to the search's best", sec(refined) < sec(listOf(line[0], crossing, line[3])))
+        // The crossing lost, yet it slid along its legs (D7) — last, so the search's answer stands where no slid point
+        // beats it.
+        assertTrue("its legs were read", count(summary(trace), "crossingSlides") > 0)
+        assertEquals("and no slid point beat the search", 0, count(summary(trace), "slidCrossings"))
+        assertEquals(
+            "the line is the search's own, as before the S read",
+            listOf(original[0], LatLng(43.51543615969988, 7.003072978971424), original[3]), refined
+        )
+    }
+
+    /**
+     * **Only an S of two real turns is offered a crossing.** Two lines past the rock's disc alone, no leg in slow
+     * water, so no other move changes them: one whose second turn is the other way but flatter than the corner
+     * pass's floor, and one whose two turns go the same way. Neither window is an S, so neither is offered its
+     * crossing.
+     */
+    @Test
+    fun onlyAnSOfTwoRealTurnsIsOfferedACrossing() {
+        val (start, first, _, aim) = sLine
+        val setup = setup(field(), start = start, aim = aim)
+        val underTheFloor = listOf(start, first, point(2288.0, -365.7), aim)
+        val sameWay = listOf(start, first, point(2439.7, -92.0), aim)
+        fun turns(l: List<LatLng>) = Pair(
+            RouteCornerPass.turnDegreesAt(l[0], l[1], l[2]), RouteCornerPass.turnDegreesAt(l[1], l[2], l[3])
+        )
+        turns(underTheFloor).let { (t1, t2) ->
+            assertTrue("opposite turns ($t1, $t2)", t1 * t2 < 0.0)
+            assertTrue("the second under the floor", abs(t2) < RouteCornerPass.MIN_TURN_DEG)
+        }
+        turns(sameWay).let { (t1, t2) ->
+            assertTrue("one way twice ($t1, $t2)", t1 * t2 > 0.0)
+            assertTrue("both real turns", minOf(abs(t1), abs(t2)) >= RouteCornerPass.MIN_TURN_DEG)
+        }
+        for (line in listOf(underTheFloor, sameWay)) {
+            assertClear(setup, line)
+            val trace = mutableListOf<String>()
+            val kept = RouteApproachPass.refine(setup, line, bounds, 20.0, memo = MarkMemo(), trace = { trace += it() })
+            assertEquals("no crossing is offered on $line (${summary(trace)})", 0, count(summary(trace), "crossings"))
+            assertEquals("and the line is kept", line, kept)
+        }
+    }
+
+    /**
+     * **An S whose crossing is priced keeps its two turns.** The same S, with a third slow disc standing on the
+     * crossing's second leg, off all three of the line's own: the crossing is offered and loses on price, and the line
+     * is the one handed in.
+     */
+    @Test
+    fun anSWhoseCrossingIsPricedKeepsItsTwoTurns() {
+        val setup = sSetup(moreDiscs = listOf(point(1103.0, -231.0)))
+        val line = sLine
+        assertClear(setup, line)
+        val ctx = setup.context()
+        val crossing = RouteCornerPass.linesCrossing(line[0], line[1], line[2], line[3])!!
+        assertTrue(
+            "the crossing's second leg pays the third disc's price",
+            MultipassPull.totalSec(crossing, line[3], ctx) >
+                SpatialOperations.haversine(crossing, line[3]) / setup.paceMps + 60.0
+        )
+        assertTrue("which no leg of the S does", line.zipWithNext().all { (u, w) ->
+            MultipassPull.totalSec(u, w, ctx) <= SpatialOperations.haversine(u, w) / setup.paceMps + 1e-9
+        })
+
+        val trace = mutableListOf<String>()
+        val kept = RouteApproachPass.refine(setup, line, bounds, 20.0, memo = MarkMemo(), trace = { trace += it() })
+        assertEquals("the crossing is offered (${summary(trace)})", 1, count(summary(trace), "crossings"))
+        assertEquals("and the S is kept", line, kept)
+        assertTrue("with no move", trace.none { it.startsWith("APPROACH move ") })
+    }
+
+    /**
+     * **An S holding a land turn is not merged.** The same S, with an island standing on the chord that skips its
+     * first point — the island forces that turn — and on the crossing's second leg: the window is skipped by the
+     * land-turn rule before its crossing is read, and the S is kept.
+     */
+    @Test
+    fun anSHoldingALandTurnIsNotMerged() {
+        val islandCentre = point(900.0, 5.0)
+        val island = RouteCostSource.Hard(distanceAt = {
+            (SpatialOperations.haversine(it, islandCentre) - 150.0).coerceAtLeast(0.0)
+        })
+        val setup = sSetup(extraHard = island)
+        val line = sLine
+        assertClear(setup, line)
+        assertEquals(
+            "the island forces the first turn",
+            ChordRefusal.LAND, MultipassPull.legClearCause(line[0], line[2], setup.context())
+        )
+
+        val trace = mutableListOf<String>()
+        val kept = RouteApproachPass.refine(setup, line, bounds, 20.0, memo = MarkMemo(), trace = { trace += it() })
+        val summary = summary(trace)
+        assertTrue("the window is skipped for its land turn ($summary)", count(summary, "landTurnWindows") > 0)
+        assertEquals("before its crossing is read", 0, count(summary, "crossings"))
+        assertEquals("and the S is kept", line, kept)
+    }
+
+    /**
+     * **A crossing slides along its incoming leg.** The S above mirrored north to south, so the pass runs it from the
+     * rock's end and the rock's leg is the crossing's incoming one. The merged corner stands where the outer legs cross,
+     * 630 m east of the rock; the rock's disc pins only that leg's far end, so the corner belongs back along it, as near
+     * the rock as the chord to the aim still clears the disc — the 2026-10-28 "Balanced" corner at La Fourmigue, whose
+     * line the pass runs from its aim beside the rock. The point stands on that leg, cheaper than the crossing, and every
+     * order, skip mode and direction draws it.
+     */
+    @Test
+    fun aCrossingSlidesAlongItsIncomingLeg() {
+        val line = sLine.map(::mirrored)
+        val setup = setup(
+            field(secondDisc = mirrored(point(2060.0, -60.0))), start = line.first(), aim = line.last()
+        )
+        assertTrue("the pass runs this line from the rock's end", sortsFirst(line.first(), line.last()))
+        val (_, slid) = assertSlidAlong(setup, line, bounds, toward = line.first())
+        // The corner the incoming leg's search reaches, recorded from the 2026-10-28 build: the leg searched first, and
+        // after the crossing, as P5b orders them — another order would stop elsewhere on the leg.
+        assertEquals("where the incoming leg's search stops", LatLng(43.50981677959504, 7.002968116273581), slid[1])
+    }
+
+    /**
+     * **A crossing slides along its outgoing leg.** The S as drawn, which the pass runs from its southern end, so the
+     * rock's leg is the crossing's outgoing one; the corridor ends 20 m east of the crossing, so every point on the
+     * incoming leg stands outside it and is refused before any read. The corner slides along the outgoing leg, toward
+     * the rock.
+     */
+    @Test
+    fun aCrossingSlidesAlongItsOutgoingLeg() {
+        assertTrue("the pass runs this line from the aim's end", !sortsFirst(sLine.first(), sLine.last()))
+        val crossing = RouteCornerPass.linesCrossing(sLine[0], sLine[1], sLine[2], sLine[3])!!
+        val tight = bounds.copy(lonEast = crossing.longitude + 20.0 / GateTestFixtures.M_PER_DEG_LON)
+        val (summary, _) = assertSlidAlong(sSetup(), sLine, tight, toward = sLine.first())
+        assertTrue("the incoming leg's points stood outside the corridor ($summary)", count(summary, "outside") > 0)
+    }
+
+    /**
+     * **A crossing that loses by a rock still slides** (D7). The same S, with a small rock standing on the crossing's
+     * second leg 150 m out from it, off every leg of the S: the crossing is refused, yet a corner on one of its legs,
+     * whose other leg clears both the rock and the disc, wins — the near miss the slide reaches whether the crossing won
+     * or lost.
+     */
+    @Test
+    fun aCrossingThatLosesStillSlides() {
+        val line = sLine
+        val crossing = RouteCornerPass.linesCrossing(line[0], line[1], line[2], line[3])!!
+        val rockOnTheLeg = between(crossing, line.last(), 150.0 / SpatialOperations.haversine(crossing, line.last()))
+        val setup = sSetup(extraHard = RouteCostSource.Hard(distanceAt = {
+            (SpatialOperations.haversine(it, rockOnTheLeg) - 20.0).coerceAtLeast(0.0)
+        }))
+        assertClear(setup, line)
+        assertFalse("the crossing's second leg is refused", MultipassPull.legClear(crossing, line.last(), setup.context()))
+
+        val trace = mutableListOf<String>()
+        val slid = RouteApproachPass.refine(setup, line, bounds, 20.0, memo = MarkMemo(), trace = { trace += it() })
+        assertEquals("the crossing was offered (${summary(trace)})", 1, count(summary(trace), "crossings"))
+        assertEquals("and the slide placed the move", 1, count(summary(trace), "slidCrossings"))
+        assertEquals(3, slid.size)
+        assertTrue(
+            "on one of the crossing's legs ($slid)",
+            onSegment(slid[1], line.first(), crossing) || onSegment(slid[1], crossing, line.last())
+        )
+        assertClear(setup, slid)
+        assertTrue("the line is cheaper", cost(setup, slid) < cost(setup, line))
+        assertEquals(
+            "proof-first draws the same line",
+            slid, RouteApproachPass.refine(setup, line, bounds, 20.0, memo = MarkMemo(), incumbentFirst = false)
+        )
+        assertEquals(
+            "a second pass searching every window draws the same line",
+            slid, RouteApproachPass.refine(setup, line, bounds, 20.0, memo = MarkMemo(), skipRepeats = false)
+        )
+        assertEquals(
+            "and the pair armed from the other end the same line, turned back",
+            slid.reversed(), RouteApproachPass.refine(setup.reversed(), line.reversed(), bounds, 20.0, memo = MarkMemo())
+        )
+    }
+
+    /**
+     * **A crossing that loses on price is still searched past its leg's middle** (D7, §13 of the plan's P5 review). The
+     * mirrored S, run from the rock's end, with a small slow disc 60 m across lying on the crossing's second leg and on
+     * the line from the incoming leg's middle to the aim: the crossing loses on that price, and so does the leg's middle
+     * — dearer than the S itself — while a point further toward the rock clears it. A search that moved only on points
+     * beating the window would stop at the middle and read only toward the crossing; following the leg's own best, it
+     * reads past the middle and finds the corner.
+     */
+    @Test
+    fun aCrossingThatLosesOnPriceIsSearchedPastItsMiddle() {
+        val line = sLine.map(::mirrored)
+        val setup = setup(
+            field(secondDisc = mirrored(point(2060.0, -60.0)), smallDiscs = listOf(point(1000.0, -45.0) to 60.0)),
+            start = line.first(), aim = line.last()
+        )
+        assertClear(setup, line)
+        val ctx = setup.context()
+        val crossing = RouteCornerPass.linesCrossing(line[0], line[1], line[2], line[3])!!
+        val (a, aim) = line.first() to line.last()
+        assertTrue(
+            "the crossing's second leg pays the small disc",
+            MultipassPull.totalSec(crossing, aim, ctx) > SpatialOperations.haversine(crossing, aim) / setup.paceMps + 5.0
+        )
+        assertTrue("so the crossing loses to the S", cost(setup, listOf(a, crossing, aim)) > cost(setup, line))
+        val middle = between(crossing, a, 0.5)
+        assertTrue("and so does the leg's middle", cost(setup, listOf(a, middle, aim)) > cost(setup, line))
+
+        val trace = mutableListOf<String>()
+        val slid = RouteApproachPass.refine(setup, line, bounds, 20.0, memo = MarkMemo(), trace = { trace += it() })
+        assertEquals("the slide placed the move (${summary(trace)})", 1, count(summary(trace), "slidCrossings"))
+        assertEquals(3, slid.size)
+        assertTrue("on the incoming leg ($slid)", onSegment(slid[1], a, crossing))
+        assertTrue(
+            "past its middle",
+            SpatialOperations.haversine(crossing, slid[1]) > SpatialOperations.haversine(crossing, a) / 2.0
+        )
+        assertClear(setup, slid)
+        assertTrue("the line is cheaper", cost(setup, slid) < cost(setup, line))
+        assertEquals(
+            "proof-first draws the same line",
+            slid, RouteApproachPass.refine(setup, line, bounds, 20.0, memo = MarkMemo(), incumbentFirst = false)
+        )
+        assertEquals(
+            "and the pair armed from the other end the same line, turned back",
+            slid.reversed(), RouteApproachPass.refine(setup.reversed(), line.reversed(), bounds, 20.0, memo = MarkMemo())
+        )
+    }
+
+    /**
+     * Refines [line] — an S whose crossing wins — over [setup] in [corridor], and asserts the slide moved its crossing
+     * along the leg toward [toward]: on that leg, cheaper than the crossing, the move named, and the same line in both
+     * orders, both skip modes and from the other end. Returns the pass's summary line and the slid line.
+     */
+    private fun assertSlidAlong(
+        setup: PullSetup,
+        line: List<LatLng>,
+        corridor: BBox,
+        toward: LatLng
+    ): Pair<String, List<LatLng>> {
+        assertClear(setup, line)
+        val crossing = RouteCornerPass.linesCrossing(line[0], line[1], line[2], line[3])!!
+        val viaCrossing = listOf(line.first(), crossing, line.last())
+        assertClear(setup, viaCrossing)
+        assertTrue("the crossing beats the S", cost(setup, viaCrossing) < cost(setup, line))
+
+        val trace = mutableListOf<String>()
+        val slid = RouteApproachPass.refine(setup, line, corridor, 20.0, memo = MarkMemo(), trace = { trace += it() })
+        val summary = summary(trace)
+        assertEquals("the slide placed the move ($summary)", 1, count(summary, "slidCrossings"))
+        assertTrue("reading candidates along the legs", count(summary, "crossingSlides") > 0)
+        assertEquals(3, slid.size)
+        assertTrue("on the leg toward $toward ($slid)", onSegment(slid[1], toward, crossing))
+        assertTrue(
+            "off the crossing by more than the pass's step",
+            SpatialOperations.haversine(slid[1], crossing) > 20.0
+        )
+        assertClear(setup, slid)
+        assertTrue("cheaper than the crossing", cost(setup, slid) < cost(setup, viaCrossing))
+        assertTrue(
+            "the move is a merge ($trace)",
+            trace.any { it.startsWith("APPROACH move ") && it.contains(" kind=merge ") }
+        )
+        assertEquals(
+            "proof-first draws the same line",
+            slid, RouteApproachPass.refine(setup, line, corridor, 20.0, memo = MarkMemo(), incumbentFirst = false)
+        )
+        assertEquals(
+            "a second pass searching every window draws the same line",
+            slid, RouteApproachPass.refine(setup, line, corridor, 20.0, memo = MarkMemo(), skipRepeats = false)
+        )
+        assertEquals(
+            "and the pair armed from the other end the same line, turned back",
+            slid.reversed(), RouteApproachPass.refine(setup.reversed(), line.reversed(), corridor, 20.0, memo = MarkMemo())
+        )
+        return summary to slid
+    }
+
+    /**
+     * Whether [p] stands on the segment [u]–[v]: no turn there in the corner pass's own frame, within 1e-4° — the
+     * arccosine's rounding near zero, under 2 mm at a kilometre.
+     */
+    private fun onSegment(p: LatLng, u: LatLng, v: LatLng): Boolean = abs(RouteCornerPass.turnDegreesAt(u, p, v)) < 1e-4
+
+    /** [p] reflected north to south in [point]'s frame. */
+    private fun mirrored(p: LatLng): LatLng = metres(p).let { (east, north) -> point(east, -north) }
+
+    /** The S the tests above read: right past the rock's disc, then left past a second disc, to the aim. */
+    private val sLine = listOf(point(0.0, 310.0), point(1500.0, 250.0), point(1800.0, -300.0), point(3000.0, -900.0))
+
+    /** The S's water: the rock's disc, a second disc its second point avoids, and whatever a test adds. */
+    private fun sSetup(extraHard: RouteCostSource.Hard? = null, moreDiscs: List<LatLng> = emptyList()) = setup(
+        field(extraHard = extraHard, secondDisc = point(2060.0, -60.0), moreDiscs = moreDiscs),
+        start = sLine.first(), aim = sLine.last()
+    )
+
+    /** A whole count the summary line carries. */
+    private fun count(summary: String, name: String) = Regex("(?:^| )$name=([0-9]+)").find(summary)!!.groupValues[1].toInt()
 
     /**
      * **A merge never deletes a land turn.** The line leaves the slow disc round an island's north side — a turn
@@ -353,51 +762,54 @@ class RouteApproachPassTest {
      * point halfway down each leg — keeps the wedge clear and is cheaper, so only the floor refuses it: its two
      * points stand closer than the tangent a pace-speed curve needs for 60°, and the corner pass would draw them back
      * as the one corner. A cut wide enough to pass that floor crosses the wedge, so the line keeps its one turn.
+     * Built at `lateralAccelMps2` 0.33 m/s², pinned here ([TurnConfigFixture]): the floor's span is that value's.
      */
     @Test
     fun aTurnRoundOneHeadlandIsNotSplit() {
-        val start = point(290.0, 0.0)
-        val bend = point(590.0, 0.0)
-        val aim = point(740.0, -259.8)
-        // The wedge's tip and its two edges, away from the tip: west along the first leg, south-east along the second.
-        val tip = Pair(532.3, -100.0)
-        val edges = listOf(Pair(-1.0, 0.0), Pair(0.5, -0.866))
-        val wedge = RouteCostSource.Hard(distanceAt = { p ->
-            val (east, north) = metres(p)
-            val inside = north <= -100.0 && 0.866 * (east - 590.0) + 0.5 * north <= -100.0
-            if (inside) {
-                0.0
-            } else {
-                edges.minOf { (ux, uy) ->
-                    val t = ((east - tip.first) * ux + (north - tip.second) * uy).coerceAtLeast(0.0)
-                    hypot(east - tip.first - t * ux, north - tip.second - t * uy)
+        TurnConfigFixture.withLateralAccel(TurnConfigFixture.BUILT_AT_MPS2) {
+            val start = point(290.0, 0.0)
+            val bend = point(590.0, 0.0)
+            val aim = point(740.0, -259.8)
+            // The wedge's tip and its two edges, away from the tip: west along the first leg, south-east along the second.
+            val tip = Pair(532.3, -100.0)
+            val edges = listOf(Pair(-1.0, 0.0), Pair(0.5, -0.866))
+            val wedge = RouteCostSource.Hard(distanceAt = { p ->
+                val (east, north) = metres(p)
+                val inside = north <= -100.0 && 0.866 * (east - 590.0) + 0.5 * north <= -100.0
+                if (inside) {
+                    0.0
+                } else {
+                    edges.minOf { (ux, uy) ->
+                        val t = ((east - tip.first) * ux + (north - tip.second) * uy).coerceAtLeast(0.0)
+                        hypot(east - tip.first - t * ux, north - tip.second - t * uy)
+                    }
                 }
-            }
-        })
-        val setup = setup(field(extraHard = wedge), start = start, aim = aim)
-        val line = listOf(start, bend, aim)
-        assertClear(setup, line)
-        assertEquals("the wedge forces the turn", ChordRefusal.LAND, MultipassPull.legClearCause(start, aim, setup.context()))
-        val halfCut = listOf(start, point(440.0, 0.0), point(665.0, -129.9), aim)
-        assertClear(setup, halfCut)
-        assertTrue("the half cut is cheaper", cost(setup, halfCut) < cost(setup, line))
-        val paceRadiusM = 15.0 * 15.0 / AppConfig.routeTurnLateralAccelMps2
-        val summedDeg = abs(RouteCornerPass.turnDegreesAt(halfCut[0], halfCut[1], halfCut[2])) +
-            abs(RouteCornerPass.turnDegreesAt(halfCut[1], halfCut[2], halfCut[3]))
-        assertTrue(
-            "but the corner pass would draw it back as one turn",
-            RouteCornerPass.pairIsOneTurn(SpatialOperations.haversine(halfCut[1], halfCut[2]), summedDeg, paceRadiusM)
-        )
+            })
+            val setup = setup(field(extraHard = wedge), start = start, aim = aim)
+            val line = listOf(start, bend, aim)
+            assertClear(setup, line)
+            assertEquals("the wedge forces the turn", ChordRefusal.LAND, MultipassPull.legClearCause(start, aim, setup.context()))
+            val halfCut = listOf(start, point(440.0, 0.0), point(665.0, -129.9), aim)
+            assertClear(setup, halfCut)
+            assertTrue("the half cut is cheaper", cost(setup, halfCut) < cost(setup, line))
+            val paceRadiusM = 15.0 * 15.0 / AppConfig.routeTurnLateralAccelMps2
+            val summedDeg = abs(RouteCornerPass.turnDegreesAt(halfCut[0], halfCut[1], halfCut[2])) +
+                abs(RouteCornerPass.turnDegreesAt(halfCut[1], halfCut[2], halfCut[3]))
+            assertTrue(
+                "but the corner pass would draw it back as one turn",
+                RouteCornerPass.pairIsOneTurn(SpatialOperations.haversine(halfCut[1], halfCut[2]), summedDeg, paceRadiusM)
+            )
 
-        val trace = mutableListOf<String>()
-        val kept = RouteApproachPass.refine(setup, line, bounds, 20.0, memo = MarkMemo(), trace = { trace += it() })
-        assertTrue("no move is a split ($trace)", trace.none { it.contains(" kind=split ") })
-        assertEquals("the line keeps its one turn", line.size, kept.size)
-        assertTrue(
-            "the cuts under the corner pass's span are refused (${summary(trace)})",
-            Regex("splitFloor=([0-9]+)").find(summary(trace))!!.groupValues[1].toInt() > 0
-        )
-        assertClear(setup, kept)
+            val trace = mutableListOf<String>()
+            val kept = RouteApproachPass.refine(setup, line, bounds, 20.0, memo = MarkMemo(), trace = { trace += it() })
+            assertTrue("no move is a split ($trace)", trace.none { it.contains(" kind=split ") })
+            assertEquals("the line keeps its one turn", line.size, kept.size)
+            assertTrue(
+                "the cuts under the corner pass's span are refused (${summary(trace)})",
+                Regex("splitFloor=([0-9]+)").find(summary(trace))!!.groupValues[1].toInt() > 0
+            )
+            assertClear(setup, kept)
+        }
     }
 
     @Test(expected = CancellationException::class)
@@ -445,16 +857,20 @@ class RouteApproachPassTest {
         /** The slow disc's price (s/m) — dear by default; a mild one leaves the best mostly travel time. */
         rate: Double = 0.35,
         /** A second slow disc of the same radius and price, centred here — none by default. */
-        secondDisc: LatLng? = null
+        secondDisc: LatLng? = null,
+        /** Further slow discs of the same radius and price — none by default. */
+        moreDiscs: List<LatLng> = emptyList(),
+        /** Slow discs of their own radius (m), at the same price — none by default. */
+        smallDiscs: List<Pair<LatLng, Double>> = emptyList()
     ): RouteCostField {
-        val centres = listOfNotNull(rock, secondDisc)
-        fun price(p: LatLng) = if (centres.any { SpatialOperations.haversine(p, it) <= 300.0 }) rate else 0.0
+        val discs = (listOfNotNull(rock, secondDisc) + moreDiscs).map { it to 300.0 } + smallDiscs
+        fun price(p: LatLng) = if (discs.any { (c, r) -> SpatialOperations.haversine(p, c) <= r }) rate else 0.0
         return RouteCostField(listOfNotNull(
             RouteCostSource.Hard(distanceAt = { (SpatialOperations.haversine(it, rock) - 30.0).coerceAtLeast(0.0) }),
             extraHard,
             RouteCostSource.Soft(
                 priceSec = ::price, tag = MultipassCellState.BAND,
-                clearanceAt = { p -> centres.minOf { abs(SpatialOperations.haversine(p, it) - 300.0) } },
+                clearanceAt = { p -> discs.minOf { (c, r) -> abs(SpatialOperations.haversine(p, c) - r) } },
                 armAt = { arm to price(it) }
             )
         ))

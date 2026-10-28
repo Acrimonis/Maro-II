@@ -723,16 +723,17 @@ object AppConfig {
         private set
 
     /**
-     * The turn-rounding **lateral-acceleration limit** (m/s²) — `route.turn.lateralAccelMps2`,
-     * default 0.33 (~0.03 g), clamped 0.1..2.94.
+     * The turn-rounding **lateral-acceleration limit** (m/s²) — `route.turn.lateralAccelMps2`, whose value
+     * `maro.properties` holds and this default follows, clamped 0.1..2.94.
      *
      * A corner is drawn as a curve whose radius is `r = v² / a_lat`, so a high value gives a tight,
      * hard turn and a low value a wide, gentle one; the fitter caps a bend's radius at the pace's own
      * `v_pace² / a_lat` and never draws it tighter than the speed's own minimum, `v² / a_lat`. One
      * home for the ceiling: this value and the key it is read from.
      */
-    var routeTurnLateralAccelMps2: Double = 0.33
-        private set
+    var routeTurnLateralAccelMps2: Double = 0.666667
+        // Internal so a test fixture built at another value can pin it without reloading the properties (TurnConfigFixture).
+        internal set
 
     /**
      * The turn's **spiral roll-in time** (s) — `route.turn.transitionSec`, default 2.0, clamped
