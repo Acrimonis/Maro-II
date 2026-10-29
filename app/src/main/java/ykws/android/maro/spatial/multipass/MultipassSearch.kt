@@ -52,6 +52,67 @@ fun interface ZonePrice {
     }
 }
 
+/**
+ * **What one cell of the walk costs, whole, at its own size** — its `sourceCostSec`, the zone price the caller reads
+ * for its limits at that size, and the gate berth at the pass's λ. The step's relaxation and the chord's read
+ * ([ChordReader]) both price a cell here, so a chord can bypass no price a step pays.
+ */
+internal class CellPrice(
+    private val zonePriceSec: ZonePrice,
+    private val berthK: Double,
+    private val berth: BerthLaw?
+) {
+    /** The seconds the cell at [slot], of [cellM], costs whole. */
+    fun cellSec(walk: WalkWindows, slot: Int, cellM: Double): Double {
+        val interiorLimitKn = walk.limitKn(slot)
+        val collarLimitKn = walk.collarLimitKn(slot)
+        val bandCollarLimitKn = walk.bandCollarLimitKn(slot)
+        var cellSec = walk.sourceCostSec(slot)
+        if (interiorLimitKn > 0.0 || collarLimitKn > 0.0 || bandCollarLimitKn > 0.0) {
+            cellSec += zonePriceSec.secAt(cellM, interiorLimitKn, collarLimitKn, bandCollarLimitKn)
+        }
+        // The berth's own read: the grid stores its distance, and the pass's cursor turns it into the
+        // rung's seconds — the very law the pull's guard prices a point at.
+        if (berthK > 0.0 && berth != null) {
+            val berthSec = berth.priceSecAt(walk.gateDistanceM(slot), cellM)
+            if (berthSec > 0.0) cellSec += berthK * berthSec
+        }
+        return cellSec
+    }
+}
+
+/**
+ * **A reading of a walk's expansions, in order** — each expanded slot and how many steps out of it the walk read.
+ * An instrument's door (the any-angle plan's P1 cost gate reads chords over a walk's own expansions): the walk
+ * neither consults nor waits on it.
+ */
+internal fun interface ExpansionProbe {
+    fun expanded(slot: Int, steps: Int)
+}
+
+/**
+ * **What a push prices a chord at**, before the pop reads it — the prototype's own knob
+ * (`route.search.anyAngle.estimate`), each a different search order:
+ * - [STEP] — the grid's own step price from the expander: pessimistic, the heap's order the staircase's, the
+ *   chord credited only at pop — so a cell closed before its neighbour's credit arrives keeps the dearer way;
+ * - [BOUND] — the straight distance at the pace, scaled as the heuristic is (§13.1): a lower bound on any chord,
+ *   optimistic through priced water, the chord read at pop;
+ * - [FULL] — the chord itself, read at push: exact, no lazy pop, one read per neighbour instead of per expansion.
+ */
+internal enum class ChordEstimate { STEP, BOUND, FULL }
+
+/**
+ * **The any-angle walk's rule** (`route.search.anyAngle`): the Theta\* over the walk, with [reachCells] — how far
+ * back, in coarse cells, a node may take its parent, `0` no cap — the push's [estimate], and whether a lazy pop that
+ * lowers a node's cost **reopens** the closed neighbours it would now reach cheaper (`route.search.anyAngle.reopen`).
+ * A walk handed `null` is today's A\*.
+ */
+internal class AnyAngleRule(
+    val reachCells: Int,
+    val estimate: ChordEstimate = ChordEstimate.STEP,
+    val reopen: Boolean = false
+)
+
 object MultipassSearch {
 
     private val SQRT2 = sqrt(2.0)
@@ -63,6 +124,9 @@ object MultipassSearch {
 
     /** Cancellation cadence: [checkCancelled] runs once every [CADENCE] expansions. */
     private const val CADENCE = 256
+
+    /** The relative margin inside which a chord and the steps it equals are one cost — rounding, not a price. */
+    private const val CHORD_TIE = 1e-9
 
     /**
      * **The open set, unboxed** — a binary min-heap over three primitive arrays ordered by `f`, then `g`,
@@ -215,7 +279,9 @@ object MultipassSearch {
         berthK: Double = 0.0,
         berth: BerthLaw? = null,
         stepGuard: StepGuard? = null,
-        waiveEndSlots: Boolean = true
+        waiveEndSlots: Boolean = true,
+        probe: ExpansionProbe? = null,
+        anyAngle: AnyAngleRule? = null
     ): SearchOutcome {
         val startIdx = walk.slotOfEnd(start)
         val aimIdx = walk.slotOfEnd(aim)
@@ -232,7 +298,7 @@ object MultipassSearch {
         if (stepGuard == null || !waiveEndSlots) {
             return walkOnce(
                 walk, startIdx, aimIdx, paceMps, zonePriceSec, checkCancelled, berthK, berth, stepGuard,
-                EndRule.BOUND
+                EndRule.BOUND, probe, anyAngle
             ).copy(startLayer = startLayer, startOpenSteps = startOpen, aimLayer = aimLayer, aimOpenSteps = aimOpen)
         }
         val waived = EndRule(startIdx, aimIdx, strictStart = false, strictAim = false)
@@ -247,7 +313,8 @@ object MultipassSearch {
         )
         if (!rule.strictStart && !rule.strictAim) {
             return walkOnce(
-                walk, startIdx, aimIdx, paceMps, zonePriceSec, checkCancelled, berthK, berth, stepGuard, waived
+                walk, startIdx, aimIdx, paceMps, zonePriceSec, checkCancelled, berthK, berth, stepGuard, waived, probe,
+                anyAngle
             ).copy(startLayer = startLayer, startOpenSteps = startOpen, aimLayer = aimLayer, aimOpenSteps = aimOpen)
         }
         stepGuard.heldRefused.clear()
@@ -255,7 +322,7 @@ object MultipassSearch {
         // through **into a cell it never reached**: every other refused step leads nowhere new.
         var reopens = false
         val held = walkOnce(
-            walk, startIdx, aimIdx, paceMps, zonePriceSec, checkCancelled, berthK, berth, stepGuard, rule
+            walk, startIdx, aimIdx, paceMps, zonePriceSec, checkCancelled, berthK, berth, stepGuard, rule, probe, anyAngle
         ) { closed -> reopens = stepGuard.heldRefused.any { !closed[it] } }
             .copy(
                 strictStart = rule.strictStart, strictAim = rule.strictAim,
@@ -264,10 +331,9 @@ object MultipassSearch {
             )
         if (held.path != null || !reopens) return held
         val again = walkOnce(
-            walk, startIdx, aimIdx, paceMps, zonePriceSec, checkCancelled, berthK, berth, stepGuard, waived
+            walk, startIdx, aimIdx, paceMps, zonePriceSec, checkCancelled, berthK, berth, stepGuard, waived, probe, anyAngle
         )
-        return again.copy(
-            expansions = held.expansions + again.expansions,
+        return again.summing(held).copy(
             startLayer = startLayer, startOpenSteps = startOpen,
             aimLayer = aimLayer, aimOpenSteps = aimOpen, rewalked = true
         )
@@ -359,7 +425,7 @@ object MultipassSearch {
 
     /**
      * One A\* walk from [startIdx] to [aimIdx], the guard reading the ends through [ends]. A walk that finds
-     * nothing hands [onExhausted] the cells it closed.
+     * nothing hands [onExhausted] the cells it closed; [probe] is told of each expansion.
      */
     private suspend fun walkOnce(
         walk: WalkWindows,
@@ -372,9 +438,18 @@ object MultipassSearch {
         berth: BerthLaw?,
         stepGuard: StepGuard?,
         ends: EndRule,
+        probe: ExpansionProbe? = null,
+        anyAngle: AnyAngleRule? = null,
         onExhausted: ((closed: BooleanArray) -> Unit)? = null
     ): SearchOutcome {
+        if (anyAngle != null) {
+            return walkAnyAngle(
+                walk, startIdx, aimIdx, paceMps, zonePriceSec, checkCancelled, berthK, berth, stepGuard, ends,
+                anyAngle, probe, onExhausted
+            )
+        }
         val n = walk.size
+        val price = CellPrice(zonePriceSec, berthK, berth)
         val aimCenter = walk.centerOf(aimIdx)
         // The heuristic's admissibility factor over this walk's latitude span ([WalkWindows.heuristicScale]).
         val hScale = walk.heuristicScale
@@ -403,12 +478,12 @@ object MultipassSearch {
             expansions++
             if (expansions % CADENCE == 0) checkCancelled()
 
+            var steps = 0
             forEachStep(walk, idx, scratch, { closed[it] }) { toIdx, edgeM ->
-                relax(
-                    walk, idx, toIdx, edgeM, g, h, cameFrom, open, aimCenter, paceMps, zonePriceSec,
-                    berthK, berth, stepGuard, ends, hScale
-                )
+                steps++
+                relax(walk, idx, toIdx, edgeM, g, h, cameFrom, open, aimCenter, paceMps, price, stepGuard, ends, hScale)
             }
+            probe?.expanded(idx, steps)
         }
 
         val passable = walk.passableCells
@@ -426,12 +501,240 @@ object MultipassSearch {
         return SearchOutcome(path, expansions, passable, aimClosed = true, costSec = g[aimIdx])
     }
 
+    /** The seconds a step of [edgeM] into [toIdx], of [destCellM], costs: the destination's rate over the metres. */
+    private fun stepSec(walk: WalkWindows, price: CellPrice, toIdx: Int, destCellM: Double, edgeM: Double): Double =
+        (price.cellSec(walk, toIdx, destCellM) / destCellM) * edgeM
+
+    /**
+     * **The any-angle walk — a Lazy Theta\* over the walk** (`261029_FEAT_PLN_Route_any-angle-search.md` §4.2,
+     * §13; a prototype behind `route.search.anyAngle`, measured before it is relied on).
+     *
+     * Beside `g`, `h`, the heap, the closed set, the cadence and the tie order — all today's — every node keeps a
+     * **parent** that may be any earlier node a clear, no-dearer straight line reaches, so the chain the walk hands
+     * back is already taut; where the straight line is refused (land, the wall, a cell no window holds) or dearer
+     * than the grid's own way (a chord through a collar the staircase skirts), the node takes the best closed
+     * neighbour's step — the pull's commit, made at every frontier cell with the aim's cost in hand.
+     *
+     * **A push goes through the grid's own step** — [relax]'s price and gate check ([StepGuard.allows], the one
+     * writer of [StepGuard.heldRefused], so the held/waived re-walk stands) — and **names** the expanding node's
+     * parent as the neighbour's own where that parent stands within [AnyAngleRule.reachCells], the expander kept
+     * beside it as the grid parent with its step's own value. What the push *prices* the chord at is the rule's
+     * [ChordEstimate]: the step itself, the straight-line bound, or the chord read there and then. Under the two lazy
+     * estimates **the one chord read is at pop**: the node's chord from its named parent is priced for real
+     * ([ChordReader]) — the aim's included, so its cost is checked — and the cheaper of that chord and the grid
+     * parent's step is taken, a tie within [CHORD_TIE] the chord's. The grid step is already the best closed
+     * neighbour's allowed step, since every closed neighbour relaxed the node with its final `g` before this pop, so
+     * no neighbour is enumerated again. Where the pop lowers the node's cost and the rule says so, the closed
+     * neighbours that cost now reaches cheaper are **reopened** — pushed again as if never closed — so the credit
+     * travels on; without it a cell closed before the credit arrives keeps its dearer way, which the first batch read
+     * as a line 1–3 % dearer on the field.
+     *
+     * **The reach cap** bounds every chord's length and so the search's cost; a node farther than the cap from its
+     * expander's parent takes the expander itself as parent and becomes the next anchor — the chain bends there by
+     * the grid's quantum, which the pull takes out as it takes out any near-straight vertex today.
+     *
+     * The readings beside [SearchOutcome.expansions]: the chord tally, the lazy pops and how many fell back, and
+     * the reach the chords used.
+     */
+    private suspend fun walkAnyAngle(
+        walk: WalkWindows,
+        startIdx: Int,
+        aimIdx: Int,
+        paceMps: Double,
+        zonePriceSec: ZonePrice,
+        checkCancelled: suspend () -> Unit,
+        berthK: Double,
+        berth: BerthLaw?,
+        stepGuard: StepGuard?,
+        ends: EndRule,
+        rule: AnyAngleRule,
+        probe: ExpansionProbe?,
+        onExhausted: ((closed: BooleanArray) -> Unit)?
+    ): SearchOutcome {
+        val n = walk.size
+        val price = CellPrice(zonePriceSec, berthK, berth)
+        val tally = ChordTally()
+        val chords = ChordReader(walk, price, stepGuard, ends, tally)
+        val aimCenter = walk.centerOf(aimIdx)
+        val hScale = walk.heuristicScale
+        val ratio = walk.layerRatio
+        val coarseLayer = walk.coarseLayerIndex
+
+        val g = DoubleArray(n) { Double.POSITIVE_INFINITY }
+        val h = DoubleArray(n) { Double.NaN }
+        // The node the chain runs through — a far parent where the chord stands, the grid parent otherwise — and
+        // the grid parent itself: the expander that pushed the node's `g`, kept for the lazy check's fallback.
+        val parent = IntArray(n) { -1 }
+        val cameFrom = IntArray(n) { -1 }
+        // The grid parent's own step value, the fallback a lazy pop falls to; equal to `g` under the step estimate.
+        val gridG = DoubleArray(n) { Double.POSITIVE_INFINITY }
+        val lazy = BooleanArray(n)
+        val closed = BooleanArray(n)
+        val estimate = rule.estimate
+
+        // The reach cap in the finest layer's cells, squared — a coarse cell is `ratio` of them a side.
+        val reachUnits = if (rule.reachCells > 0) rule.reachCells.toDouble() * ratio else Double.POSITIVE_INFINITY
+        val reachSq = reachUnits * reachUnits
+        fun unitX(slot: Int): Double =
+            (walk.colOf(slot) + 0.5) * (if (coarseLayer >= 0 && walk.layerOf(slot) == coarseLayer) ratio else 1)
+        fun unitY(slot: Int): Double =
+            (walk.rowOf(slot) + 0.5) * (if (coarseLayer >= 0 && walk.layerOf(slot) == coarseLayer) ratio else 1)
+
+        g[startIdx] = 0.0
+        gridG[startIdx] = 0.0
+        h[startIdx] = SpatialOperations.haversine(walk.centerOf(startIdx), aimCenter) / paceMps * hScale
+        h[aimIdx] = 0.0
+
+        val open = OpenHeap(1024)
+        open.push(g[startIdx] + h[startIdx], 0.0, startIdx)
+        val scratch = IntArray(walk.crossLayerCapacity)
+
+        var expansions = 0
+        var lazyPops = 0
+        var fallbacks = 0
+        var reopens = 0
+        var reachSum = 0.0
+        var reachMax = 0.0
+
+        fun reachOf(a: Int, b: Int): Double {
+            val dx = unitX(b) - unitX(a)
+            val dy = unitY(b) - unitY(a)
+            return sqrt(dx * dx + dy * dy)
+        }
+
+        fun chordTaken(far: Int, idx: Int) {
+            val reach = reachOf(far, idx) / ratio
+            reachSum += reach
+            if (reach > reachMax) reachMax = reach
+        }
+
+        /**
+         * One step out of [idx] into [toIdx] — a push, or a reopen where [reopening] — the grid pair recorded and the
+         * rule's estimate pushed where it improves the node; `false` where the step is refused or improves nothing.
+         */
+        fun push(idx: Int, toIdx: Int, edgeM: Double, far: Int, reopening: Boolean) {
+            if (!walk.passable(toIdx)) return
+            val destCellM = walk.cellSizeM(walk.layerOf(toIdx))
+            if (destCellM <= 0.0) return
+            val stepG = g[idx] + stepSec(walk, price, toIdx, destCellM, edgeM)
+            val inReach = far >= 0 && reachOf(far, toIdx).let { it * it <= reachSq }
+            var candidate = stepG
+            var via = idx
+            if (inReach) {
+                when (estimate) {
+                    ChordEstimate.STEP -> via = far
+                    ChordEstimate.BOUND -> {
+                        val bound =
+                            g[far] + SpatialOperations.haversine(walk.centerOf(far), walk.centerOf(toIdx)) / paceMps * hScale
+                        if (bound < candidate) candidate = bound
+                        via = far
+                    }
+                    ChordEstimate.FULL -> {
+                        val chord = chords.costSec(far, toIdx)
+                        if (!chord.isNaN() && g[far] + chord <= stepG * (1.0 + CHORD_TIE)) {
+                            candidate = g[far] + chord
+                            via = far
+                        }
+                    }
+                }
+            }
+            val improvesGrid = stepG < gridG[toIdx]
+            val improves = candidate < g[toIdx] * (if (reopening) 1.0 - CHORD_TIE else 1.0)
+            if (!improvesGrid && !improves) return
+            // The depth gate's own step, asked only of a step that would improve the path — [relax]'s rule.
+            if (stepGuard != null && !stepGuard.allows(walk, idx, toIdx, edgeM, ends)) return
+            if (improvesGrid) {
+                gridG[toIdx] = stepG
+                cameFrom[toIdx] = idx
+            }
+            if (!improves) return
+            if (reopening) {
+                closed[toIdx] = false
+                reopens++
+            }
+            g[toIdx] = candidate
+            parent[toIdx] = via
+            lazy[toIdx] = via != idx && estimate != ChordEstimate.FULL
+            if (via != idx && estimate == ChordEstimate.FULL) chordTaken(via, toIdx)
+            if (h[toIdx].isNaN()) {
+                h[toIdx] = SpatialOperations.haversine(walk.centerOf(toIdx), aimCenter) / paceMps * hScale
+            }
+            open.push(candidate + h[toIdx], candidate, toIdx)
+        }
+
+        while (open.isNotEmpty()) {
+            val idx = open.pop()
+            if (closed[idx]) continue
+            if (open.poppedG != g[idx]) continue   // stale heap entry, superseded by a shorter g
+            var lowered = false
+            if (lazy[idx]) {
+                // The lazy check, the aim's included: the chord from the named parent priced for real; refused or
+                // dearer than the grid parent's step — the best closed neighbour's — the node takes that parent. A
+                // chord's half-cell pieces sum to within an ulp of the steps they equal, and that tie is the chord's.
+                lazyPops++
+                val far = parent[idx]
+                val chord = chords.costSec(far, idx)
+                val chordG = if (chord.isNaN()) Double.POSITIVE_INFINITY else g[far] + chord
+                lazy[idx] = false
+                val before = g[idx]
+                if (chordG <= gridG[idx] * (1.0 + CHORD_TIE)) {
+                    g[idx] = chordG
+                    chordTaken(far, idx)
+                } else {
+                    fallbacks++
+                    g[idx] = gridG[idx]
+                    parent[idx] = cameFrom[idx]
+                }
+                lowered = g[idx] < before * (1.0 - CHORD_TIE)
+            }
+            closed[idx] = true
+            if (idx == aimIdx) break
+
+            expansions++
+            if (expansions % CADENCE == 0) checkCancelled()
+
+            // The parent a neighbour may name: this node's own, where it stands within reach of the neighbour.
+            val far = parent[idx]
+            var steps = 0
+            forEachStep(walk, idx, scratch, { closed[it] }) { toIdx, edgeM ->
+                steps++
+                push(idx, toIdx, edgeM, far, reopening = false)
+            }
+            // The credit travels on: the closed neighbours this node's lowered cost reaches cheaper are reopened.
+            if (lowered && rule.reopen) {
+                forEachStep(walk, idx, scratch, { !closed[it] }) { toIdx, edgeM ->
+                    push(idx, toIdx, edgeM, far, reopening = true)
+                }
+            }
+            probe?.expanded(idx, steps)
+        }
+
+        val passable = walk.passableCells
+        val readings = SearchOutcome(
+            null, expansions, passable, aimClosed = false, anyAngle = true, chordTally = tally,
+            lazyPops = lazyPops, fallbacks = fallbacks, reopens = reopens,
+            reachSumCells = reachSum, reachMaxCells = reachMax
+        )
+        if (!closed[aimIdx]) {
+            onExhausted?.invoke(closed)
+            return readings
+        }
+        val path = ArrayList<CellIndex>()
+        var cur = aimIdx
+        while (cur != -1) {
+            path.add(CellIndex(walk.rowOf(cur), walk.colOf(cur), walk.layerOf(cur)))
+            cur = parent[cur]
+        }
+        path.reverse()
+        return readings.copy(path = path, aimClosed = true, costSec = g[aimIdx])
+    }
+
     /**
      * **One relaxation**: the destination's own rate over the metres the step covers.
      *
      * The destination cell's cost is its `sourceCostSec` plus the zone price the caller reads for **its own
-     * size**; divided by that size it is a seconds-per-metre rate, and multiplied by the edge's own length it
-     * prices the step. For equal cells `edgeM` is `cellM × multiplier`, so the charge is exactly the
+     * size** and the berth ([CellPrice]); divided by that size it is a seconds-per-metre rate, and multiplied by
+     * the edge's own length it prices the step. For equal cells `edgeM` is `cellM × multiplier`, so the charge is exactly the
      * `cellSec × multiplier` the uniform walk always paid — `avoid`'s answers cannot move. Across the seam
      * `edgeM` is the two centres' own distance, so a 100 m interior cell and a 20 m band cell meet at a cost
      * neither cell's size alone could name. The heuristic stays admissible because every edge costs at least
@@ -449,9 +752,7 @@ object MultipassSearch {
         open: OpenHeap,
         aimCenter: LatLng,
         paceMps: Double,
-        zonePriceSec: ZonePrice,
-        berthK: Double,
-        berth: BerthLaw?,
+        price: CellPrice,
         stepGuard: StepGuard?,
         ends: EndRule,
         hScale: Double
@@ -459,20 +760,7 @@ object MultipassSearch {
         if (!walk.passable(toIdx)) return
         val destCellM = walk.cellSizeM(walk.layerOf(toIdx))
         if (destCellM <= 0.0) return
-        val interiorLimitKn = walk.limitKn(toIdx)
-        val collarLimitKn = walk.collarLimitKn(toIdx)
-        val bandCollarLimitKn = walk.bandCollarLimitKn(toIdx)
-        var cellSec = walk.sourceCostSec(toIdx)
-        if (interiorLimitKn > 0.0 || collarLimitKn > 0.0 || bandCollarLimitKn > 0.0) {
-            cellSec += zonePriceSec.secAt(destCellM, interiorLimitKn, collarLimitKn, bandCollarLimitKn)
-        }
-        // The berth's own read: the grid stores its distance, and the pass's cursor turns it into the
-        // rung's seconds — the very law the pull's guard prices a point at.
-        if (berthK > 0.0 && berth != null) {
-            val berthSec = berth.priceSecAt(walk.gateDistanceM(toIdx), destCellM)
-            if (berthSec > 0.0) cellSec += berthK * berthSec
-        }
-        val newG = g[fromIdx] + (cellSec / destCellM) * edgeM
+        val newG = g[fromIdx] + stepSec(walk, price, toIdx, destCellM, edgeM)
         if (newG < g[toIdx]) {
             // The depth gate's own step, asked only of a step that would improve the path: a step whose
             // straight segment comes within the wall is no step, the ends' own read through [ends].
@@ -535,8 +823,47 @@ data class SearchOutcome(
      * handed back already turned to the caller's direction. [strictStart], [strictAim], [startLayer] and
      * [startOpenSteps] stay in the walk's own frame — the end it left is the one they name.
      */
-    val reversed: Boolean = false
-)
+    val reversed: Boolean = false,
+    /** Whether the answering walk was the any-angle one (`route.search.anyAngle`). */
+    val anyAngle: Boolean = false,
+    /** The any-angle walk's chord reads, counted — `null` for today's walk. */
+    val chordTally: ChordTally? = null,
+    /** How many pops priced a chord from a named parent (the any-angle walk's lazy check). */
+    val lazyPops: Int = 0,
+    /** How many of those took the grid parent's step instead — the chord refused or dearer. */
+    val fallbacks: Int = 0,
+    /** How many closed cells a lazy pop's lowered cost reopened (`route.search.anyAngle.reopen`). */
+    val reopens: Int = 0,
+    /** The reach (coarse cells) of the chords taken, summed, and the longest — the reading the cap is set on. */
+    val reachSumCells: Double = 0.0,
+    val reachMaxCells: Double = 0.0
+) {
+    /** How many chords were taken — the lazy pops that kept theirs, or the pushes that read one in full. */
+    val chordsTaken: Int
+        get() = if (lazyPops > 0) lazyPops - fallbacks else ((chordTally?.reads ?: 0L) - (chordTally?.refusals ?: 0L)).toInt()
+
+    /** The mean reach (coarse cells) of the chords taken, `0.0` where none was. */
+    val reachMeanCells: Double
+        get() = if (chordsTaken > 0) reachSumCells / chordsTaken else 0.0
+
+    /**
+     * This outcome with [prior]'s readings added to its own — the walk before it, as a held walk precedes its waived
+     * re-walk and a canonical walk its fallback — so every count a pass reads is both walks'.
+     */
+    fun summing(prior: SearchOutcome): SearchOutcome = copy(
+        expansions = prior.expansions + expansions,
+        chordTally = when {
+            chordTally == null -> prior.chordTally
+            prior.chordTally == null -> chordTally
+            else -> ChordTally().also { it.add(prior.chordTally); it.add(chordTally) }
+        },
+        lazyPops = prior.lazyPops + lazyPops,
+        fallbacks = prior.fallbacks + fallbacks,
+        reopens = prior.reopens + reopens,
+        reachSumCells = prior.reachSumCells + reachSumCells,
+        reachMaxCells = maxOf(prior.reachMaxCells, reachMaxCells)
+    )
+}
 
 /**
  * **How the step guard reads a route's own ends** — their two slots, and for each whether its own steps keep
@@ -623,11 +950,36 @@ class StepGuard(
         return gate.keepsWall(a, b, start, aim)
     }
 
+    /**
+     * Whether a chord's piece inside a cell of [cellM] whose stored distance is [gateDistanceM] keeps the wall by
+     * the bound alone: the piece lies up to `cellM / √2` from the cell's centre, so the proof is
+     * `hardM + cellM / √2`, trusted only within [GateRule.seedReachM] at that size, as [clear] trusts a step's.
+     */
+    internal fun provesPiece(gateDistanceM: Double, cellM: Double): Boolean {
+        val needM = gate.hardM + cellM * HALF_DIAGONAL
+        return needM <= gate.seedReachM(cellM) && gateDistanceM >= needM
+    }
+
+    /**
+     * Whether the segment [a]–[b] keeps the wall — the measured read, cut at the waiver's rim
+     * ([GateRule.keepsWall]) and never waived whole, whichever way the walk holds its ends.
+     */
+    internal fun keepsWall(a: LatLng, b: LatLng): Boolean = gate.keepsWall(a, b, start, aim)
+
+    /** Whether the raw end's own leg to its slot [slot] keeps the wall — the start's where [ofStart], the aim's else. */
+    internal fun endLegKeepsWall(walk: WalkWindows, slot: Int, ofStart: Boolean): Boolean =
+        if (ofStart) endLegClear(walk, slot, start, startLeg) else endLegClear(walk, slot, aim, aimLeg)
+
     private fun endLegClear(walk: WalkWindows, slot: Int, end: LatLng, memo: IntArray): Boolean {
         if (memo[0] != slot) {
             memo[0] = slot
             memo[1] = if (gate.keepsWall(end, walk.centerOf(slot), start, aim)) 1 else 0
         }
         return memo[1] == 1
+    }
+
+    private companion object {
+        /** Half a unit square's diagonal: the farthest a point of a cell stands from its centre, in cells. */
+        val HALF_DIAGONAL = 1.0 / sqrt(2.0)
     }
 }

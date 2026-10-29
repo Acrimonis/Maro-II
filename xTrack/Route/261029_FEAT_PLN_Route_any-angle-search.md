@@ -1,7 +1,12 @@
 # Route — the any-angle coarse search
 
-**Status:** designed and reviewed (§10), decisions taken 2026-10-29 (§7) — ready for `#implement` from P0.
-Nothing implemented. Branch `feature/roouttinggg`.
+**Status:** partly implemented, the switch default off. P0 and P1 implemented 2026-10-29 (§12), P1's cost gate
+failed (5–28× against 2×); the re-design (§13) was built as a **prototype of P2** behind `route.search.anyAngle` and
+measured (§14); its **first device reading is P4's** (§15): the 43° bend is gone, the lines within §6's 5 %, the
+attempt +20–43 % on one warm run after a cold one, P5 without ground. **Next: P6 (§15.3)** — an interleaved device
+re-read, the fine crossing re-solve behind its own key (D6), and the 16-cell reach re-checked on the desktop first.
+P3 and P5 wait on P6's bar. Sections §4–§11 are the original design; where a later section supersedes one, a
+pointer at its head says so. Branch `feature/roouttinggg`.
 
 **One line:** the coarse A\* steps in eight directions, so every line it hands on carries the grid's own
 headings; every stage after it moves or deletes points to hide that, and each new shape needs a new patch.
@@ -54,6 +59,11 @@ rather than once per neighbour, which is the 8× that makes it affordable.
 
 ### 4.1 The chord read — `WalkWindows.chordCostSec(fromIdx, toIdx, guard, ends)`
 
+> **Superseded in part (§12, §14).** The read is `ChordReader` now, walked on the fine unit lattice with a coarse
+> block read in one piece where no fine window touches it. **"One pricing under the switch" is not what the
+> prototype does:** a one-cell step is priced at the destination cell's rate and a chord at each cell's own — the
+> two pricings R4 ruled out — recorded as a deviation for P3 to close.
+
 - A supercover walk of the lattice cells the straight segment between two slot centres crosses, in lattice
   metres (the unit the steps already pay, so `heuristicScale` keeps its proof untouched — review R11), priced
   per cell as a step prices a cell today: `(sourceCostSec + zonePriceSec(limits) + berthK × berth) / cellM ×
@@ -92,6 +102,9 @@ rather than once per neighbour, which is the 8× that makes it affordable.
   today's; the plan stands only if the pull, the fine pulls and the approach pass pay that back (§6).
 
 ### 4.2 The walk — `walkOnce` under `route.search.anyAngle`
+
+> **Superseded (§13.1, §14).** The built walk pushes at the grid's own step price, reads the one chord at pop and
+> falls back to the grid parent's value — no chord priced at push, no `forEachStep` re-enumeration at pop.
 
 - `parent[]` beside `cameFrom[]`; `g`, `h`, the heap, the closed set, the cadence and the tie comparator (`f`,
   `g`, slot) unchanged — the ties themselves move with the prices.
@@ -139,6 +152,10 @@ rather than once per neighbour, which is the 8× that makes it affordable.
 
 ## 5. Phases
 
+> **Where they stand (2026-10-29).** P0 done; P1 done, its gate failed; P2 built as a prototype (§14) — still owed of
+> it: the five named suites run with the switch **on**, and the lone-turn fixture test; P3's fine re-solve step moved
+> to P6b (§15.3); P4 read once (§15); P5 without ground until a counter reads zero. P6 (§15.3) comes before P3.
+
 - **P0 — baseline (half a day).** Harness on the three device pairs (Lérins → La Salis, La Salis → Le Village
   Englouti, the 08:38 pair 43.57013,7.09875 → 43.57061,7.13144) and the 24-pair survey: every rung's `LINE`
   (distance, duration, slow seconds, `minDepth`, `gateEdge`), `loneTurns`, and **`SEARCH ms` beside** `PULL`,
@@ -163,12 +180,14 @@ rather than once per neighbour, which is the 8× that makes it affordable.
 
 ## 6. Guards
 
-- **No line dearer beyond the crown's own tolerance.** For every fixture and survey pair, the settled line's
-  `lineCostSec` (the pull's `totalSec` clock, `RouteFinePass.kt:42-50`) is ≤ the baseline's +
-  `route.avoid.ladder.tieToleranceSec` (30 s): the field re-prices at 25 m, Theta\* is not optimal through priced
-  water and the greedy pull walks a different chain, so a few seconds either way is legitimate; a line over the
-  tolerance is a failure. Every line's delta is reported, and the crown the user sees is R98's weighted slow
-  seconds plus trip, read beside it.
+- **No line dearer beyond 5 %.** For every fixture and survey pair, the settled line's `lineCostSec` (the pull's
+  `totalSec` clock, `RouteFinePass.kt:42-50`) is ≤ the baseline's × 1.05: the field re-prices at 25 m, Theta\* is
+  not optimal through priced water and the greedy pull walks a different chain, so a few percent either way is
+  legitimate; a line over the bound is a failure. **Relaxed 2026-10-29 on the user's word** from the baseline +
+  `route.avoid.ladder.tieToleranceSec` (30 s) — a number borrowed from the crown's tie-break, not a functional
+  limit: the prototype's first batch read +3 to +5.5 % on the price scale for +19 to +36 s of slow water on trips of
+  17 to 33 minutes, which the user judged fine. Every line's delta is reported, and the crown the user sees is
+  R98's weighted slow seconds plus trip, read beside it.
 - **No wall crossed, no gate breached.** Every `LINE` keeps `minDepth ≥ gate`, `gateEdge ≥ hardM`, `bodyEdge`
   as today; `AvoidDepthGateTest`, `GateGuardsTest`, `GateCornerTest`, `GateEndStepTest`, `RouteMarkerCostTest`,
   `AvoidMarkerCostTest`, `AvoidBandCostTest`, `BerthCostTest` green under both settings.
@@ -176,9 +195,10 @@ rather than once per neighbour, which is the 8× that makes it affordable.
   line gap ≤ today's 0.4 m.
 - **Performance budget.** The rung's wall time on the harness pairs ≤ the baseline's; the target is lower, the
   search's own increase paid back by the pull, the fine pulls and the approach pass. `expansions` and
-  `chordCells` are readings beside it, not bounds.
-- **Switch off = today.** The whole suite green with the key `false`; the engine fixtures' recorded lines
-  unmoved there.
+  `chordCells` are readings beside it, not bounds. **On the device the budget is §15.3's bar**, which states its
+  tolerance and its lines.
+- **Switch off = today.** The whole suite green with the key `false` **and `route.fine.crossingResolve` at today's
+  `true` (D6)**; the engine fixtures' recorded lines unmoved there.
 
 ## 7. Decisions (the user's)
 
@@ -194,12 +214,21 @@ sub-segments · D5 no 16-heading step. D3 (one code path after P5) waits on P4's
   Objection: the lazy re-parent can settle on a worse neighbour than the full check would; Nash measures the
   difference under 1 %.
 - **D3 — ship with the switch on after P4, or keep both.** Recommended: one code path after P5, the switch
-  deleted with the retired cases.
+  deleted with the retired cases. **Now waits on §15.3's bar**, not on P4 alone.
   Objection: the harness does not reproduce the device's coarse path, so P4 is the only proof that counts.
 - **D4 — the gate on a chord: stored bound per cell plus a measured read over the unproved sub-segments
   (recommended), or a measured read on every chord.** The step guard already does the former.
   Objection: near the coast many cells cannot prove, and a measured read is the pull's dear read; P1's gate
   says whether it binds.
+- **D6 — the fine crossing re-solve: its own key, today's default (taken 2026-10-29 on the recommendation, the
+  default left to the user).** It splices nothing in either build on the device's three pairs (`spliced=no
+  reason=worse` on every rung) and costs 1–2 s a rung on the 08:38 pair in both, so its waste is not the any-angle
+  walk's. Turning it off under the switch alone would let B pass §15.3's bar on a removal A never had; turning it
+  off for every build moves the shipped lines (§6, "switch off = today"). So it gets `route.fine.crossingResolve`
+  (`maro.properties`, `true`, accessor in `AppConfig`), and P6's builds A and B carry the same value. Whether the
+  default moves to `false` is the user's, on P6's reading and on the harness survey showing no `FINE splice` worth
+  keeping.
+  Objection: three pairs is a small base for a stage the engine has run since the fine pass exists.
 - **D5 — 16 headings first.** Recommended: no. It is a half measure that retires nothing and would be re-done.
 
 ## 8. Out of this plan
@@ -217,7 +246,7 @@ sub-segments · D5 no 16-heading step. D3 (one code path after P5) waits on P4's
   the best cell on the frontier, still a 100 m quantum from the true tangent. The pull and the corner pass take
   it from there, as today.
 - **Every fixture line moves.** That is the point, but each move is a review: §6 turns the review into one
-  number per line (cost, within 30 s) and three bounds (depth, edge, symmetry).
+  number per line (cost, within 5 % — first 30 s, relaxed 2026-10-29) and three bounds (depth, edge, symmetry).
 - **The search gets dearer before the rest gets cheaper — by 2–5× on the reviewer's count.** If P1's gate fails
   the plan stops there; if it passes, the budget is still the whole rung's, and only P3 reads it.
 - **The device's coarse path is not the harness's.** The harness proves the mechanism and the budget; only P4
@@ -237,7 +266,7 @@ One reviewer read the plan against `MultipassSearch`, `WalkLattice`, `RoutePassR
 | R5 | **Should fix.** The seam rule misses a fine non-copy cell under a land copy, and a block whose fine tile does not hold every cell a segment crosses. | §4.1: sub-walk wherever a fine window holds the cell; unheld cells of a held block at the coarse rate; both P1 tests. |
 | R6 | **Should fix.** The re-parent must enumerate the full edge set, and `forEachStep` is not reversible. | §4.2: it iterates `forEachStep` filtered on `closed[]`, the one-way miss accepted; `expansions` is a reading. |
 | R7 | **Should fix.** Raising `g` after the pop needs the `closed` test before the stale one, and no push. | §4.2 states the order. |
-| R8 | **Should fix.** "No line dearer, a failure" is unachievable: the field re-prices, Theta\* is not optimal, the pull walks another chain. | §6: `lineCostSec` within `tieToleranceSec`; every delta reported; R98's crown named beside it. |
+| R8 | **Should fix.** "No line dearer, a failure" is unachievable: the field re-prices, Theta\* is not optimal, the pull walks another chain. | §6: `lineCostSec` within 5 % of the baseline (first set at `tieToleranceSec`, relaxed 2026-10-29); every delta reported; R98's crown named beside it. |
 | R9 | **Should fix.** The budget cannot be judged: no `SEARCH ms` baseline; chords reach the corridor's length (~100 cells); `keepsWall` over a whole chord is O(L²). | §4.1 costs it honestly; P0 adds the clock; P1 is a numbered gate; the read covers unproved sub-segments only. |
 | R10 | **Should fix.** "reach/2" names nothing; a chord's piece lies up to `cellM/√2` from the centre. | §4.1 states the bound. |
 | R11 | **Note.** Lattice-metre chords never undercut the scaled heuristic. | Confirmed; §4.1 cites it. |
@@ -250,6 +279,10 @@ no runner change; the approach-pass counters exist; `lineCostSec` is the pull's 
 contradicted.
 
 ## 11. The stages after the search — what each is for, and what is left of it once the search is taut
+
+> **Disproved for now (§15.2).** On the device the approach pass did not idle — it still moves 1–5 points a rung and
+> the lone turns stand — so the "retire" verdicts below wait on a counter reading zero. The re-solve row's reason
+> (a staircase losing to a taut line) does not fit either: it splices nothing in build A too (§15.2, D6).
 
 The pipeline per rung (`RoutePassRunner.runPass`, then `RouteFinePass.refineOriented`, then
 `RouteAvoidEngine` 772–782): search → pull (two-sided) → snap → final pull → fine crossing re-solve and splice →
@@ -282,3 +315,308 @@ rung (grown walk, 4.7 s).
 - **The order of retirement is P5's, on P4's counters:** a case is removed only when its counter reads zero on
   the device and the harness; the fine re-solve is switched off in P3 on its own `spliced=` reading, since it
   loses already.
+
+## 12. P0 and P1 — 2026-10-29, `#implement`
+
+All harness runs at the harness's 30 kn on `evolutive`, best of five per rung (one per survey pair), two runs each;
+the reports are kept outside the repo. Every line, reading and survey line is identical between P0 and P1.
+
+**P0 — the baseline.**
+- `RoutePassRunner` traces `SEARCH ms= expansions= passable= found= reversed= rewalked= costSec=` after the search,
+  so the device's logcat carries it too. `RouteBendHarnessTest` prints a `CLOCK` line per rung (search, pull, snap,
+  final pull, fine pass, approach pass, rung) and a `READING` line (length, limit-read duration, `slowSec` — the
+  seconds over the pace, `lineCostSec` on the fine pass's water — §6's guard number, `minDepth`, `gateEdge`,
+  `bodyEdge`, `loneTurns`); `-Dmaro.harness.survey=true` routes the direction-symmetry survey's 24 seeded pairs, the
+  draw now shared as `RouteSurveyPairs`.
+
+| Pair | Rung | `SEARCH ms` (run 1 / 2) | `rungMs` | `lineCostSec` | `loneTurns` |
+|---|---|---|---|---|---|
+| Lérins → La Salis | Around / Best / Fast | 30.7/34.6 · 29.9/30.0 · 27.9/29.4 | 428–468 · 359–361 · 377–382 | 6 240.3 · 4 164.1 · 2 137.1 | 2 · 2 · 2 |
+| La Salis → Le Village Englouti | Around / Best / Fast | 17.2/19.9 · 18.4/17.2 · 16.7/16.0 | 325–340 · 269–294 · 280–298 | 2 059.3 · 1 570.4 · 1 064.3 | 5 · 5 · 6 |
+| 43.57013,7.09875 → 43.57061,7.13144 | Around / Best / Fast | 12.0/14.9 · 12.6/11.9 · 10.8/10.3 | 273–278 · 267–270 · 263–274 | 4 227.5 · 2 898.6 · 1 546.5 | 2 · 2 · 3 |
+| survey, 24 pairs (sums) | Around / Best / Fast | 96.5/87.5 · 71.0/71.1 · 70.9/65.2 | 13 526–13 962 · 12 837–13 239 · 12 808–13 095 | — | — |
+
+- **Reading:** on the desktop the search is 3–10 % of a rung (10–35 ms over 11–30 k expansions, about 1 µs each);
+  the survey's pairs are mostly open water drawn in two points, where the pull is ~80 % of the rung. Twice today's
+  search therefore leaves about one microsecond per expansion for the chord.
+
+**P1 — the chord read.**
+- `CellPrice` (MultipassSearch.kt) is the one per-cell price `relax` and the chord read — `relax`'s arithmetic
+  unchanged; `WalkWindows.chordCostSec` walks the segment per §4.1; `StepGuard` gains `provesPiece`, `keepsWall(a, b)`
+  and `endLegKeepsWall`; `ExpansionProbe` is the harness's door onto a walk's expansions. `ChordCostTest`, 12 tests:
+  a row and a diagonal equal their steps' sum and the half-cell formula, open water equals today's step sum, land, a
+  Blocked body and a cell no window holds refuse, a vertex touch reads nothing, a rock between two water cells
+  refuses under the wall, the rim cut both ways, a route end's walled cell left but no other, the seam's fine cells
+  at 20 m, the partly held block at the coarse rate, the land-copy block on the fine lattice and its coarse node on
+  its own cell, and `a→b == b→a` bit for bit.
+- **Deviations:** the segment is walked on the fine unit lattice everywhere (not the coarse lattice with fine
+  sub-walks); an end standing on the coarse layer reads its own whole cell; a route end's own cell is exempt from
+  the passability test (the raster may wall it); a chord touching an end slot reads that end's raw leg.
+
+**The gate — failed.** Projected search = today's `SEARCH ms` + expansions × the corridor's length × the chord's
+time per metre (the dearer of the clear chords' and every chord's rate, on chords between the search's own path
+cells 8–64 cells apart), against 2× `SEARCH ms`:
+
+| Pair | Around (run 1 / 2) | Best | Fast |
+|---|---|---|---|
+| Lérins → La Salis (9.6 km) | 27.7× / 18.3× | 13.0× / 14.0× | 12.2× / 14.5× |
+| La Salis → Le Village Englouti (5.2 km) | 9.8× / 9.4× | 10.1× / 7.7× | 7.0× / 8.7× |
+| the 08:38 pair (2.6 km) | 9.5× / 7.0× | 6.1× / 5.0× | 5.3× / 5.0× |
+| survey, 24 pairs (sums) | 13.9× / 14.0× | 14.9× / 15.8× | 16.0× / 16.0× |
+
+- In milliseconds: Lérins 28–32 → 359–841, Englouti 16–24 → 120–228, the 08:38 pair 10–14 → 54–108, the survey's
+  sums 67–80 → 1 069–1 119.
+- **Priced one chord per step** — §4.2's push, which prices `chordCostSec(parent[s], s')` for every neighbour —
+  the projection is about seven times that: 0.3–5.7 s a rung. §4.1, §5 and D2 count one chord per expansion; the
+  two texts disagree and P2's design must pick one.
+- **The floor:** one chord per expansion from the walk's first cell, as measured, is 1.7–2.3× — but those chords are
+  nearly all refused early (Lérins: 1 of 29 921 clear; the start's own leg and the land), so it prices no real chain.
+- **Where the time goes:** the same path chords read without the gate cost about what the gated ones do over all
+  chords (0.25–0.6 ns/m both), so D4's measured read is not the bulk; the walk is — the fine unit lattice reads two
+  slot lookups for each 20 m piece of open water. A coarse step where no fine cell of the block is held would cut
+  open water by up to ~5× (an estimate, not measured), still above the bar on the long pair.
+- **What the projection assumes:** every expansion pays a corridor-length chord, the plan's own assumption; a
+  Theta\* whose parents stay a few cells back would pay less, which only P2 measures.
+
+**Review (the `ask` hop):** twelve findings. Fixed: a chord's passability exemption narrowed to the route's own end
+cells (it covered both chord ends), an all-refused sample printed PASS (now `NO-READING`), the per-metre rate counted
+clear chords only (now the dearer of clear and all), the rim test refused on land rather than the rim (rebuilt on a
+rock), line widths. Open: §4.2 against §4.1/D2 (above); the fine-unit walk's cost (above); an even ratio's coarse
+centre on a fine line reads only its +x/+y side (ratio 5 today); a non-45° vertex near-tie is untested; a coarse
+cell and its own fine copy share a centre, so their chord is zero-length; the probe's step counter runs unguarded.
+
+**Verification:** the unit suite 1 678 green (24 opt-in instruments skipped), `apk-build.bat` green.
+`RouteDirectionSymmetryTest` under `-Dmaro.prebake=true` was not run after its survey draw moved to
+`RouteSurveyPairs` (moved verbatim; the harness survey draws the same seed).
+
+## 13. The re-design after the gate — 2026-10-29, options
+
+**What the gate said, read again.** The chord read is not slow: 0.3–0.6 ns per metre over every chord, about 0.5 µs
+per kilometre. The search is cheap: ~1 µs per expansion, 10–35 ms a rung on the desktop. The gate failed because the
+plan lets every expansion pay a chord as long as the corridor (3–10 km, 3–27 µs) and counts 11–30 k of them. Two
+levers therefore exist — how long a chord may be, and how many are read — and a third, how much a chord's cell costs.
+The desktop-to-device ratio is unknown for the search (the device's `SEARCH ms` line exists since P0 and has not been
+read); the rung ratio of the 08:38 pair is ~10×, so a desktop projection of 0.4–0.8 s is seconds on the phone.
+
+### 13.1 The §4.1 / §4.2 contradiction, resolved
+
+- §4.2 prices a chord at **push** (`g[parent[s]] + chordCostSec(parent[s], s')`, one read per neighbour) and again at
+  **pop** (the re-parent). §4.1, §5 and D2 count one read per expansion. The push reads are the 7× between
+  `projCorridorMs` and `projPushMs` in §12.
+- **Resolution: the push prices nothing.** A neighbour is pushed on a **free lower bound** — `g[parent[s]] +
+  haversine(parent[s], s') / paceMps × hScale`, the heuristic's own unit, which every priced cell exceeds since a
+  price only adds to the open-water base — and the one chord read happens at pop, where Lazy Theta\* already
+  re-parents. A pop whose true chord is dearer than its pushed bound keeps the chord cost or falls back to the grid
+  parent, whichever is cheaper; the heap is optimistic rather than wrong, which is D2's accepted sub-optimality
+  stated once more. One chord per expansion is then the count, and §5's gate is the right gate.
+
+### 13.2 Options
+
+| # | Option | What it does to the cost | What it does to the line | Verdict |
+|---|---|---|---|---|
+| **R1** | **A parent reach cap** — `route.search.anyAngle.reachCells` (~20–32 coarse cells): a node may take a parent no farther back than that; beyond it, it takes its grid parent and becomes the next anchor. | Every chord is at most K cells: K × 100 m × ~0.5 ns/m ≈ 1–1.6 µs per expansion at K = 20–32, about today's expansion — **projected 2–2.6× before any chord cheapening, under 2× with R2** (an estimate from §12's rates, not a measurement). | Taut within K cells; in open water the chain bends by under `atan(0.5 / K)` ≈ 1.4° every K cells, which the pull's chord test removes as it removes any collinear vertex today. The Bacon shape's legs are ~2 km, inside K = 20. | **Recommended**, with R2 |
+| **R2** | **A cheaper chord**: (a) a per-walk lazy rate cache — one double per slot, `cellSec / cellM`, and one bit for "the stored bound proves it" — so a cell read on a chord is one array lookup after its first; (b) the segment walked at the coarse cell wherever a block holds no fine cell, the fine sub-walk only inside held blocks (§4.1's own wording, which P1 did not build). | (a) removes the four window reads, the zone price and the berth law per cell after the first read — most of the 0.3–0.6 ns/m; (b) cuts open-water pieces 5× at the shipped ratio. Together an estimated 3–8×. | None — the same cells, the same prices. | **Recommended**, built first and re-gated with the harness as it stands (path spans ≤ K) |
+| R3 | **Re-base the bar on the rung** — accept the corridor-length chord and gate on §6's budget instead (the rung's wall time ≤ today's, the search's growth paid by the pull and the approach pass). | Projected search 0.36–0.84 s desktop on Lérins; at a ~10× device ratio, seconds — more than the pull and the approach pass together (0.6–0.9 + 1.2–2.4 s). | The plan's full taut line. | Rejected alone: the long pair does not pay back. Its *budget* stays as P3's reading. |
+| R4 | **A coarser coarse cell** (150–200 m, §8) | Expansions fall with the square of the cell, chord cells with the cell: a 200 m cell is ~8× cheaper on the product. | Every line moves with the grid; the fine band and the seam unchanged. | A lever for after P4, as §8 says; not the re-design. |
+| R5 | **Generalise the approach pass** — one joint two-point slide (§3 A) in place of the search change. | The approach pass's own cost, already 1.2–2.4 s a rung on the device. | Cures the 08:38 shape and nothing the next shape brings. | Rejected, as §3 rejected it. |
+| R6 | **16 headings** (D5) | 2× edges. | Halves the error, removes nothing. | Rejected, as D5 decided. |
+| R7 | **Chords only near features** — plain A\* where the eight neighbours are open water, Theta\* near a price or a wall. | Saves the open-water chords, which are the long ones. | The open-water vertex is still a staircase cell, so the tangent at the next feature is chosen among staircase cells — the defect of §2 again. | Rejected: R1 bounds the same cost without losing the tangent. |
+
+### 13.3 The re-designed sequence
+
+> **Superseded by §14** ("go the prototype way"): P1b was never run as a separate gate; the prototype carried both.
+
+- **P1b — the chord cheapened and re-gated (half a day).** R2 (a) and (b); `ChordCostTest` unchanged and green;
+  the harness's gate re-run on the three pairs and the survey with the path spans capped at K, the figure read
+  against the same 2× bar. The key `route.search.anyAngle.reachCells` added to `maro.properties` beside the switch.
+- **P2 — the walk, as §4.2 with two changes:** the push on the free bound (§13.1), and the reach cap (R1) — a node
+  farther than K cells from `parent[s]` is pushed on its grid parent `s`. The rest of §4.2 — the pop order, the aim
+  re-parented, the fallback through `forEachStep` filtered on `closed[]`, the counters — stands.
+- **P3–P5** as §5; §6's rung budget read in P3, the device's `SEARCH ms` read in P4.
+
+### 13.4 Argued against
+
+- **A cap is a quantum of its own.** A tangent farther than K cells from the last anchor is found from an anchor that
+  is a staircase cell again. K = 32 is 3.2 km on the 100 m grid — longer than any leg of the three device pairs' lines
+  but one (Lérins' first leg); where it binds, the pull takes it from there, as today, one vertex instead of ten.
+- **The estimate is not a measurement.** R1's 2–2.6× is §12's rates times K; P1b measures it before P2 is built, and
+  the gate stands at 2×.
+- **The device ratio is a guess.** Only the device's `SEARCH ms` line, now traced, turns the desktop projection into
+  the phone's.
+
+## 14. The prototype, built and measured — 2026-10-29, `#implement` on the user's word ("go the prototype way")
+
+**What exists** (all behind `route.search.anyAngle`, default `false`; off is today's search bit for bit — the suite
+and the lines say so): `ChordReader` (the chord with a per-slot rate and proof cache and a coarse block read in one
+piece where no fine window touches it, counters in `ChordTally`), `MultipassSearch.walkAnyAngle` (the Lazy Theta\*:
+the push through the grid's own step and gate check, naming the expander's parent where within
+`route.search.anyAngle.reachCells`; the one chord read at pop, the aim's included; the grid parent's step as the
+fallback), and three more keys — `.estimate` (`step` | `bound` | `full`: what a push prices a chord at) and `.reopen`
+(a lowered cost reopens the closed neighbours it now reaches cheaper). The `SEARCH` line carries the chord counters,
+and the harness takes `-Dmaro.harness.props="key=value;…"` and prints a `LEGS` line. The review hop's blocking find
+(a dead-end node kept a finite `g`) and its simplification (the grid parent's value in place of a neighbour
+re-enumeration) are folded. `AnyAngleWalkTest` (7) green: open water is one straight line, an island is rounded on
+tangent cells, the cap bounds every chord, a rock the straight would graze is kept off by the gate, a pair is one
+chain from either end, off is today's walk. The unit suite and `apk-build.bat` green.
+
+**Measured**, three device pairs best of two runs, the 24-pair survey one run; reach 32 coarse cells unless noted.
+Search = `SEARCH ms` against `off`; cost = the refined line's `lineCostSec` against `off`; rung = the rung's wall time.
+
+| Setting | Search, 3 pairs | Search, survey | Line cost, 3 pairs | Line cost, survey | Rung, 3 pairs | Rung, survey |
+|---|---|---|---|---|---|---|
+| `step` (pessimistic push, chord at pop) | 1.26–1.88× | 1.5–2.1× | −3.8 to +0.5 % | worst pair +0.3 %, none over 5 % | 0.87–1.24× | 0.41–0.50× |
+| `step` + reopen | 1.28–2.12× | 1.28–1.39× | same as `step` | worst +0.3 % | 0.91–1.13× | 0.24–0.27× |
+| `bound` (straight-line push, chord at pop) | 1.4–2.3× | 1.08–1.26× | −2.3 to +1.4 % | worst +0.6 % | 0.82–1.29× | 0.24–0.27× |
+| `full` (the chord at push) | 1.8–2.8× | 1.8–1.9× | −0.3 to +3.5 % | worst +0.1 % | 0.96–1.15× | 0.25–0.30× |
+
+- **The chord read is one per expansion** (Lérins: 29 699 reads for 29 921 expansions) and its cost is no longer the
+  problem: with the reach capped at 32 cells and the rates cached the search costs **1.1–2.8× today's** against
+  P1's 5–28×. The cap at 16 / 32 / 64 / none moves the search 1.0–1.3× and the lines almost nothing (unbounded and
+  64 give the same lines); the reach the chords actually use is a mean of 5–7 cells at a cap of 32. The first batch
+  (`on0`/`on64`/`on32`/`on16`) ran on the build before the review's fixes; the table is the build after.
+- **The dearer lines of the first batch (+3 to +5.5 %) were that build's, not the design's.** After the review's
+  fixes and the rewrite the same `step` estimate reads about 0 % on the field and −2 % on the grid; `full` reads −4 to
+  −8 % on the grid (the exact chord) and no better on the field. Which of the changes cured it was not isolated. The
+  §6 bound was relaxed to 5 % on the user's word (above); no setting now needs it — the worst line of 72 is +3.5 %
+  (`full`, Bacon Around).
+- **Reopen buys nothing**: the grid cost is identical with and without it and the search is 15–30 % dearer. Drop it.
+- **`full` is the exact answer and the dearest**: 1.8–2.8× is over the bar on the long pair, for no line gain.
+- **`step` and `bound` differ on the heap's order only**: `bound` falls back more often (10 k against 6.9 k on
+  Lérins) and is cheaper on the survey; `step` is the simpler and the safer in priced water (a chord is never
+  credited before it is read).
+- **What the walk buys, and what it does not (desktop).** The pull collapses where it was the bulk — survey 10.9 s →
+  0.73–1.4 s (the survey's pairs are open water, a 150-cell staircase each), the three pairs' pull 38 → 8–14 ms
+  (Lérins), 18 → 5 ms (Englouti), 25 → 15–21 ms (Bacon) — so the survey's rung is 0.24–0.5× today's. **On the three
+  device pairs the rung is within about ±25 % of today's either way**: the pull's saving (13–30 ms) is spent by the
+  search's growth (+15–35 ms), and **the approach pass (65–185 ms), the fine pass and the lone turns do not shrink**
+  (Lérins 2 → 2–4 lone turns, Englouti 5 → 4–6, Bacon 2 → 2–3). The fine crossing re-solve was not switched off (P3's
+  step). The single-run survey clocks carry a few tens of percent of noise.
+- **The desktop's coarse path is not the device's** (route-harness-offline): the staircase it draws on these pairs
+  is not the one that left the 43° bend at the 08:38 pass, so the harness cannot say whether the bend is gone. Only
+  the device can, which is the case for the user's identical runs.
+
+**Kept for now, removed later.** The `bound`/`full` estimates and the `reopen` path stay as measuring knobs behind
+their keys (`route.search.anyAngle.estimate`, `.reopen`) until P3, which deletes them with the decision on `step`.
+§12's open review notes — an even ratio's centre on a fine line, the non-45° near-tie, the coarse cell and its own
+copy's zero-length chord, the probe's unguarded counter — are carried to P3 unchanged; none bites at the shipped
+ratio of 5.
+
+**What §13 left open, answered.** The §13.1 free bound (`bound`) works and is the cheapest on open water; the push
+at the grid step (`step`) is as good on the line and was kept as the default estimate for its safety. R1 (the cap)
+is confirmed as the lever for the search's cost and R2 (the cheap reads) took the rest; R3–R7 stand as rejected.
+
+**The user's decision (§7 D3 and the next phase):** set `route.search.anyAngle=true` in `maro.properties`, build, and
+read the three pairs on the phone — `SEARCH ms` and its chord counters, the stage clocks, `loneTurns`, the 43° bend
+on the 08:38 pair — against the same build with the key off; two runs each. If the bend stands or the approach pass
+does not shrink, P5 (retiring the patches) has no ground and the walk stays an option.
+
+**Review (the `ask` hop, second):** one blocking and three should-fix, all folded (above); notes taken: the block
+tally counted a still-axis piece (fixed), the passability exemption covered a chord crossing an end's walled cell
+(now only a chord's own ends), the plan's §13.1/§13.3 wording (this section).
+
+## 15. The device reading — 2026-10-29, builds A (switch off) and B (switch on), the user's own routes
+
+Reviewed once by the `ask` hop (two blocking, eight should-fix, all folded): the first draft read the 08:38 pair's
+grown walk as a fourth route, proposed a counter the pass already prints, and built P6 on a hypothesis that counter
+refutes. This is the corrected reading.
+
+**The runs.** Three pairs armed on the Pixel 7 at 24 kn on `evolutive`, the same three on each build, told apart by
+their walk's `passable` count: the 08:38 pair (43.57013,7.09875 → 43.57061,7.13144 — its rung is a first walk of
+16 208 cells and, on `reason=FORCED`, a grown walk of 38 691, both lines drawn and the grown one kept), La Salis →
+Le Village Englouti (24 650) and Lérins → La Salis (34 839). Build A at 11:43–11:46 (three arms of the 08:38 pair,
+one each of the others); build B first at 11:48 (one arm each, cold, straight after the install, discarded) and
+again at 11:53–11:55 (two arms of the 08:38 pair, one each of the others, plus two other short pairs the user
+armed — the warm run read below). The logs are kept outside the repo.
+
+### 15.1 The lines
+
+- **The 43° bend is gone.** On the grown walk build A draws, on its λ 1 rung, exactly the 08:38 shape — the zone's
+  corner at 43.54447,7.15856, 2 067 m due north along the grid column, the 43° turn at 43.56306,7.15856 — in three
+  arms out of three. Build B draws it on none of its six grown-walk rungs: that rung's line turns at 43.55317,7.15856
+  (28°) as the other two rungs do, 195 m shorter and 12 s faster (13 557 m, 1 338 s against 13 752 m, 1 352 s). The
+  plan's §1 instance is cured by the search, with no patch.
+- **Every other line is within §6's 5 % — and not identical.** Across the three pairs the distances move by up to
+  +0.6 % (Englouti λ 1 +64 m, Lérins λ 5 +79 m) and the durations by −5 to +6 s; the corners stand on the same
+  features — the zone corner at 43.54448,7.15805, the band-edge turn at 43.5532–43.5536,7.1585 (52 m apart between
+  builds) — with turns within 6° (the zone corner 43–47° → 49°). `minDepth` is unchanged; `gateEdge` reads 25 → 30 m
+  and `bodyEdge` 25 → 40 m on four rungs (the three grown-walk lines and the first walk's λ 1), the closest point
+  moving from the open coast to the aim's disc; `slowMetres` falls below `distance` on B's grown λ 3 and on every
+  Lérins line where A read them equal — a profile change not read further here. The lone turns: Lérins 4–5 → 2–4,
+  Englouti 5–7 → 6–8, the 08:38 first walk 2–4 → 3–4, its grown walk 5–6 → 6–7.
+- **Why the lines agree.** The later stages are the same and they converge: the snap puts a vertex on the zone's
+  corner and the approach pass slides the band-edge turn to the same point whichever chain arrives. What the search
+  changes is the chain's *shape* where the staircase misled the pull — the 08:38 grown walk — not the line where the
+  pull already found the tangent.
+
+### 15.2 The cost, per rung on the phone — the `RUNG` line's wall time (`firstMs + growBuildMs + grownMs`), the
+unit §6 budgets; B's warm run against A's warm arms
+
+| Pair | Build A | Build B | Search, warm | Pull | Fine pass |
+|---|---|---|---|---|---|
+| 08:38 (first + grown walk) | 9.0–10.5 s | 11.6–12.0 s, then 13.8–14.5 s | 146–260 → 262–459 ms first walk (1.8×); 235–447 → 594–1 253 ms grown (2.4×) | 557 → 490 / 485 → 237 ms | 2.9 → 4.3 / 2.7 → 3.8 s |
+| La Salis → Englouti | 3.5–3.8 s | 4.3–5.1 s | 212–368 → 547–588 ms (2.0×) | 504 → 159 ms | 1.9 → 2.9 s |
+| Lérins → La Salis | 5.2–6.0 s | 7.4–8.1 s | 372–599 → 980–1 194 ms (2.3×) | 839 → 313 ms | 3.2 → 4.6 s |
+
+- **The search costs 1.8–2.4× warm**, the top of the desktop's 1.3–2.4×; the pull gives back 0.1–0.5 s a rung, as on
+  the desktop. The attempt is **+20 to +43 %** — a third slower, on these arms.
+- **The fine pass costs 1.0–1.5 s more a rung, and that is the increase**; its approach pass reads 2.3–3.3 s against
+  1.4–2.4 s. It prices about the same number of candidates (425–674 against 335–585 per rung) and — the pass's own
+  `priceMarks` / `candidates`, already on its line — **the same marks per candidate** (126 against 116, 94 against
+  114, 132 against 134, 134 against 136): the taut chain's longer legs do *not* make a candidate price more sea. What
+  rose is the **time per read** (`priceMs` / candidate +4 to +67 %).
+- **The uneliminated cause is the phone's state, not the chain.** Every clock in build B rose by a similar factor —
+  the fine crossing re-solve on the identical zone box reads 1.4–1.9 s against 1.0–1.6 s; B's second arm of the 08:38
+  pair is 20 % slower than its first, 40 s earlier, where A's three arms sit within 10 % — and B ran back-to-back
+  after its cold run. The fair re-read is interleaved A/B arms with medians over three or more; nothing here needs a
+  new counter.
+- **The one lever with a reading: the fine crossing re-solve.** On the 08:38 first walk it costs 1.0–1.9 s a rung in
+  both builds and splices nothing (`spliced=no reason=worse`, every rung, both builds; 0.3–0.8 s on Lérins, the same).
+  §11 ordered it switched off on that reading (P3); it is about the size of the fine pass's whole increase.
+- **§14's gate, read:** the bend fell (its first condition); the approach pass did not shrink and still moves 1–5
+  points a rung with the lone turns unchanged (its second) — §11's premise that a taut chain idles the pass's cases
+  is not borne out on these pairs, so **P5 has no counters at zero and no ground yet**; the walk is justified by the
+  bend alone so far.
+
+### 15.3 The next phase — P6, the attempt's cost
+
+Reviewed once before `#implement` (one blocking — the re-solve's scope, now D6 — and seven should-fix, folded).
+
+- **P6b — `route.fine.crossingResolve` (D6), the code.** `RouteFinePass.refineOriented` reads the key per call, as
+  `RoutePassRunner` reads `route.search.anyAngle`, and with it `false` skips the per-zone crossing loop and prints one
+  `FINE crossings=off` line, so a device log says which build ran; `solveCrossing` itself is untouched. **A coupling
+  to keep in view:** the re-solve's local pulls write into the line's own refusal tally, and the sweep skips itself
+  where that tally reads zero (`MultipassPull` sweep gate), so with the key off a line whose only refusals were a
+  discarded re-solve's can lose its sweep and move although nothing was ever spliced. Tests: (a) key off — no `FINE
+  zone` / `FINE RASTER` lines, one `crossings=off` line; (b) key on — today's output, the engine tests unchanged
+  (`theCrossingRasterIsBuiltOncePerArmAndTheRungsDrawTheSameLines` pins the key on); (c) the harness's three pairs
+  and survey, key off against on, every rung that moves and every desktop `FINE splice` reported.
+- **P6c — the 16-cell reach, re-checked on the desktop first.** §14's "lines unmoved at 16" came from the first,
+  pre-fix build, and the 08:38 shape's legs run ~2 km, longer than 16 cells: on the current build, with the key at
+  16, the harness must keep every line within §6's 5 % — and the device must show **no 43° turn on the 08:38 pair's
+  grown λ 1 rung** — before 16 is offered. It is a value change (`maro.properties` and the `AppConfig` default that
+  follows it) and does nothing in build A.
+- **P6a — the device protocol (the user's; listed under the feature's owed passes).** Two builds, identical but for
+  the switch: A `route.search.anyAngle=false`, B `=true`, both with `route.fine.crossingResolve` at the value P6b's
+  harness reading recommends and the reach P6c settles. The three pairs armed warm, in interleaved arms (A, B, A, B,
+  A, B — the builds swapped by reinstall, one launch before the first arm of each), three arms or more per build and
+  pair, in one session.
+- **The bar, on lines the phone prints.** Per pair and per rung (λ), the rung's wall time is `RUNG firstMs +
+  growBuildMs + grownMs`; **B's median over its arms is at most A's slowest arm**. Every line within §6's 5 % on the
+  `LINE` line's `distance=` and `duration=` (the phone prints no `lineCostSec`), and no 43° turn on the 08:38 grown
+  λ 1 rung (`CORNER idx= … turn=`). Arms are told apart by `SEARCH … passable=`; the readings beside the bar: `SEARCH
+  ms=`, `DEVICE PASS … fineMs=`, the sum of `FINE zone=… ms=` (the re-solve, where on), and `APPROACH … candidates=
+  priceMs= priceMarks=`. Met, the switch's default is the user's D3; P5 still waits on a counter reading zero.
+- **Dropped from the first draft:** the straightener ahead of the approach pass — `STRAIGHTEN points=N→N` on every
+  rung of both builds and the window counts unchanged, so it buys no window; and the short-leg cut — the pass already
+  prices at the coarse 100 m step over 20 m marks through the pull's own grouping, and an artificial vertex is a
+  window seed and a lone-turn candidate, so it adds work unless the pass is taught to skip it.
+
+### 15.4 Argued against
+
+- **Three pairs, one bend.** The cure is read on the one instance the plan was written for; the other two pairs
+  gained nothing visible, and the lone turns moved both ways. The search earns its cost only where the staircase
+  misled the pull, which the device finds and the desktop does not.
+- **A third slower today, on a run that may be the phone's.** Until P6a's interleaved read the +20–43 % is a
+  reading of one warm run after a cold one; the default stays off either way until the re-solve is off.
+- **P5's premise failed on these pairs.** The approach pass still moves points and the lone turns stand; if P6a–c
+  bring the attempt level, the walk is a bend cure behind a switch, not the retirement of the patches §11 promised.

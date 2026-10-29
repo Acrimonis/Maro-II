@@ -48,7 +48,8 @@ internal class RoutePassRunner {
         trace: (() -> String) -> Unit = {},
         guardZones: Boolean = true,
         guardBand: Boolean = true,
-        checkCancelled: () -> Unit = {}
+        checkCancelled: () -> Unit = {},
+        probe: ExpansionProbe? = null
     ): PassReading {
         val world = ctx.world
         val grid = walk.grid
@@ -100,6 +101,7 @@ internal class RoutePassRunner {
         // The search reads the family's **lattice** coordinates; the seeds arrive as cells of the interior
         // grid's own local space, so they are translated onto the walk first — a no-op for the single grid,
         // whose offset is zero, and the P4.1 fix for a fixed anchor, whose offset is not.
+        val searchStartNs = System.nanoTime()
         val search = searchFromCanonicalEnd(
             windows,
             windows.endCellAt(start, windows.latticeCell(grid, startCell.row, startCell.col)),
@@ -112,8 +114,37 @@ internal class RoutePassRunner {
             berthK = lambda,
             berth = berth,
             // The gate's step check, so every raw leg the pull may keep already keeps the wall.
-            gate = gate
+            gate = gate,
+            probe = probe,
+            // The any-angle walk, where the switch is on (`route.search.anyAngle`, its reach beside it).
+            anyAngle = if (AppConfig.routeSearchAnyAngle) {
+                AnyAngleRule(
+                    AppConfig.routeSearchAnyAngleReachCells,
+                    ChordEstimate.entries.firstOrNull { it.name.equals(AppConfig.routeSearchAnyAngleEstimate, true) }
+                        ?: ChordEstimate.STEP,
+                    AppConfig.routeSearchAnyAngleReopen
+                )
+            } else {
+                null
+            }
         )
+        // The search's own clock, beside the PULL / FINAL / FINE / APPROACH ones: both walks where the
+        // canonical one found nothing, the held/waived re-walk inside each.
+        val searchMs = msSince(searchStartNs)
+        trace {
+            val chords = search.chordTally
+            "SEARCH ms=${fmt(searchMs)} expansions=${search.expansions} passable=${search.passableCells} " +
+                "found=${search.path != null} pathCells=${search.path?.size ?: 0} reversed=${search.reversed} " +
+                "rewalked=${search.rewalked} costSec=${fmt(search.costSec)} anyAngle=${search.anyAngle} " +
+                "chordReads=${chords?.reads ?: 0} chordRefusals=${chords?.refusals ?: 0} " +
+                "chordPieces=${chords?.pieces ?: 0} finePieces=${chords?.finePieces ?: 0} " +
+                "coarsePieces=${chords?.coarsePieces ?: 0} blockPieces=${chords?.blockPieces ?: 0} " +
+                "rateMisses=${chords?.rateMisses ?: 0} unprovedRuns=${chords?.unprovedRuns ?: 0} " +
+                "measuredReads=${chords?.measuredReads ?: 0} endLegReads=${chords?.endLegReads ?: 0} " +
+                "lazyPops=${search.lazyPops} fallbacks=${search.fallbacks} reopens=${search.reopens} " +
+                "reachMean=${fmt(search.reachMeanCells)} reachMax=${fmt(search.reachMaxCells)} " +
+                "estimate=${AppConfig.routeSearchAnyAngleEstimate} reopen=${AppConfig.routeSearchAnyAngleReopen}"
+        }
         val path = search.path
             ?: return PassReading(search, emptyList(), refusals, 0, 0)
         // The path carries its layer, so a two-layer walk resolves each cell on its own resolution rather
@@ -231,7 +262,9 @@ internal class RoutePassRunner {
         zonePriceSec: ZonePrice,
         berthK: Double,
         berth: BerthLaw?,
-        gate: GateRule?
+        gate: GateRule?,
+        probe: ExpansionProbe? = null,
+        anyAngle: AnyAngleRule? = null
     ): SearchOutcome {
         suspend fun walk(fromAim: Boolean): SearchOutcome {
             val from = if (fromAim) aimCell else startCell
@@ -239,7 +272,7 @@ internal class RoutePassRunner {
             val guard = gate?.let { if (fromAim) StepGuard(it, aim, start) else StepGuard(it, start, aim) }
             val outcome = MultipassSearch.searchWalk(
                 windows, from, to, paceMps, zonePriceSec = zonePriceSec,
-                berthK = berthK, berth = berth, stepGuard = guard
+                berthK = berthK, berth = berth, stepGuard = guard, probe = probe, anyAngle = anyAngle
             )
             return if (fromAim) outcome.copy(path = outcome.path?.asReversed()?.toList(), reversed = true) else outcome
         }
@@ -247,7 +280,7 @@ internal class RoutePassRunner {
         val canonical = walk(canonicalFromAim)
         if (canonical.path != null) return canonical
         val other = walk(!canonicalFromAim)
-        return other.copy(expansions = canonical.expansions + other.expansions)
+        return other.summing(canonical)
     }
 
     /**
