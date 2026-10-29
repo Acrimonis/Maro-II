@@ -307,7 +307,12 @@ One reviewer read P1 in the working tree against §1–§5, §7, §10 and §11. 
 
 ## Implemented
 
-- **P0 (2026-10-28, uncommitted).** `RouteApproachPass.refine` counts the lone turns left on its line (`loneTurns=`) and
+- **P1 (2026-10-28, `3f54b95c`, merged through PR #397).** `RouteApproachPass` slides a lone turn along its own legs
+  where that saves `route.approach.lone.minSavedSec`. Read on the device 2026-10-29 08:38 ("Closest", 24 kn): two
+  lone slides took (2.0 s, 1.1 s), five lone turns left, and a 43° bend at 43.56306,7.15856 that needs two points
+  moved together — the case `261029_FEAT_PLN_Route_any-angle-search.md` takes to the search. The slack probe (§13)
+  is kept on the user's word while the device passes continue.
+- **P0 (2026-10-28, `41db360d`).** `RouteApproachPass.refine` counts the lone turns left on its line (`loneTurns=`) and
   names each one with its slack and the travel a slide would save (`APPROACH lone … slackM= toward= travelSec=`). It moves
   no line. Tested by `aLoneTurnIsCountedAndTheLineKept` (five cases), alongside the review's code leftovers:
   - the two defaults follow `maro.properties`;
