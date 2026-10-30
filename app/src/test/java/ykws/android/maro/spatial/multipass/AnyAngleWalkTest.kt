@@ -12,10 +12,10 @@ import ykws.android.maro.spatial.multipass.GateTestFixtures.at
 import kotlin.math.hypot
 
 /**
- * **The any-angle walk — the Lazy Theta\* prototype behind `route.search.anyAngle`**
+ * **The any-angle walk — the Lazy Theta\* the Evolutive + row runs**
  * (`261029_FEAT_PLN_Route_any-angle-search.md` §4.2, §13): open water is one straight line; an island is rounded
  * on tangent cells with no vertex standing on open water; the reach cap bounds every chord; a rock the straight
- * would graze is kept off by the gate; a pair is one chain from either end; and the switch off is today's walk.
+ * would graze is kept off by the gate; a pair is one chain from either end; and a walk handed no rule is today's.
  */
 class AnyAngleWalkTest {
 

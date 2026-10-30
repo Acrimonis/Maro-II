@@ -36,7 +36,13 @@ import ykws.android.maro.spatial.Units
  * snap a [RouteStage.SNAP] reading replaces it with the pulled line's own distance and limit-read
  * duration — the provisional figure — because each rung's own row waits on its own line.
  */
-internal class RoutePassRunner {
+internal class RoutePassRunner(
+    /**
+     * Whether the search is the any-angle walk — the Evolutive + row's own walk, its tuning the
+     * `route.search.anyAngle.*` keys. Off, the search is the eight-direction A\* bit for bit.
+     */
+    private val anyAngle: Boolean = false
+) {
 
     internal suspend fun runPass(
         ctx: GridContext,
@@ -116,8 +122,8 @@ internal class RoutePassRunner {
             // The gate's step check, so every raw leg the pull may keep already keeps the wall.
             gate = gate,
             probe = probe,
-            // The any-angle walk, where the switch is on (`route.search.anyAngle`, its reach beside it).
-            anyAngle = if (AppConfig.routeSearchAnyAngle) {
+            // The any-angle walk, where the engine runs it (the Evolutive + row), its reach beside it.
+            anyAngle = if (anyAngle) {
                 AnyAngleRule(
                     AppConfig.routeSearchAnyAngleReachCells,
                     ChordEstimate.entries.firstOrNull { it.name.equals(AppConfig.routeSearchAnyAngleEstimate, true) }

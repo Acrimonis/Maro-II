@@ -3,8 +3,11 @@
 **Status:** partly implemented, the switch default off. P0 and P1 implemented 2026-10-29 (§12), P1's cost gate
 failed (5–28× against 2×); the re-design (§13) was built as a **prototype of P2** behind `route.search.anyAngle` and
 measured (§14); its **first device reading is P4's** (§15): the 43° bend is gone, the lines within §6's 5 %, the
-attempt +20–43 % on one warm run after a cold one, P5 without ground. **Next: P6 (§15.3)** — an interleaved device
-re-read, the fine crossing re-solve behind its own key (D6), and the 16-cell reach re-checked on the desktop first.
+attempt +20–43 % on one warm run after a cold one, P5 without ground. **P6b and P6c done (§16):** the fine crossing
+re-solve has its own key (D6, default `true`) and switching it off moves no line on the desktop; the 16-cell reach
+buys nothing over 32; **D6's default is `false`** on the user's word. **P6a read (§17):** the bend is the 24 kn
+pace's, the re-solve has no part in it, the walk removes it at +2–9 % warm; **D3 taken as a second algorithm** — the
+switch deleted, the walk the `evolutive_plus` row's (Evolutive +), the user's pick in Settings.
 P3 and P5 wait on P6's bar. Sections §4–§11 are the original design; where a later section supersedes one, a
 pointer at its head says so. Branch `feature/roouttinggg`.
 
@@ -220,8 +223,8 @@ sub-segments · D5 no 16-heading step. D3 (one code path after P5) waits on P4's
   (recommended), or a measured read on every chord.** The step guard already does the former.
   Objection: near the coast many cells cannot prove, and a measured read is the pull's dear read; P1's gate
   says whether it binds.
-- **D6 — the fine crossing re-solve: its own key, today's default (taken 2026-10-29 on the recommendation, the
-  default left to the user).** It splices nothing in either build on the device's three pairs (`spliced=no
+- **D6 — the fine crossing re-solve: its own key, default `false` (the key taken 2026-10-29 on the recommendation;
+  the default moved to `false` the same day on the user's word, after §16's reading).** It splices nothing in either build on the device's three pairs (`spliced=no
   reason=worse` on every rung) and costs 1–2 s a rung on the 08:38 pair in both, so its waste is not the any-angle
   walk's. Turning it off under the switch alone would let B pass §15.3's bar on a removal A never had; turning it
   off for every build moves the shipped lines (§6, "switch off = today"). So it gets `route.fine.crossingResolve`
@@ -620,3 +623,66 @@ Reviewed once before `#implement` (one blocking — the re-solve's scope, now D6
   reading of one warm run after a cold one; the default stays off either way until the re-solve is off.
 - **P5's premise failed on these pairs.** The approach pass still moves points and the lone turns stand; if P6a–c
   bring the attempt level, the walk is a bend cure behind a switch, not the retirement of the patches §11 promised.
+
+## 16. P6b and P6c — 2026-10-29, `#implement`
+
+**P6b, built.** `route.fine.crossingResolve` (`maro.properties`, `true`; `AppConfig.routeFineCrossingResolve`):
+`RouteFinePass.refineOriented` reads it per call and, off, skips the per-zone crossing loop and prints one `FINE
+crossings=off zones=N` line (N the priced zones the line enters, counted only when the trace is read); one predicate
+names which zones the loop re-solves. On, the code path is today's — the one added read and branch aside. Tests:
+`withTheCrossingReSolveOffNoZoneIsReSolvedAndTheLogSaysSo` (no `FINE RASTER`, no `FINE zone`, one off line per
+refinement, three rungs land), the raster test pinned on, the key restored after each test. The harness keeps
+`FINE zone` / `FINE splice` / `FINE crossings` lines. The suite 1 686 green (24 skipped), `apk-build.bat` green; the
+`ask` hop found nothing blocking — its three should-fix (a restated cell size and a dated reading in the properties
+comment, a test floor in place of a count) and two notes folded.
+
+**The harness reading** (three device pairs best of two, the 24-pair survey once; six settings):
+
+| Setting | Lines against today's | `FINE splice` | Rung against today's |
+|---|---|---|---|
+| switch off, re-solve off | **identical**, every pair and rung, survey 0 of 24 moved | none | 08:38 pair −16 to −28 %; Lérins −2 to −7 %; Englouti −7 to +3 %; survey −1 to −2 % |
+| switch on, reach 32, re-solve on / off | the two identical to each other; against today's −3.8 to +0.5 % | none | re-solve off 8–32 % faster than on, on the 08:38 pair |
+| switch on, reach 16, re-solve on / off | within 0.1 % of reach 32 | none | slower than reach 32 on the survey (0.27–0.31× against 0.23–0.27× today's); the search no cheaper |
+
+- **The refusal coupling did not bite.** §15.3 warned that, with the re-solve off, a line whose only refusals were a
+  discarded re-solve's could lose its sweep and move; no line moved on 27 pairs, either switch setting.
+- **D6's default: `false`, taken on the user's word.** The reading supports it: no splice kept on 27 pairs × 3 rungs, no line moved,
+  1–2 s a rung saved on the device's 08:38 pair (§15.2). Against it: three device pairs and a desktop survey of open
+  water are a small base for a stage the engine has run since the fine pass exists. P6a's builds carry the same value,
+  whichever the user takes.
+- **P6c: 32 stays.** The 16-cell reach changes the lines by under 0.1 % and the search's cost not at all; the device's
+  bend check at 16 is moot. `route.search.anyAngle.reachCells` keeps 32.
+
+**The default moved** to `false` in `maro.properties` and the `AppConfig` default that follows it; the engine test's
+after-hook restores `false`; the suite 1 686 green. **P6a's two APKs are built** (kept outside the repo): A with
+`route.search.anyAngle=false`, B with `=true`, both with `route.fine.crossingResolve=false`; the tree carries the
+switch off. **Next: P6a** (owed passes; §15.3's protocol and bar).
+
+## 17. P6a and D3 — 2026-10-30, the device read and Evolutive +
+
+**The read** (Pixel 7, `evolutive`, both builds with `route.fine.crossingResolve=false` unless named; logs kept outside the repo):
+
+- **The bend is the pace's.** At 25 kn neither build draws it — the λ 1 rung of the Baie de Juan → La Salis pair (§15's
+  08:38 pair, the same 16 208 / 38 691 walks) lands 13 580.9 m, 1 296.5 s on A, B and a build C (search off, re-solve
+  **on**) alike. At 24 kn C draws §15's line exactly (13 751.8 m, 1 351.8 s), and so does A with the re-solve off: the
+  43° turn at 43.56306,7.15856 after 2 067 m north, three arms of three. **The re-solve has no part in the bend.**
+- **The walk removes it**, two arms of two at 24 kn: λ 1 13 556.9 m, 1 338.4 s (−1.4 % / −1.0 %), λ 3 and λ 5 within
+  +0.2 %.
+- **The cost, per rung.** Baie de Juan → La Salis, 24 kn: A 10.0–10.7 s warm, B 10.9–11.1 s (+2–9 %), each build's
+  first arm 13–14 s; `SEARCH ms` 283–709 against 637–1 021 (about 2×). At 25 kn, one arm each: La Salis → Le Village
+  Englouti 3.6–4.3 s against 5.2–5.6 s, Lérins → La Salis 5.6–6.7 s against 5.5–7.7 s. The Settings text's "about a
+  second more per route" is this reading. §15.2's +20–43 % was mostly the phone's state.
+- **§15.3's bar:** met on the one pair against A's slowest (cold) arm, missed by 0.2–0.9 s against its warm ones, and
+  missed on La Salis → Le Village Englouti at 25 kn; the other two pairs were not read at 24 kn.
+
+**D3, the user's: a second algorithm, not a default.** `route.search.anyAngle` and its `AppConfig` accessor are
+deleted; the walk is an engine flag (`RoutePassRunner(anyAngle)`, `RouteAvoidEngine(anyAngle)`, forwarded by
+`RouteEvolutiveEngine`), and `RouteEngineChoice` carries a fourth row, `evolutive_plus` ("Evolutive +" /
+"Évolutive +"), the `evolutive` engine with the flag on. The `route.search.anyAngle.*` tuning keys stay and tune that
+row alone; the algorithm description in Settings names its trade. The bend harness walks it on
+`-Dmaro.harness.anyAngle=true` and refuses the deleted key. Tests: the row walks any-angle and `evolutive` does not,
+read through the delegate (`RouteEngineChoiceTest`); an engine built either way searches as built on every rung
+(`RouteAvoidEngineTest`). The `ask` hop found nothing blocking; its three should-fix (the row's flag untested, the cost
+figure unsourced and restated, `FEAT_DSC_Route.md` naming the switch) and its notes folded.
+
+**What stays open:** P3 and P5 (the patches' retirement) have no ground while the A\* remains the default walk.

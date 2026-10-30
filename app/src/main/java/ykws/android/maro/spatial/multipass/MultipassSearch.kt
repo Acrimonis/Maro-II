@@ -102,7 +102,7 @@ internal fun interface ExpansionProbe {
 internal enum class ChordEstimate { STEP, BOUND, FULL }
 
 /**
- * **The any-angle walk's rule** (`route.search.anyAngle`): the Theta\* over the walk, with [reachCells] — how far
+ * **The any-angle walk's rule** (the Evolutive + row's walk): the Theta\* over the walk, with [reachCells] — how far
  * back, in coarse cells, a node may take its parent, `0` no cap — the push's [estimate], and whether a lazy pop that
  * lowers a node's cost **reopens** the closed neighbours it would now reach cheaper (`route.search.anyAngle.reopen`).
  * A walk handed `null` is today's A\*.
@@ -507,7 +507,7 @@ object MultipassSearch {
 
     /**
      * **The any-angle walk — a Lazy Theta\* over the walk** (`261029_FEAT_PLN_Route_any-angle-search.md` §4.2,
-     * §13; a prototype behind `route.search.anyAngle`, measured before it is relied on).
+     * §13; the Evolutive + row's walk, every other row keeping today's A\*).
      *
      * Beside `g`, `h`, the heap, the closed set, the cadence and the tie order — all today's — every node keeps a
      * **parent** that may be any earlier node a clear, no-dearer straight line reaches, so the chain the walk hands
@@ -824,7 +824,7 @@ data class SearchOutcome(
      * [startOpenSteps] stay in the walk's own frame — the end it left is the one they name.
      */
     val reversed: Boolean = false,
-    /** Whether the answering walk was the any-angle one (`route.search.anyAngle`). */
+    /** Whether the answering walk was the any-angle one (the Evolutive + row's). */
     val anyAngle: Boolean = false,
     /** The any-angle walk's chord reads, counted — `null` for today's walk. */
     val chordTally: ChordTally? = null,

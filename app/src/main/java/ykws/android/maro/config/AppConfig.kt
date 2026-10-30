@@ -778,10 +778,11 @@ object AppConfig {
         internal set
 
     /**
-     * Whether the coarse search is the any-angle walk — `route.search.anyAngle`, whose value `maro.properties`
-     * holds and this default follows. Off, the search is the eight-direction A\* bit for bit.
+     * Whether the fine pass re-solves each priced zone's crossing at the fine cell and splices the re-solve where it
+     * is cheaper — `route.fine.crossingResolve`, whose value `maro.properties` holds and this default follows. Off,
+     * the settled line goes straight to the fine pulls.
      */
-    var routeSearchAnyAngle: Boolean = false
+    var routeFineCrossingResolve: Boolean = false
         internal set
 
     /**
@@ -2676,7 +2677,7 @@ object AppConfig {
             props.getProperty("route.approach.lone.minSavedSec")?.toDoubleOrNull()?.let {
                 routeApproachLoneMinSavedSec = it.coerceIn(0.0, 30.0)
             }
-            props.getProperty("route.search.anyAngle")?.toBooleanStrictOrNull()?.let { routeSearchAnyAngle = it }
+            props.getProperty("route.fine.crossingResolve")?.toBooleanStrictOrNull()?.let { routeFineCrossingResolve = it }
             props.getProperty("route.search.anyAngle.reachCells")?.toIntOrNull()?.let {
                 routeSearchAnyAngleReachCells = it.coerceIn(0, 1000)
             }

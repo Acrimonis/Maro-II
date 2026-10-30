@@ -45,6 +45,30 @@ class RouteEngineChoiceTest {
     }
 
     /**
+     * **The two evolutive rows differ by the search's walk alone** — the same plan, and the any-angle walk on the
+     * Evolutive + row only, read through the engine's delegate so the forward is pinned as well as the row.
+     */
+    @Test
+    fun onlyTheEvolutivePlusRowWalksAnyAngle() {
+        fun built(id: String) =
+            RouteEngineChoice.resolve(id).factory({ 28.0 }, { 4.0 }, { ChoiceWorld() }, { 1.0 }) as RouteEvolutiveEngine
+        val plus = built("evolutive_plus")
+        val plain = built("evolutive")
+        try {
+            assertTrue("the evolutive + row walks any-angle", plus.anyAngle)
+            assertTrue("the evolutive row keeps the eight-direction walk", !plain.anyAngle)
+            assertEquals(
+                "both rows walk the same plan",
+                RouteEngineChoice.resolve("evolutive").plan,
+                RouteEngineChoice.resolve("evolutive_plus").plan
+            )
+        } finally {
+            plus.close()
+            plain.close()
+        }
+    }
+
+    /**
      * **A stored `selective` id resolves through the shipped fallback rather than failing.** The engine's row
      * is retired, so a device still holding `selective` in `route.engine.id` must arm the shipped default
      * instead of leaving the app with no engine — no migration write is owed.

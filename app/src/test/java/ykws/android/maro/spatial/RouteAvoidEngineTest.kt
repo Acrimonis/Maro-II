@@ -134,6 +134,7 @@ class RouteAvoidEngineTest {
         setAvoidSwitch("routeAvoidDepthGateEnabled", true)
         setAvoidSwitch("routeAvoidZone300Enabled", true)
         setAvoidSwitch("routeAvoidSpeedZoneEnabled", false)
+        setAvoidSwitch("routeFineCrossingResolve", false)
         setAvoidMarginM(50.0)
     }
 
@@ -1359,6 +1360,7 @@ class RouteAvoidEngineTest {
     @Test
     fun theCrossingRasterIsBuiltOncePerArmAndTheRungsDrawTheSameLines() = runBlocking {
         setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
+        setAvoidSwitch("routeFineCrossingResolve", true)
         // A zone taller than the corridor, so every rung crosses it, with an island inside it so every crossing
         // line bends inside the zone's own box — the stretch the re-solve exists for; a straight chord
         // through a zone has no vertex to re-solve.
@@ -1396,6 +1398,65 @@ class RouteAvoidEngineTest {
             assertEquals("and one slow-water table", a.slowLimitSeconds, b.slowLimitSeconds)
         }
         assertEquals("and the ladder crowns the same rung", separate.crown, shared.crown)
+    }
+
+    /**
+     * **With `route.fine.crossingResolve` off no crossing is re-solved, and the log says so.** The fixture above —
+     * a zone every rung crosses, an island bending the line inside it — armed with the key off: no `FINE RASTER` and
+     * no `FINE zone` line is printed, every refined rung prints one `FINE crossings=off` line naming the zones its
+     * line enters, and the ladder still lands its three rungs.
+     */
+    @Test
+    fun withTheCrossingReSolveOffNoZoneIsReSolvedAndTheLogSaysSo() = runBlocking {
+        setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
+        setAvoidSwitch("routeFineCrossingResolve", false)
+        val zone = SpeedZone("z", "Cap", 5.0, rectRing(43.40, 43.60, 7.020, 7.040))
+        val island = circleRing(LatLng(43.5000, 7.0300), radiusM = 120.0)
+        val world = FakeWorld(edges = island.toMutableList(), zones = listOf(zone))
+        val captured = Collections.synchronizedList(ArrayList<String>())
+        val engine = RouteAvoidEngine(
+            paceKn = { paceKn },
+            verdictWeight = { AppConfig.routeAvoidSlowWaterWeight },
+            worldProvider = { world },
+            traceSink = { captured += it }
+        )
+        val ladder = solveLadder(engine, origin, aim)
+        assertTrue("no raster is built", captured.none { it.startsWith("FINE RASTER ") })
+        assertTrue("no zone is re-solved", captured.none { it.startsWith("FINE zone=") })
+        val off = captured.filter { it.startsWith("FINE crossings=off") }
+        val refines = captured.count { it.startsWith("FINE settled ") }
+        assertTrue("the fixture refines every rung", refines >= 3)
+        assertEquals("one off line per refinement", refines, off.size)
+        assertTrue("naming the zone its line enters", off.all { it.endsWith("zones=1") })
+        for (rung in 0 until 3) assertNotNull("rung $rung still lands", ladder.results[rung])
+    }
+
+    /**
+     * **The any-angle walk is the engine's own choice, never a global switch** — the Evolutive + row's flag: an
+     * engine built with it walks any-angle on every rung, one built without it the eight-direction A\*, and both
+     * land every rung over the same water.
+     */
+    @Test
+    fun theAnyAngleWalkIsTheEnginesOwnChoice() = runBlocking {
+        val island = circleRing(LatLng(43.5000, 7.0300), radiusM = 120.0)
+        for (anyAngle in listOf(false, true)) {
+            val captured = Collections.synchronizedList(ArrayList<String>())
+            val engine = RouteAvoidEngine(
+                paceKn = { paceKn },
+                verdictWeight = { AppConfig.routeAvoidSlowWaterWeight },
+                worldProvider = { FakeWorld(edges = island.toMutableList()) },
+                traceSink = { captured += it },
+                anyAngle = anyAngle
+            )
+            val ladder = solveLadder(engine, origin, aim)
+            val searches = captured.filter { it.startsWith("SEARCH ms=") }
+            assertTrue("every rung searches, anyAngle=$anyAngle", searches.size >= 3)
+            assertTrue(
+                "every search walks as the engine was built, anyAngle=$anyAngle",
+                searches.all { it.contains(" anyAngle=$anyAngle ") }
+            )
+            for (rung in 0 until 3) assertNotNull("rung $rung lands, anyAngle=$anyAngle", ladder.results[rung])
+        }
     }
 
     /** One arm's three rungs: each rung's result by ladder index, and the crowned rung's index. */

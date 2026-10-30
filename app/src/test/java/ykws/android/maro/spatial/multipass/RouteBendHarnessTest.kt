@@ -46,8 +46,9 @@ import java.util.Properties
  * pull's own clock on the fine pass's water, the any-angle plan's §6 guard), the shallowest depth and the gate's edge
  * on it, and the lone turns the approach pass left. `-Dmaro.harness.survey=true` routes the direction-symmetry
  * survey's seeded pairs ([RouteSurveyPairs]) one run each instead, into `app/build/route-bend-harness-survey.txt`,
- * closing on one `TOTAL` line per rung. `-Dmaro.harness.props="key=value;key=value"` overrides the shipped
- * values — `route.search.anyAngle=true;route.search.anyAngle.reachCells=32` runs the any-angle prototype — and a
+ * closing on one `TOTAL` line per rung. `-Dmaro.harness.anyAngle=true` walks as the Evolutive + row does, and
+ * `-Dmaro.harness.props="key=value;key=value"` overrides the shipped values — `route.search.anyAngle.reachCells=16`
+ * tunes that walk — and a
  * `LEGS` line per rung reads the refined line's legs: their count, the longest, and how many fall in each length
  * band, the reading the any-angle reach cap is set on.
  *
@@ -66,6 +67,9 @@ class RouteBendHarnessTest {
     private val aim by lazy { endFrom("maro.harness.aim") ?: LatLng(43.57055, 7.13144) }
     private val paceKn = 30.0
 
+    /** Whether the harness walks as the Evolutive + row does — the any-angle search. */
+    private val anyAngle = System.getProperty("maro.harness.anyAngle") == "true"
+
     @Test
     fun routesTheDevicePair() {
         Assume.assumeTrue(
@@ -74,6 +78,9 @@ class RouteBendHarnessTest {
         val repoDir = System.getProperty("maro.repoDir")?.let { File(it) } ?: File("..")
         // The shipped values first: the world's depth reads take the cutoff and the gate in force when it is built.
         val overrides = System.getProperty("maro.harness.props").orEmpty().split(';').filter { it.contains('=') }
+        require(overrides.none { it.substringBefore('=').trim() == "route.search.anyAngle" }) {
+            "route.search.anyAngle is no key any more: pass -Dmaro.harness.anyAngle=true to walk as Evolutive + does"
+        }
         AppConfig.applyProperties(Properties().apply {
             for (name in listOf("maro.properties", "ui.properties", "colors.properties")) {
                 File(repoDir, "app/src/main/assets/$name").takeIf { it.isFile }?.inputStream()?.use { load(it) }
@@ -99,7 +106,7 @@ class RouteBendHarnessTest {
         say(
             "BEND HARNESS — ${BuildConfig.REGION_ID}, ${if (survey) "survey of ${pairs.size} pairs" else "$start -> $aim"}, " +
                 "$paceKn kn, evolutive, lambdas ${rungs.map { it.second }}, costed markers ${world.routeMarkers().size}, " +
-                "best of $repeats, anyAngle=${AppConfig.routeSearchAnyAngle} " +
+                "best of $repeats, anyAngle=$anyAngle " +
                 "reachCells=${AppConfig.routeSearchAnyAngleReachCells}" +
                 (if (overrides.isEmpty()) "" else ", overrides ${overrides.joinToString(";")}")
         )
@@ -130,7 +137,7 @@ class RouteBendHarnessTest {
                 }
                 run.ctx?.let { ctx -> if (refined.size >= 2) say("  ${readingOf(ctx, refined, lambda, run.trace)}") }
                 if (refined.size >= 2) say("  ${legsOf(refined)}")
-                run.trace.filter { it.startsWith("SWEEP keep") || it.startsWith("APPROACH") || it.startsWith("STRAIGHTEN") }
+                run.trace.filter { line -> TRACE_PREFIXES.any { line.startsWith(it) } }
                     .distinct().forEach { say("  $it") }
                 say("  LINE ${refined.joinToString(" ") { MultipassPull.atText(it) }}")
                 replayLine?.let { replay -> run.ctx?.let { ctx -> replayApproach(ctx, replay, lambda).forEach { say("  $it") } } }
@@ -358,7 +365,7 @@ class RouteBendHarnessTest {
     private suspend fun rung(world: BakedRegionWorld, from: LatLng, to: LatLng, lambda: Double): RungRun {
         val rungStartNs = System.nanoTime()
         val builder = RouteGridBuilder(EvolutiveGridPlan)
-        val runner = RoutePassRunner()
+        val runner = RoutePassRunner(anyAngle)
         for (reach in listOf(AppConfig.routeAvoidCorridorReachM, AppConfig.routeAvoidCorridorReachM * 2.0)) {
             val ctx = builder.buildGrid(world, RoutePoint.of(from), RoutePoint.of(to), reach, paceKn, 1.0) ?: continue
             val walk = GridWalk(ctx.grid, ctx.startCell, ctx.aimCell, ctx.cellM, ctx.windows)
@@ -410,6 +417,12 @@ class RouteBendHarnessTest {
 
         /** The plan's bar: the projected search under twice today's `SEARCH ms`. */
         const val GATE_BAR = 2.0
+
+        /**
+         * The fine pass's trace lines the report keeps: the sweep's keeps, the approach pass, the straightener and the
+         * crossing re-solve's own verdicts (`FINE zone`, `FINE splice`, `FINE crossings=off`).
+         */
+        val TRACE_PREFIXES = listOf("SWEEP keep", "APPROACH", "STRAIGHTEN", "FINE zone", "FINE splice", "FINE crossings")
 
         /** The `LEGS` line's length bands (m), each band up to and including its bound. */
         val LEG_BANDS_M = doubleArrayOf(500.0, 1000.0, 2000.0, 3200.0, 6400.0)
