@@ -1,20 +1,20 @@
-# Context Hydration — Route — 2026-10-28
+# Context Hydration — Route — 2026-10-30
 
-**Last Bake:** 2026-10-28 18:15 UTC — written by `#bake` on `feature/roooouuutttiiinnngggg`.
+**Last Bake:** 2026-10-30 17:53 UTC — written by `#bake` on `feature/roouttinggg`.
 
-**Directive trace:** no dependency was added and no binary file opened; the device was read only after the user's word that a build was deployed and run (logcat dumps at 18:16 and 18:36), never written; the one new key (`route.approach.lone.minSavedSec`) lives in `maro.properties` with its code default following; none of the covered action classes stopped.
+**Directive trace:** no dependency was added and no binary file opened (an APK's `maro.properties` and the phone's markers JSON read as text); the device was read only — `logcat`, `dumpsys`, the markers via `run-as` — on the user's word that each run had happened, every install the user's own through the `D:\.tmp\p6a` scripts; the code moved under `#impl` and the user's go for build C, whose one property flip was restored; the `ask` hop reviewed once, nothing blocking, three should-fix folded; none of the covered action classes stopped.
 
 ## State
 
-Committed up to `41db360d` (P0 and the leftovers). Uncommitted at this bake: lone-turns P1 — `RouteApproachPass` offers a two-span window whose legs are clean, whose point turns ≥ `MIN_TURN_DEG` and whose skipping chord crosses slow water (not land) P5b's slide along its own legs (`SLID_LONE`), kept where it saves `route.approach.lone.minSavedSec` (1 s), no search where the chord's travel cannot; a `slideLoneTurns` fixture switch pins the S tests. Replayed on the device's "Around" line the 43° turn moves 1.5 km to La Fourmigue's band edge (10.9 s); the pass +23–34 ms a rung. 1 666 tests, the symmetry survey (24 pairs) green.
+`feature/roouttinggg` ships the any-angle search as a fourth algorithm, Evolutive + (`evolutive_plus` in `RouteEngineChoice`): the `route.search.anyAngle` switch and its accessor are deleted, the walk an engine flag (`RoutePassRunner(anyAngle)`, `RouteAvoidEngine(anyAngle)`, forwarded by `RouteEvolutiveEngine`), the `route.search.anyAngle.*` keys tuning that row alone; `route.fine.crossingResolve=false`. The suite (1 688, 24 skipped) and `apk-build.bat` green. P6a read (plan §17): the 43° bend is the 24 kn pace's, the re-solve no part of it, the walk removing it at +2–9 % warm; the row itself read on the phone at 18:51, no bend, B's lines exactly.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/spatial/multipass/RouteApproachPass.kt` — `isLone`, `offerFor`, `Search.answerFor`, `searchAlongLegs(kind)`, the P0 count and slack probe
-- `app/src/main/assets/maro.properties`, `app/src/main/java/ykws/android/maro/config/AppConfig.kt` — `route.approach.lone.minSavedSec`
-- `app/src/test/java/ykws/android/maro/spatial/multipass/RouteApproachPassTest.kt` — `aLoneTurnSlidesAlongItsLegsOrStays`, the equivalence test's lone lines, the S line as shipped
-- `xTrack/Route/261028_FEAT_PLN_Route_lone-turns.md` — §4 as built, §12–§13, `## Implemented`
+- `xTrack/Route/261029_FEAT_PLN_Route_any-angle-search.md` — §17 the P6a read and D3; P2's owed tests, P3, P5 open
+- `app/src/main/java/ykws/android/maro/spatial/RouteEngineChoice.kt`, `RouteEvolutiveEngine.kt`, `RouteAvoidEngine.kt` — the row and the flag's path
+- `app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassRunner.kt` — where the flag builds the `AnyAngleRule`
+- `app/src/test/java/ykws/android/maro/spatial/RouteEngineChoiceTest.kt`, `RouteAvoidEngineTest.kt`, `multipass/RouteBendHarnessTest.kt` (`-Dmaro.harness.anyAngle=true`)
 
 ## Next Step
 
-P1's device run (the user's), then the slack probe dropped (plan §13).
+P2's owed tests on the Evolutive + engine — the five named suites and the lone-turn fixture test (plan §17, feature todo).

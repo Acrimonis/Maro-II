@@ -266,4 +266,8 @@ tasks.withType<Test>().configureEach {
     systemProperty("maro.harness.aim", System.getProperty("maro.harness.aim", ""))
     // A device's swept line for RouteBendHarnessTest to hand the approach pass alone — `<lat>,<lon>` points, space-separated.
     systemProperty("maro.harness.replay", System.getProperty("maro.harness.replay", ""))
+    // `true` routes the direction-symmetry survey's seeded pairs instead of the one pair.
+    systemProperty("maro.harness.survey", System.getProperty("maro.harness.survey", "false"))
+    // Property overrides for RouteBendHarnessTest, applied over the shipped files — `key=value;key=value`.
+    systemProperty("maro.harness.props", System.getProperty("maro.harness.props", ""))
 }

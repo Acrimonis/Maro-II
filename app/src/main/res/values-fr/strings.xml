@@ -914,10 +914,11 @@
     <string name="settings_route_slow_water_ignore_time">Ignorer le temps</string>
     <!-- Le harnais d\'algorithmes : la section de l\'onglet Système, sa description et les trois lignes livrées. -->
     <string name="settings_section_route_algorithm">Algorithme de route</string>
-    <string name="settings_route_algorithm_desc">L\'algorithme qui planifie une route ; il s\'applique au prochain armement de la destination.</string>
+    <string name="settings_route_algorithm_desc">L\'algorithme qui planifie une route ; il s\'applique au prochain armement de la destination. Évolutive + trace des lignes plus droites, sans les coudes parasites de la grille, pour environ une seconde de plus par route.</string>
     <string name="route_engine_dummy">Ligne droite</string>
     <string name="route_engine_avoid">Évitement</string>
     <string name="route_engine_evolutive">Évolutive</string>
+    <string name="route_engine_evolutive_plus">Évolutive +</string>
     <!-- Les mesures d'étape qu'un moteur rapporte pendant une recherche — un libellé par chiffre, une unité par sorte. -->
     <string name="route_reading_expansions">Extensions</string>
     <string name="route_reading_passable_cells">Navigables</string>

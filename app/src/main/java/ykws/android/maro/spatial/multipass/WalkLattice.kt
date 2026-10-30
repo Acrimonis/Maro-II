@@ -485,14 +485,14 @@ internal class WalkWindows private constructor(
      * Settled once: the three layer facts below are read on every neighbour step, so they are values rather
      * than getters re-deriving a division per read.
      */
-    private val coarseLayerIndex: Int =
+    internal val coarseLayerIndex: Int =
         lattices?.let { l -> if (l.size < 2) -1 else if (l[0].cellM >= l[1].cellM) 0 else 1 } ?: -1
 
     /** The **fine** layer's index, or `-1` where the walk spans one lattice. */
-    private val fineLayerIndex: Int = if (coarseLayerIndex < 0) -1 else 1 - coarseLayerIndex
+    internal val fineLayerIndex: Int = if (coarseLayerIndex < 0) -1 else 1 - coarseLayerIndex
 
     /** The exact `1 : ratio` nesting between the two layers, or `1` where the walk spans one lattice. */
-    private val layerRatio: Int =
+    internal val layerRatio: Int =
         if (coarseLayerIndex < 0) 1 else latticeRatioOf(lattices!![coarseLayerIndex].cellM, lattices[fineLayerIndex].cellM)
 
     /**
@@ -838,6 +838,20 @@ internal class WalkWindows private constructor(
 
     /** How many of the walk's unique cells are passable — [passableCells], the one count per walk. */
     fun passableCount(): Int = passableCells
+
+    /**
+     * The point at `(x, y)` in cells of [layer]'s lattice from its origin — or the one grid's — the chord reader's own
+     * point read, for the gate's measured segments.
+     */
+    internal fun latticePoint(layer: Int, x: Double, y: Double): LatLng {
+        val lattice = lattices?.getOrNull(layer)
+        return if (lattice != null) {
+            LatLng(lattice.latSouth + y * lattice.cellSizeDegLat, lattice.lonWest + x * lattice.cellSizeDegLon)
+        } else {
+            val grid = windows[0].grid
+            LatLng(grid.latSouth + y * grid.cellSizeDegLat, grid.lonWest + x * grid.cellSizeDegLon)
+        }
+    }
 
     /**
      * Whether this walk and [other] were built on the **same** index instance — the one reading

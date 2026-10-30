@@ -22,7 +22,6 @@ import ykws.android.maro.spatial.RouteUpdate
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
 import java.io.File
-import java.util.Random
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.max
@@ -61,8 +60,6 @@ import kotlin.math.max
  * guards: it skips unless `-Dmaro.prebake=true` and the baked files exist.
  */
 class RouteDirectionSymmetryTest {
-
-    private class EndPair(val name: String, val a: LatLng, val b: LatLng)
 
     private class RungReading(
         val lenF: Double, val lenR: Double, val etaF: Double, val etaR: Double,
@@ -136,7 +133,7 @@ class RouteDirectionSymmetryTest {
         say("gap = largest distance (m) from either line to the other, one of them reversed; bar = same crown, |dLen| <= ${BAR_LEN_M.toInt()} m, |dETA| <= ${AppConfig.routeAvoidLadderTieToleranceSec} s")
         var measured = 0
         for (pair in named) {
-            val refusal = refuse(world, pair.a) ?: refuse(world, pair.b)
+            val refusal = RouteSurveyPairs.refusal(world, pair.a) ?: RouteSurveyPairs.refusal(world, pair.b)
             if (refusal != null) {
                 say()
                 say("PAIR ${pair.name}: SKIPPED — $refusal")
@@ -161,7 +158,7 @@ class RouteDirectionSymmetryTest {
     fun randomPairs() {
         val (world, repoDir) = worldOrSkip()
         val pace = paces.first()
-        val drawn = drawPairs(world, SURVEY_PAIRS)
+        val drawn = RouteSurveyPairs.draw(world)
         say("ROUTE DIRECTION SYMMETRY (survey) — region ${BuildConfig.REGION_ID}, ${drawn.size} seeded pairs, pace $pace kn, stage tier on the 'best' rung (lambda ${AppConfig.routeAvoidLadderBestLambda})")
         say("columns: gap = engine line gap over the three rungs (worst); iso = isolated stage gap (m) on the best rung; noPath = a rung landed from one end only")
         for ((planName, plan) in plans) {
@@ -205,42 +202,6 @@ class RouteDirectionSymmetryTest {
         }
         keep(repoDir, "route-symmetry-survey.txt")
         assertTrue("the survey drew pairs", drawn.isNotEmpty())
-    }
-
-    /** [count] seeded pairs of open sea, 3–18 km apart, over the baked region's own sea. */
-    private fun drawPairs(world: BakedRegionWorld, count: Int): List<EndPair> {
-        val rng = Random(SURVEY_SEED)
-        val b = world.regionBounds
-        // The coast the Lérins and the Cap d'Antibes stand on, not the whole 6 NM envelope: a pair across a
-        // continent of open sea would only measure the empty case again.
-        val latS = maxOf(b.latSouth, 43.43)
-        val latN = minOf(b.latNorth, 43.70)
-        val lonW = maxOf(b.lonWest, 6.93)
-        val lonE = minOf(b.lonEast, 7.32)
-        fun point(): LatLng = LatLng(latS + rng.nextDouble() * (latN - latS), lonW + rng.nextDouble() * (lonE - lonW))
-        val out = ArrayList<EndPair>()
-        var tries = 0
-        while (out.size < count && tries++ < 20_000) {
-            val a = point()
-            val c = point()
-            val km = SpatialOperations.haversine(a, c) / 1000.0
-            if (km < 3.0 || km > 18.0) continue
-            if (refuse(world, a) != null || refuse(world, c) != null) continue
-            out += EndPair("random ${out.size + 1}", a, c)
-        }
-        return out
-    }
-
-    // ── The pair's ends ───────────────────────────────────────────────────────
-
-    /** Why [p] is not a fair end — land, a coast hug, a shoal — or `null` where it is open deep water. */
-    private fun refuse(world: BakedRegionWorld, p: LatLng): String? {
-        if (!world.isWater(p.latitude, p.longitude)) return "$p is on land"
-        val coastM = world.distanceToCoastM(p.latitude, p.longitude)
-        if (coastM < 150.0) return "$p is ${fmt(coastM)} m off the coast"
-        val depth = world.depthAt(p.latitude, p.longitude)
-        if (depth.hasData && depth.depthM < 6f) return "$p reads ${depth.depthM} m deep"
-        return null
     }
 
     // ── The engine tier ───────────────────────────────────────────────────────
@@ -480,7 +441,5 @@ class RouteDirectionSymmetryTest {
         const val SAMPLE_M = 10.0
         /** The plan's bar on length: one coarse cell. */
         const val BAR_LEN_M = 100.0
-        const val SURVEY_PAIRS = 24
-        const val SURVEY_SEED = 20261020L
     }
 }

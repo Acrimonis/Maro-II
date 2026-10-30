@@ -191,7 +191,13 @@ class RouteAvoidEngine(
      * every shipped path. A fixture passes `false` so every rung builds its own, which is how the sharing is
      * pinned to draw the very same lines: the raster reads nothing of a rung's λ.
      */
-    shareCrossingRasters: Boolean = true
+    shareCrossingRasters: Boolean = true,
+    /**
+     * **Whether the coarse search is the any-angle walk** — the Evolutive + row passes `true`, every other row the
+     * default, so the walk is an algorithm the user picks and never a global switch. Off, the search is the
+     * eight-direction A\* bit for bit.
+     */
+    internal val anyAngle: Boolean = false
 ) : RouteEngine {
 
     /**
@@ -208,7 +214,7 @@ class RouteAvoidEngine(
     private val gridBuilder = RouteGridBuilder(plan)
 
     /** One pass's walk — the A*, the taut pull, the corner snap and the clock, composed once. */
-    private val runner = RoutePassRunner()
+    private val runner = RoutePassRunner(anyAngle)
 
     /** The fine pass — the refinement along the settled line, composed once. */
     private val finePass = RouteFinePass(shareCrossingRasters)

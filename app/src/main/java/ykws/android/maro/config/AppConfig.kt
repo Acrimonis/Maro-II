@@ -778,6 +778,36 @@ object AppConfig {
         internal set
 
     /**
+     * Whether the fine pass re-solves each priced zone's crossing at the fine cell and splices the re-solve where it
+     * is cheaper — `route.fine.crossingResolve`, whose value `maro.properties` holds and this default follows. Off,
+     * the settled line goes straight to the fine pulls.
+     */
+    var routeFineCrossingResolve: Boolean = false
+        internal set
+
+    /**
+     * How far back, in coarse cells, the any-angle walk lets a node take its parent —
+     * `route.search.anyAngle.reachCells`, whose value `maro.properties` holds and this default follows, clamped
+     * 0..1000; `0` is no cap.
+     */
+    var routeSearchAnyAngleReachCells: Int = 32
+        internal set
+
+    /**
+     * What the any-angle walk's push prices a chord at before the pop reads it — `route.search.anyAngle.estimate`:
+     * `step`, `bound` or `full` (`ChordEstimate`), whose value `maro.properties` holds and this default follows.
+     */
+    var routeSearchAnyAngleEstimate: String = "step"
+        internal set
+
+    /**
+     * Whether a lazy pop that lowers a node's cost reopens the closed neighbours it now reaches cheaper —
+     * `route.search.anyAngle.reopen`, whose value `maro.properties` holds and this default follows.
+     */
+    var routeSearchAnyAngleReopen: Boolean = false
+        internal set
+
+    /**
      * The speed zone's outside-margin price as a fraction of the interior's —
      * `route.avoid.speedZone.outsideMargin.costFraction`, default 0.66, clamped 0.0..1.0. A cell
      * outside the ring but within [routeAvoidSpeedZoneOutsideMarginM] prices at the interior excess
@@ -2647,6 +2677,14 @@ object AppConfig {
             props.getProperty("route.approach.lone.minSavedSec")?.toDoubleOrNull()?.let {
                 routeApproachLoneMinSavedSec = it.coerceIn(0.0, 30.0)
             }
+            props.getProperty("route.fine.crossingResolve")?.toBooleanStrictOrNull()?.let { routeFineCrossingResolve = it }
+            props.getProperty("route.search.anyAngle.reachCells")?.toIntOrNull()?.let {
+                routeSearchAnyAngleReachCells = it.coerceIn(0, 1000)
+            }
+            props.getProperty("route.search.anyAngle.estimate")?.trim()?.lowercase()?.let {
+                if (it in setOf("step", "bound", "full")) routeSearchAnyAngleEstimate = it
+            }
+            props.getProperty("route.search.anyAngle.reopen")?.toBooleanStrictOrNull()?.let { routeSearchAnyAngleReopen = it }
             props.getProperty("ui.value.text")?.let { parseColorOrNull(it) }?.let { uiValueText = it }
             props.getProperty("ui.text.scrim")?.let { parseColorOrNull(it) }?.let { uiTextScrim = it }
             props.getProperty("ui.card.background")?.let { parseColorOrNull(it) }?.let { uiCardBackground = it }

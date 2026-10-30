@@ -65,6 +65,16 @@ data class RouteEngineChoice(
                 factory = { paceKn, verdictWeight, world, markerStrength ->
                     RouteEvolutiveEngine(paceKn, verdictWeight, world, markerStrength, EvolutiveGridPlan)
                 }
+            ),
+            // The evolutive walk with the any-angle search: taut lines from the search itself, the staircase's
+            // bends never drawn — the user's pick, never a default; its cost is read in the any-angle plan's §17.
+            RouteEngineChoice(
+                id = "evolutive_plus",
+                labelResId = R.string.route_engine_evolutive_plus,
+                plan = EvolutiveGridPlan,
+                factory = { paceKn, verdictWeight, world, markerStrength ->
+                    RouteEvolutiveEngine(paceKn, verdictWeight, world, markerStrength, EvolutiveGridPlan, anyAngle = true)
+                }
             )
         )
 

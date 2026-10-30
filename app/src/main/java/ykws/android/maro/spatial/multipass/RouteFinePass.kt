@@ -106,7 +106,8 @@ internal class RouteFinePass(
         val zones = ctx.zones
         val sets = ctx.sets
         // The refinement's own tally — never the pass's, and never a sibling rung's: the sweep's gate below
-        // reads what this line's own settled pull refused, as its KDoc says.
+        // reads what this line's own pulls refused — the crossings' local pulls included where they run, so with
+        // the re-solve off a line whose only refusals were a discarded re-solve's skips its sweep.
         val refusals = PullRefusals()
         val fineCellM = ctx.fineCellM
         if (line.size < 2 || fineCellM <= 0.0 || fineCellM >= cellM) return line
@@ -130,9 +131,16 @@ internal class RouteFinePass(
         // **One memo for the refinement** — made here, threaded through every stage below and never stored.
         val memo = MarkMemo()
         var out = line
-        for (zone in zones) {
-            if (zonePriceSec(cellM, pace, zone.routeLimitKn, lambda) <= 0.0) continue
-            if (!lineEntersZone(out, zone)) continue
+        // The per-zone crossing re-solve, behind its own key (`route.fine.crossingResolve`, the any-angle plan's
+        // D6): off, no zone is re-solved and the one line below says so, so a device log names the build it read.
+        // A zone is re-solved where its price is in force and the line enters it — one rule, read by the loop and by
+        // the off line's count alike; the loop re-reads it after each splice.
+        fun reSolves(zone: SpeedZone, on: List<LatLng>): Boolean =
+            zonePriceSec(cellM, pace, zone.routeLimitKn, lambda) > 0.0 && lineEntersZone(on, zone)
+        if (!AppConfig.routeFineCrossingResolve) {
+            trace { "FINE crossings=off zones=${zones.count { reSolves(it, out) }}" }
+        } else for (zone in zones) {
+            if (!reSolves(zone, out)) continue
             out = solveCrossing(
                 world, corridor, out, zone, start, aim, pace, cellM, fineCellM, marginM, outsideMarginM,
                 lambda, edges, openCoast, capLatNorth, priced, zones, sets, refusals,

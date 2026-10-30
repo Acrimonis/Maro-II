@@ -46,10 +46,12 @@ is one row there plus one class implementing `RouteEngine`.
 | `dummy` | [`RouteDummyEngine`](../../app/src/main/java/ykws/android/maro/spatial/RouteDummyEngine.kt) | One straight segment, timed at a fixed 15 kn | **No layer at all** |
 | `avoid` | [`RouteAvoidEngine`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt) with `UniformGridPlan` | One tile over the whole corridor, at `route.avoid.grid.cellM` | Coastline, depth gate, 300 m band, speed zones |
 | `evolutive` | [`RouteEvolutiveEngine`](../../app/src/main/java/ykws/android/maro/spatial/RouteEvolutiveEngine.kt) with `EvolutiveGridPlan` | Two layers on one lattice family: the coarse interior and the fine coastal band | The same water as `avoid`, plus the berth its own plan prices — and with it the gate's wall at the berth's floor |
+| `evolutive_plus` | `RouteEvolutiveEngine` with `EvolutiveGridPlan`, `anyAngle = true` | The `evolutive` walk, its coarse search the any-angle Lazy Theta\* (tuned by `route.search.anyAngle.*`) | The same water as `evolutive` |
 
 - **`dummy`** declares one computation and emits one update (`stageDone` and `nextStage` null, the straight line as the result). Its repair is a no-op — it has no water test to run one with — and `cancelLookup` has nothing to cancel.
 - **`avoid`** is the shipped default and the engine the second row delegates to.
-- **`evolutive`** is a composition, not a reimplementation: it holds a private `RouteAvoidEngine` built with its own plan and forwards the seam's three calls, so the pipeline, the clock and the readings are shared and the algorithm differs **by its plan alone**. A second composition, `selective`, was retired on 2026-10-16 with its collars, its depth price and its keys.
+- **`evolutive`** is a composition, not a reimplementation: it holds a private `RouteAvoidEngine` built with its own plan and forwards the seam's three calls, so the pipeline, the clock and the readings are shared and the water it reads differs **by its plan alone**. A second composition, `selective`, was retired on 2026-10-16 with its collars, its depth price and its keys.
+- **`evolutive_plus`** is the same composition with the engine's `anyAngle` flag on: the search draws taut chords itself rather than an eight-direction staircase. The flag is the engine's, never a global key, so the user picks the walk; its cost is read in [`261029_FEAT_PLN_Route_any-angle-search.md`](261029_FEAT_PLN_Route_any-angle-search.md) §17.
 
 ## The ladder
 

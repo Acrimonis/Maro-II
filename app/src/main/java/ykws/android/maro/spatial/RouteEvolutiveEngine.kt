@@ -17,9 +17,10 @@ import ykws.android.maro.spatial.multipass.RouteGridPlan
  *
  * **As it stands this engine is a composition and says so**: it holds a private
  * [`RouteAvoidEngine`] and forwards the seam's three calls to it, so the row is selectable, armable and
- * shares the whole pipeline. The walk it runs differs by its **plan alone** — [`EvolutiveGridPlan`]
+ * shares the whole pipeline. The water it reads differs by its **plan alone** — [`EvolutiveGridPlan`]
  * answers its own coarse cell and its own fine cell — so nothing else about the water can part from
- * `avoid` while the delegate is the rest of it. The two-layer grid and the readings replace that field
+ * `avoid` while the delegate is the rest of it; the one other choice it forwards is how the search walks
+ * that water (`anyAngle`, the Evolutive + row's). The two-layer grid and the readings replace that field
  * as they land, which is why the delegation is a private field and never an inheritance: what a caller
  * reads is the seam, and no caller can tell which side of it the algorithm sits on.
  *
@@ -37,11 +38,16 @@ class RouteEvolutiveEngine(
      * `route.evolutive.*` sizes, so the row runs this engine's resolution from its first commit while the
      * pipeline, the clock's shape and the readings stay shared.
      */
-    plan: RouteGridPlan = EvolutiveGridPlan
+    plan: RouteGridPlan = EvolutiveGridPlan,
+    /** Whether the coarse search is the any-angle walk — `true` on the Evolutive + row, forwarded to the pipeline. */
+    anyAngle: Boolean = false
 ) : RouteEngine {
 
     /** The pipeline both engines stand on — replaced, not wrapped, as the adaptive grid lands. */
-    private val delegate = RouteAvoidEngine(paceKn, verdictWeight, world, markerStrength, plan)
+    private val delegate = RouteAvoidEngine(paceKn, verdictWeight, world, markerStrength, plan, anyAngle = anyAngle)
+
+    /** Whether the pipeline this engine stands on walks any-angle — read off the delegate, so the forward is pinned. */
+    internal val anyAngle: Boolean get() = delegate.anyAngle
 
     override fun routesToCompute(origin: RoutePoint, destination: RoutePoint): RouteDeclarations =
         delegate.routesToCompute(origin, destination)
