@@ -1,20 +1,20 @@
 # Context Hydration — Route — 2026-10-30
 
-**Last Bake:** 2026-10-30 17:53 UTC — written by `#bake` on `feature/roouttinggg`.
+**Last Bake:** 2026-10-30 20:33 UTC — written by `#bake` on `feature/rooouting`.
 
-**Directive trace:** no dependency was added and no binary file opened (an APK's `maro.properties` and the phone's markers JSON read as text); the device was read only — `logcat`, `dumpsys`, the markers via `run-as` — on the user's word that each run had happened, every install the user's own through the `D:\.tmp\p6a` scripts; the code moved under `#impl` and the user's go for build C, whose one property flip was restored; the `ask` hop reviewed once, nothing blocking, three should-fix folded; none of the covered action classes stopped.
+**Directive trace:** no dependency was added and no binary file opened (the baked coastline read only through its own deserializer in tests); the device was not touched; the code moved on the user's *"go and do as much as you can"* and *"whatever is next that would improve the perf"*, the branch fast-forwarded on their *"do it"*; the `ask` hop reviewed each of the two speed-ups once, nothing blocking, its should-fix folded; none of the covered action classes stopped.
 
 ## State
 
-`feature/roouttinggg` ships the any-angle search as a fourth algorithm, Evolutive + (`evolutive_plus` in `RouteEngineChoice`): the `route.search.anyAngle` switch and its accessor are deleted, the walk an engine flag (`RoutePassRunner(anyAngle)`, `RouteAvoidEngine(anyAngle)`, forwarded by `RouteEvolutiveEngine`), the `route.search.anyAngle.*` keys tuning that row alone; `route.fine.crossingResolve=false`. The suite (1 688, 24 skipped) and `apk-build.bat` green. P6a read (plan §17): the 43° bend is the 24 kn pace's, the re-solve no part of it, the walk removing it at +2–9 % warm; the row itself read on the phone at 18:51, no bend, B's lines exactly.
+`feature/rooouting` (on `develop` at PR #398) carries two exact speed-ups, every harness line identical on `evolutive` and `evolutive_plus`: `CoastlineSpatialIndex.distanceM` reads the coast distance off a per-cell candidate list (the 24-pair survey −67–73 %, the default pair −13–23 %), and `MultipassPull.pullBothWays` runs its two walks side by side on `MarkMemo` forks (the survey −11–16 % more, the pair inside noise). The suite (1 692, 24 skipped), the real-coast `RouteDirectionSymmetryTest` and `apk-build.bat` green. The remaining levers each measure under ~5 % of a coastal rung.
 
 ## Target Files
 
-- `xTrack/Route/261029_FEAT_PLN_Route_any-angle-search.md` — §17 the P6a read and D3; P2's owed tests, P3, P5 open
-- `app/src/main/java/ykws/android/maro/spatial/RouteEngineChoice.kt`, `RouteEvolutiveEngine.kt`, `RouteAvoidEngine.kt` — the row and the flag's path
-- `app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassRunner.kt` — where the flag builds the `AnyAngleRule`
-- `app/src/test/java/ykws/android/maro/spatial/RouteEngineChoiceTest.kt`, `RouteAvoidEngineTest.kt`, `multipass/RouteBendHarnessTest.kt` (`-Dmaro.harness.anyAngle=true`)
+- `xTrack/Route/261030_FEAT_PLN_Route_exact-speedups.md` — §5 the readings, both reviews, what is left and why
+- `app/src/main/java/ykws/android/maro/spatial/CoastlineSpatialIndex.kt` — `distanceM`, `candidatesOf`
+- `app/src/main/java/ykws/android/maro/spatial/multipass/MultipassPull.kt` — `pullBothWays`, `MarkMemo.fork`/`join`
+- `app/src/test/java/ykws/android/maro/spatial/CoastlineSpatialIndexTest.kt`, `multipass/PullBothWaysForkTest.kt`, `multipass/RouteBendHarnessTest.kt` (`-Dmaro.harness.survey=true`)
 
 ## Next Step
 
-P2's owed tests on the Evolutive + engine — the five named suites and the lone-turn fixture test (plan §17, feature todo).
+The phone's reading of the two speed-ups is the user's (feature file, Owed device passes); P2's owed tests on the Evolutive + engine stay open (any-angle plan §17).

@@ -1,5 +1,6 @@
 package ykws.android.maro.spatial.multipass
 
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -184,8 +185,8 @@ class DirectionSymmetryRepairsTest {
             val reversedOnly = MultipassPull.pull(setup.reversed(), path.reversed()).reversed()
             if (forwardOnly != reversedOnly) sensitive++
 
-            val there = MultipassPull.pullBothWays(setup, path)
-            val back = MultipassPull.pullBothWays(setup.reversed(), path.reversed())
+            val there = runBlocking { MultipassPull.pullBothWays(setup, path) }
+            val back = runBlocking { MultipassPull.pullBothWays(setup.reversed(), path.reversed()) }
 
             assertEquals("one line for the pair, reversed", there, back.reversed())
             assertEquals("the ends are the caller's own", start, there.first())

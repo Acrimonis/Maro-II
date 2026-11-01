@@ -1,6 +1,7 @@
 package ykws.android.maro.spatial
 
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReferenceArray
 import ykws.android.maro.data.model.CoastlineDistanceResult
 import ykws.android.maro.data.model.CoastlinePoint
 import ykws.android.maro.data.model.CoastlineSegment
@@ -37,6 +38,7 @@ import kotlin.math.*
  * | Per-query CPU | ~0.03–0.1 ms   |
  * | Speedup vs. brute-force | 80–150× |
  * | Memory        | ~50–100 KB     |
+ * | [distanceM]'s cell lists | built per cell on first read; ~6 MB with every cell of the shipped region filled |
  * | Build time    | ~1–3 ms        |
  *
  * @param segments  The coastline polylines loaded from [CoastlineRepository].
@@ -146,10 +148,11 @@ class CoastlineSpatialIndex(
     val hasData: Boolean get() = segmentRefs.isNotEmpty()
 
     /**
-     * **One mark per segment, holding the stamp of the query that last saw it** — [nearestRef]'s own
-     * dedupe, which needs no `HashSet` and no allocation per query. Empty until `init` flattens the
-     * segments, and every query takes a stamp of its own, so a mark left by an earlier query is never
-     * equal to this one's and the segment is simply re-tested rather than wrongly skipped.
+     * **One mark per segment, holding the stamp of the query that last saw it** — [nearestRef]'s and
+     * [candidatesOf]'s dedupe, which needs no `HashSet` and no allocation per query. Empty until `init` flattens
+     * the segments, and every query takes a stamp of its own, so a mark left by an earlier query — or written over
+     * by a concurrent one — is never equal to this one's and the segment is simply re-tested rather than wrongly
+     * skipped.
      */
     private var seen: IntArray = IntArray(0)
 
@@ -415,6 +418,119 @@ class CoastlineSpatialIndex(
             polylineIdx = ref.polylineIdx,
             vertexIndex = ref.vertexIdx
         )
+    }
+
+    /**
+     * **[query]'s distance alone, read off the point's own cell** — the same double [query] answers, to the last bit.
+     *
+     * [query] walks rings outward until the ring's own reach passes the best distance, so a point kilometres off the
+     * coast crosses every segment in a square that wide, and the router's pull reads tens of thousands of such points
+     * along open-water chords. Here each grid cell keeps, built once on first use ([candidatesOf]), the segments that
+     * could be the nearest for **some** point inside it, sorted from the cell's centre outward; a read measures those
+     * alone, skipping on [SpatialOperations.boxCannotBeat] once a best stands.
+     *
+     * **The answer cannot move.** The value is the minimum of the same [SpatialOperations.pointToSegmentDistance] over
+     * a set holding the exhaustive nearest segment, so it is that segment's own distance; which of two equal segments
+     * is met first changes no distance. That is [query]'s answer wherever [query] is exhaustive — while the degree of
+     * longitude at the grid's extreme latitude stays within [SAFE_STOP_FACTOR] of the one at its middle, about three
+     * degrees of latitude either side at 44° N, where every shipped region sits; past that [query] can stop early and
+     * this read is the exhaustive one. A point outside the grid takes [query]'s own walk. `Double.MAX_VALUE` when no
+     * coastline is loaded, as [query] answers.
+     */
+    fun distanceM(latitude: Double, longitude: Double): Double {
+        if (!hasData) return Double.MAX_VALUE
+        val row = floor((latitude - minLat) / cellSizeLat).toInt()
+        val col = floor((longitude - minLon) / cellSizeLon).toInt()
+        if (row !in 0 until rowCount || col !in 0 until colCount) return query(latitude, longitude).distanceMeters
+        val point = LatLng(latitude, longitude)
+        var best = Double.MAX_VALUE
+        for (segIdx in candidatesOf(row, col)) {
+            val ref = segmentRefs[segIdx]
+            if (best < Double.MAX_VALUE && SpatialOperations.boxCannotBeat(
+                    latitude, longitude, ref.minLat, ref.maxLat, ref.minLon, ref.maxLon, gridShortestDegLonM, best
+                )
+            ) continue
+            val d = SpatialOperations.pointToSegmentDistance(point, ref.a, ref.b)
+            if (d < best) best = d
+        }
+        return best
+    }
+
+    /**
+     * The metres in the shortest degree of longitude anywhere on the grid's rows — every box bound [distanceM] reads.
+     * The last row runs past [maxLat] by up to a cell, and a point read there must not find a degree shorter than
+     * this. Declared after `init`, so the grid's bounds and size are already set.
+     */
+    private val gridShortestDegLonM: Double =
+        SpatialOperations.shortestDegLonM(max(abs(minLat), max(abs(maxLat), abs(minLat + rowCount * cellSizeLat))))
+
+    /** Each cell's candidate segments, built on first read and kept for the index's life ([distanceM]). */
+    private val cellCandidates = AtomicReferenceArray<IntArray>(rowCount * colCount)
+
+    /**
+     * **Every segment that can be the nearest for some point of cell ([row], [col])**, nearest to the centre first.
+     *
+     * The ceiling: [nearestRef] takes the centre's nearest segment, and a point `X` on it. For any point `q` of the
+     * cell, `q`'s own read of that segment is at most the planar distance from `q` to `X` at `q`'s scale, and that
+     * scale's degree of longitude is no longer than the one at the latitude nearest the equator among the cell and
+     * the segment — so the farthest corner, measured at that degree, bounds every point's nearest distance.
+     *
+     * The floor: a segment's read from any point of the cell is at least the gap between the cell's box and the
+     * segment's, longitude at the grid's shortest degree — [SpatialOperations.boxCannotBeat]'s own argument.
+     *
+     * A segment whose floor passes the ceiling is never any point's nearest; every other one is kept. Each segment
+     * sits in every grid cell its box covers, so the cells meeting the cell's box grown by the ceiling hold them all.
+     * Two threads building one cell build the same segments, and the first list stored is the one kept; a segment a
+     * concurrent build's stamp made this one meet twice sits beside its twin after the sort and is dropped there.
+     */
+    private fun candidatesOf(row: Int, col: Int): IntArray {
+        val k = row * colCount + col
+        cellCandidates.get(k)?.let { return it }
+        val cellMinLat = minLat + row * cellSizeLat
+        val cellMaxLat = cellMinLat + cellSizeLat
+        val cellMinLon = minLon + col * cellSizeLon
+        val cellMaxLon = cellMinLon + cellSizeLon
+        val centre = LatLng((cellMinLat + cellMaxLat) / 2.0, (cellMinLon + cellMaxLon) / 2.0)
+        val nearest = nearestRef(centre.latitude, centre.longitude)!!
+        val x = SpatialOperations.projectPointOntoSegment(centre, nearest.a, nearest.b)
+        val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
+        val longestDegLonM = SpatialOperations.longestDegLonM(
+            minOf(cellMinLat, nearest.minLat), maxOf(cellMaxLat, nearest.maxLat)
+        )
+        var ceilingM = 0.0
+        for (lat in doubleArrayOf(cellMinLat, cellMaxLat)) {
+            for (lon in doubleArrayOf(cellMinLon, cellMaxLon)) {
+                ceilingM = max(ceilingM, hypot((lat - x.latitude) * mPerDegLat, (lon - x.longitude) * longestDegLonM))
+            }
+        }
+        ceilingM += CANDIDATE_CEILING_SLACK_M
+
+        val reachLat = ceilingM / mPerDegLat
+        val reachLon = ceilingM / gridShortestDegLonM
+        val rMin = floor((cellMinLat - reachLat - minLat) / cellSizeLat).toInt().coerceIn(0, rowCount - 1)
+        val rMax = floor((cellMaxLat + reachLat - minLat) / cellSizeLat).toInt().coerceIn(0, rowCount - 1)
+        val cMin = floor((cellMinLon - reachLon - minLon) / cellSizeLon).toInt().coerceIn(0, colCount - 1)
+        val cMax = floor((cellMaxLon + reachLon - minLon) / cellSizeLon).toInt().coerceIn(0, colCount - 1)
+        val mark = stamp.incrementAndGet()
+        val kept = ArrayList<Pair<Double, Int>>()
+        for (r in rMin..rMax) {
+            for (c in cMin..cMax) {
+                forEachInCell(r, c) { segIdx ->
+                    if (seen[segIdx] != mark) {
+                        seen[segIdx] = mark
+                        val ref = segmentRefs[segIdx]
+                        val northM = max(0.0, max(ref.minLat - cellMaxLat, cellMinLat - ref.maxLat)) * mPerDegLat
+                        val eastM = max(0.0, max(ref.minLon - cellMaxLon, cellMinLon - ref.maxLon)) * gridShortestDegLonM
+                        if (hypot(northM, eastM) <= ceilingM) {
+                            kept.add(SpatialOperations.pointToSegmentDistance(centre, ref.a, ref.b) to segIdx)
+                        }
+                    }
+                }
+            }
+        }
+        kept.sortWith(compareBy<Pair<Double, Int>> { it.first }.thenBy { it.second })
+        val built = kept.map { it.second }.distinct().toIntArray()
+        return if (cellCandidates.compareAndSet(k, null, built)) built else cellCandidates.get(k)
     }
 
     /**
@@ -924,6 +1040,12 @@ class CoastlineSpatialIndex(
          * closer segment hides just outside the searched box.
          */
         const val SAFE_STOP_FACTOR = 0.95
+
+        /**
+         * [distanceM]'s margin (m) on a cell's ceiling — far above the reads' own rounding (nanometres) and the
+         * centre's projected point's distance off its segment, far below anything a candidate list's size feels.
+         */
+        const val CANDIDATE_CEILING_SLACK_M = 1e-3
 
         /**
          * A polyline is treated as a closed ring (island) when its first and last vertex

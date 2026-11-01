@@ -1,10 +1,14 @@
 package ykws.android.maro.spatial
 
 import org.junit.Assert.*
+import org.junit.Assume
 import org.junit.Test
+import ykws.android.maro.BuildConfig
+import ykws.android.maro.data.coastline.CoastlineSerializer
 import ykws.android.maro.data.model.CoastlinePoint
 import ykws.android.maro.data.model.CoastlineSegment
 import ykws.android.maro.data.model.LatLng
+import java.io.File
 import kotlin.math.abs
 import kotlin.math.sin
 
@@ -146,5 +150,99 @@ class CoastlineSpatialIndexTest {
     fun `empty index returns sentinel`() {
         val index = CoastlineSpatialIndex(emptyList())
         assertEquals(Double.MAX_VALUE, index.query(43.5, 7.0).distanceMeters, 0.0)
+        assertEquals(Double.MAX_VALUE, index.distanceM(43.5, 7.0), 0.0)
+    }
+
+    /**
+     * **`distanceM` is `query`'s distance to the last bit** — on the coast, kilometres off it where the cell's
+     * candidates are many, outside the grid where it falls back, on an island ring beside the mainland, and read a
+     * second time from a cell already built.
+     */
+    @Test
+    fun `distanceM answers query's own distance, near, far and outside the grid`() {
+        val island = CoastlineSegment(
+            osmWayId = 2L,
+            points = (0..40).map { k ->
+                val a = 2.0 * Math.PI * k / 40
+                CoastlinePoint(lat = (43.49 + 0.002 * sin(a)).toFloat(), lon = (7.012 + 0.003 * kotlin.math.cos(a)).toFloat())
+            },
+            isMainland = false,
+            isClosed = true
+        )
+        for (cellM in listOf(100.0, 500.0)) {
+            val index = CoastlineSpatialIndex(listOf(coast, island), cellSizeM = cellM)
+            repeat(2) { pass ->
+                var lat = 43.40
+                while (lat <= 43.60) {
+                    var lon = 6.90
+                    while (lon <= 7.13) {
+                        assertEquals(
+                            "cells $cellM m, pass $pass at ($lat, $lon)",
+                            index.query(lat, lon).distanceMeters, index.distanceM(lat, lon), 0.0
+                        )
+                        lon += 0.00137
+                    }
+                    lat += 0.00113
+                }
+            }
+        }
+    }
+
+    /**
+     * **Three readers on one fresh index answer `query`'s distance** — the three rungs' own shape: the cells are
+     * built under contention, each list stored once, and every read, during and after, is the walk's own double.
+     */
+    @Test
+    fun `distanceM answers query's own distance under three concurrent readers`() {
+        val index = CoastlineSpatialIndex(listOf(coast), cellSizeM = 100.0)
+        val probes = buildList {
+            var lat = 43.45
+            while (lat <= 43.55) {
+                var lon = 6.95
+                while (lon <= 7.08) {
+                    add(lat to lon)
+                    lon += 0.0009
+                }
+                lat += 0.0007
+            }
+        }
+        val answers = List(3) { DoubleArray(probes.size) }
+        val readers = answers.mapIndexed { t, out ->
+            Thread {
+                // Each reader starts at its own offset, so the three meet in cells none of them has built yet.
+                for (i in probes.indices) {
+                    val k = (i + t * probes.size / 3) % probes.size
+                    out[k] = index.distanceM(probes[k].first, probes[k].second)
+                }
+            }
+        }
+        readers.forEach { it.start() }
+        readers.forEach { it.join() }
+        for ((k, probe) in probes.withIndex()) {
+            val expected = index.query(probe.first, probe.second).distanceMeters
+            for (out in answers) assertEquals("at $probe", expected, out[k], 0.0)
+        }
+    }
+
+    /** The same identity on the shipped region's coast, wherever the bake is present. */
+    @Test
+    fun `distanceM answers query's own distance on the baked coast`() {
+        val file = File("../data/app-assets/coastlines/${BuildConfig.REGION_ID}.bin")
+        Assume.assumeTrue("no baked coastline at $file", file.isFile)
+        val coast = CoastlineSerializer.deserialize(file.readBytes())
+        val index = CoastlineSpatialIndex(coast.allSegments)
+        val box = coast.boundingBox
+        var checked = 0
+        var lat = box.latSouth
+        while (lat <= box.latNorth) {
+            var lon = box.lonWest
+            while (lon <= box.lonEast) {
+                assertEquals("at ($lat, $lon)", index.query(lat, lon).distanceMeters, index.distanceM(lat, lon), 0.0)
+                checked++
+                lon += 0.00731
+            }
+            lat += 0.00317
+        }
+        assertTrue("expected a wide sweep, only $checked", checked > 5000)
     }
 }

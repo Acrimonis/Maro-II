@@ -1,5 +1,9 @@
 package ykws.android.maro.spatial.multipass
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.ensureActive
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.spatial.SpatialOperations
@@ -174,8 +178,13 @@ internal class MarkLattice(val lengthM: Double, stepM: Double) {
  * half pays off there too, where a walk alone re-visits no mark.
  *
  * Nothing here is static or shared across passes: the memo is made inside the pass and never stored.
+ *
+ * A [fork] reads through to the memo it was forked from — [parent], frozen while the fork lives — and writes
+ * only to its own tables, which [join] hands back.
  */
-internal class MarkMemo {
+internal class MarkMemo private constructor(private var parent: MarkMemo?) {
+
+    constructor() : this(null)
 
     /** The field the tables were filled under; a different identity wipes them all. */
     private var boundField: RouteCostField? = null
@@ -216,7 +225,7 @@ internal class MarkMemo {
      */
     fun hardOrNull(field: RouteCostField, p: LatLng): Double? {
         bind(field)
-        val held = hard[p]
+        val held = held(hard, parent?.hard, p)
         if (held.isNaN()) return null
         hardHits++
         return held
@@ -259,7 +268,7 @@ internal class MarkMemo {
         berthSide: Boolean
     ): Double {
         bind(field)
-        val held = edge[p]
+        val held = held(edge, parent?.edge, p)
         if (!held.isNaN()) {
             edgeHits++
             return held
@@ -290,7 +299,7 @@ internal class MarkMemo {
         timing: PullTiming?
     ): Double {
         bind(field)
-        val held = farEdge[p]
+        val held = held(farEdge, parent?.farEdge, p)
         if (!held.isNaN()) {
             if (held >= 0.0) {
                 edgeHits++
@@ -314,7 +323,7 @@ internal class MarkMemo {
      */
     fun fieldClearanceOrNull(field: RouteCostField, p: LatLng): Double? {
         bind(field)
-        val held = fieldClearance[p]
+        val held = held(fieldClearance, parent?.fieldClearance, p)
         return if (held.isNaN()) null else held
     }
 
@@ -327,7 +336,7 @@ internal class MarkMemo {
     /** The soft price at [p] under [field] — read once, then answered, the same double each time. */
     fun price(field: RouteCostField, p: LatLng): Double {
         bind(field)
-        val held = price[p]
+        val held = held(price, parent?.price, p)
         if (!held.isNaN()) {
             priceHits++
             return held
@@ -344,7 +353,7 @@ internal class MarkMemo {
      */
     fun priceOrNull(field: RouteCostField, p: LatLng): Double? {
         bind(field)
-        val held = price[p]
+        val held = held(price, parent?.price, p)
         if (held.isNaN()) return null
         priceHits++
         return held
@@ -356,9 +365,46 @@ internal class MarkMemo {
         price[p] = value
     }
 
-    /** Wipes every table when the field's identity changes, so no answer can cross a rebuild. */
+    /**
+     * **This memo's own view for one walk run beside another** — its field, every entry it holds read through, its
+     * counts at zero, so the walk answers from all this memo already read and writes only its own reads; [join] hands
+     * those back. This memo must not be written while a fork lives.
+     */
+    internal fun fork(): MarkMemo = MarkMemo(this).also { it.boundField = boundField }
+
+    /**
+     * **A forked walk's own reads and counts taken back** ([fork]). An entry is a point's one double under the field,
+     * so two walks holding a point hold the same value; the far-edge table alone keeps what each read proved, so a
+     * found distance outranks a "none", and of two "none"s the longer reach is kept — each answers what
+     * [farEdgeDistance] lets it answer.
+     */
+    internal fun join(walk: MarkMemo) {
+        walk.boundField?.let(::bind)
+        hard.putAll(walk.hard)
+        price.putAll(walk.price)
+        edge.putAll(walk.edge)
+        fieldClearance.putAll(walk.fieldClearance)
+        walk.farEdge.forEach { lat, lon, value ->
+            val held = farEdge.get(lat, lon)
+            if (held.isNaN() || (held < 0.0 && (value >= 0.0 || value < held))) farEdge.set(lat, lon, value)
+        }
+        hardHits += walk.hardHits
+        priceHits += walk.priceHits
+        edgeHits += walk.edgeHits
+        edgeMisses += walk.edgeMisses
+        farEdgeMisses += walk.farEdgeMisses
+    }
+
+    /** [own]'s entry at [p], else the [parent]'s — a fork answers from all its parent held; `NaN` where neither does. */
+    private fun held(own: PointDoubleMap, inherited: PointDoubleMap?, p: LatLng): Double {
+        val value = own[p]
+        return if (value.isNaN() && inherited != null) inherited[p] else value
+    }
+
+    /** Wipes every table when the field's identity changes, so no answer can cross a rebuild — a fork's parent too. */
     private fun bind(field: RouteCostField) {
         if (boundField !== field) {
+            parent = null
             hard.clear()
             price.clear()
             edge.clear()
@@ -413,9 +459,12 @@ internal class PointDoubleMap {
     }
 
     /** The value held at [p], or `NaN` where none is. */
-    operator fun get(p: LatLng): Double {
-        val lat = p.latitude
-        val lon = p.longitude
+    operator fun get(p: LatLng): Double = get(p.latitude, p.longitude)
+
+    operator fun set(p: LatLng, value: Double) = set(p.latitude, p.longitude, value)
+
+    /** The value held at ([lat], [lon]), or `NaN` where none is. */
+    fun get(lat: Double, lon: Double): Double {
         var i = slotFor(lat, lon)
         while (true) {
             val v = values[i]
@@ -425,10 +474,8 @@ internal class PointDoubleMap {
         }
     }
 
-    operator fun set(p: LatLng, value: Double) {
+    fun set(lat: Double, lon: Double, value: Double) {
         if (size * 2 >= values.size) grow()
-        val lat = p.latitude
-        val lon = p.longitude
         var i = slotFor(lat, lon)
         while (true) {
             if (values[i].isNaN()) {
@@ -451,6 +498,19 @@ internal class PointDoubleMap {
         size = 0
     }
 
+    /** Every entry, as its two coordinates and its value. */
+    fun forEach(action: (lat: Double, lon: Double, value: Double) -> Unit) {
+        for (i in values.indices) {
+            val v = values[i]
+            if (!v.isNaN()) action(lats[i], lons[i], v)
+        }
+    }
+
+    /** Stores every entry of [other], over any this one holds at the same point. */
+    fun putAll(other: PointDoubleMap) {
+        other.forEach(::set)
+    }
+
     private fun grow() {
         val oldLats = lats
         val oldLons = lons
@@ -461,7 +521,7 @@ internal class PointDoubleMap {
         mask = values.size - 1
         size = 0
         for (i in oldValues.indices) {
-            if (!oldValues[i].isNaN()) set(LatLng(oldLats[i], oldLons[i]), oldValues[i])
+            if (!oldValues[i].isNaN()) set(oldLats[i], oldLons[i], oldValues[i])
         }
     }
 }
@@ -834,13 +894,23 @@ object MultipassPull {
      *
      * The line comes back in the caller's direction, ends first and last as in [pull]. A path of two points
      * or fewer, and a pair of candidates that agree, are answered at once. [refusals] and [timing] count
-     * both walks, which is what they cost; [memo] is shared, the field being the same.
+     * both walks, which is what they cost.
+     *
+     * **The two walks run side by side**, the backward one on [Dispatchers.Default]: neither reads the other's
+     * answer, and what they share — the setup, its field, gate and berth — is immutable or built for concurrent
+     * readers (the coast index's cell lists, the edge index's chunks), the three rungs already reading one world at
+     * once. Each walk reads a [MarkMemo.fork] of [memo], so it answers from every entry the pass already holds and
+     * writes only its own, and keeps its own [PullRefusals] and [PullTiming]; all three are joined back, forward
+     * first, once both are in. The trace's `clearMs` and `priceMs` sum the two walks, so they can read above the
+     * call's own `ms`. A memo is a cache of the field's own doubles, so the lines
+     * are the ones the walks drew in turn; what the overlap gives up is the backward walk's hits on the forward
+     * walk's fresh entries — the work grows by those, the wait falls by the shorter walk.
      *
      * [split] is the instrument's seat: where one is handed in, each walk's own clock and tallies, the
      * choice's clock and the verdict are written into it, so a reader can tell the two walks apart where
      * [timing] and [memo] only hold their sum. It reads and never steers.
      */
-    internal fun pullBothWays(
+    internal suspend fun pullBothWays(
         setup: PullSetup,
         path: List<LatLng>,
         refusals: PullRefusals? = null,
@@ -849,10 +919,45 @@ object MultipassPull {
         split: PullSplit? = null,
         checkCancelled: () -> Unit = {}
     ): List<LatLng> {
-        val forward = split.read(timing, memo) { pull(setup, path, refusals, timing, memo, checkCancelled) }
-        if (path.size <= 2) return forward
-        val backward = split.read(timing, memo, forward = false) {
-            pull(setup.reversed(), path.asReversed(), refusals, timing, memo, checkCancelled).asReversed()
+        if (path.size <= 2) {
+            return split.read(timing, memo) { pull(setup, path, refusals, timing, memo, checkCancelled) }
+        }
+        val forwardMemo = memo?.fork()
+        val backwardMemo = memo?.fork()
+        val forwardRefusals = refusals?.let { PullRefusals() }
+        val backwardRefusals = refusals?.let { PullRefusals() }
+        val forwardTiming = timing?.let { PullTiming() }
+        val backwardTiming = timing?.let { PullTiming() }
+        val (forward, backward) = coroutineScope {
+            val backwardWalk = async(Dispatchers.Default) {
+                // The scope's own cancellation too, so a forward walk that fails stops this one at its next check.
+                val cancelled = {
+                    checkCancelled()
+                    ensureActive()
+                }
+                split.read(backwardTiming, backwardMemo, forward = false) {
+                    pull(
+                        setup.reversed(), path.asReversed(), backwardRefusals, backwardTiming, backwardMemo, cancelled
+                    ).asReversed()
+                }
+            }
+            val forwardLine = split.read(forwardTiming, forwardMemo) {
+                pull(setup, path, forwardRefusals, forwardTiming, forwardMemo, checkCancelled)
+            }
+            forwardLine to backwardWalk.await()
+        }
+        if (memo != null) {
+            memo.join(forwardMemo!!)
+            memo.join(backwardMemo!!)
+        }
+        refusals?.run {
+            add(forwardRefusals!!)
+            add(backwardRefusals!!)
+        }
+        timing?.run {
+            add(forwardTiming!!)
+            add(backwardTiming!!)
+            recordWalk(setup, memo)
         }
         if (forward == backward) {
             split?.settle(PullSplit.Kept.SAME, 0.0, null, null)
@@ -878,8 +983,8 @@ object MultipassPull {
 
     /**
      * One walk of [pullBothWays] run under the instrument: with no [PullSplit] it is the walk and nothing
-     * else; with one, the walk's clock and the **deltas** of the tallies it ran under — the memo's hits
-     * included, so the backward walk's count is what the forward walk's entries did not already answer.
+     * else; with one, the walk's clock and the **deltas** of the tallies it ran under — its own memo fork's hits
+     * included, which the entries the pass held before the call answer and the forward walk's never do.
      */
     private inline fun PullSplit?.read(
         timing: PullTiming?,
@@ -1775,6 +1880,12 @@ class PullRefusals {
             ChordRefusal.PRICE -> price++
         }
     }
+
+    /** Adds [walk]'s counts — one walk of a [MultipassPull.pullBothWays] run beside the other. */
+    internal fun add(walk: PullRefusals) {
+        land += walk.land
+        price += walk.price
+    }
 }
 
 /**
@@ -1966,6 +2077,27 @@ class PullTiming {
         memoHardHits = memo?.hardHits ?: 0L
         memoEdgeHits = memo?.edgeHits ?: 0L
     }
+
+    /**
+     * Adds [walk]'s spending — one walk of a [MultipassPull.pullBothWays] run beside the other. The steps and the
+     * memo's hits are not summed: [recordWalk] reads them off the joined memo once both walks are in.
+     */
+    internal fun add(walk: PullTiming) {
+        clearanceNanos += walk.clearanceNanos
+        priceNanos += walk.priceNanos
+        priceReads += walk.priceReads
+        hardReads += walk.hardReads
+        marks += walk.marks
+        farEdgeReads += walk.farEdgeReads
+        nearEdgeNanos += walk.nearEdgeNanos
+        farEdgeNanos += walk.farEdgeNanos
+        berthEdgeNone += walk.berthEdgeNone
+        wallEdgeNone += walk.wallEdgeNone
+        fieldPriceNanos += walk.fieldPriceNanos
+        fieldClearReads += walk.fieldClearReads
+        fieldClearNanos += walk.fieldClearNanos
+        clearanceMarks += walk.clearanceMarks
+    }
 }
 
 /**
@@ -1975,9 +2107,9 @@ class PullTiming {
  * apiece, the choice's own clock and the verdict, and is handed in where a reader wants it, exactly like
  * [PullTiming]: the answer does not depend on carrying one, and nothing is emitted per chord.
  *
- * A walk's hits are the memo's **deltas over that walk**, so the backward walk's price hits are the reads
- * it did not pay, its own retraced stretches and the forward walk's entries together; its paid reads fall
- * against the forward walk's by what the first walk's memo handed it.
+ * A walk's hits are the **deltas over that walk** of its own memo fork: the reads it did not pay, answered by
+ * its own retraced stretches and the entries the pass held before the call. The two walks run side by side, so
+ * neither is answered by the other's fresh entries, and each walk's clock includes the time it waited for a core.
  */
 class PullSplit {
 
