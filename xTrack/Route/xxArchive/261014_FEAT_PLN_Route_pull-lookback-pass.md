@@ -135,3 +135,7 @@ coverage and code health) → Architect (this record).
   known defect* reads as the opposite of this fix; §2's own findings are the off-axis first leg and the
   shore refusals, so no decision is reversed, but the titles need one line of disambiguation.
 - The sweep's rare-line cost is unmeasured, and the device pass is the user's own (R97).
+
+## Outcome
+
+Shipped as its `## Implemented` records; the four prose debts (the sweep's KDoc, the engines doc's readings clause, the decisions-doc line, the wiring tooth) closed on 2026-11-01.

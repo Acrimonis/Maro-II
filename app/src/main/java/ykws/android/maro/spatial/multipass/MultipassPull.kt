@@ -1138,10 +1138,12 @@ object MultipassPull {
      *
      * **One insertion point, gated on the line's own refusals.** The fine pass calls this on its settled
      * line alone: the runner's final pull is never swept, because the coarse line is re-refined here and
-     * sweeping it would pay twice for one answer. The sweep is skipped where the line's own pull recorded
-     * no refusal (`refusals.land + refusals.price == 0`), since a line the greedy pulled in one chord
-     * carries no artifact — the common case pays nothing at all. A `null` tally proves nothing of the
-     * line, so the sweep still runs; the gate is a saving, never a verdict.
+     * sweeping it would pay twice for one answer. The sweep is skipped where the caller's tally recorded
+     * no refusal (`refusals.land + refusals.price == 0`) — the fine pass's own, cumulative over every pull
+     * its refinement ran (the crossings' local pulls, the re-tension and the settled pull), never the
+     * settled pull's alone — since a refinement whose pulls each drew one chord carries no artifact, and the
+     * common case pays nothing at all. A `null` tally proves nothing of the line, so the sweep still runs;
+     * the gate is a saving, never a verdict.
      *
      * **The fixed ends are never candidates.** Only an interior `B` is tested, so the raw [PullSetup.start]
      * and [PullSetup.aim] the walk must reach are untouched. **The tie-break is deterministic**: a triple
@@ -1167,8 +1169,9 @@ object MultipassPull {
      * @param setup the water the settled walk was handed — the same margin, steps, field and raw ends, so
      *   the sweep's proofs are the walk's own.
      * @param line the settled line, raw start first and raw aim last, exactly as [`pull`] returned it.
-     * @param refusals the tally the settled pull counted into; the sweep runs only where it is non-empty,
-     *   and a `null` tally proves nothing so the sweep runs.
+     * @param refusals the caller's cumulative tally — every pull that led to [line] counted into it, the
+     *   settled pull among them; the sweep runs only where it is non-empty, and a `null` tally proves nothing
+     *   so the sweep runs.
      * @param timing the walk's own tally of what it spent, or `null` where no reader wants it.
      * @param memo the walk's own read memo, shared with the settled pull so a retraced mark is answered
      *   from it rather than paid again; a fresh one is made here where none is handed.
@@ -1197,8 +1200,8 @@ object MultipassPull {
             trace { "SWEEP skipped=short" }
             return line
         }
-        // The gate: a line the greedy pulled in one chord has no artifact to remove, so the sweep is
-        // skipped where the settled pull recorded no refusal.
+        // The gate: a line whose pulls each drew one chord has no artifact to remove, so the sweep is
+        // skipped where the caller's cumulative tally recorded no refusal.
         if (refusals != null && refusals.land + refusals.price == 0) {
             trace { "SWEEP skipped=no-refusals" }
             return line

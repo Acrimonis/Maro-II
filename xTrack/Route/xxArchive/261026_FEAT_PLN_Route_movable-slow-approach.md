@@ -71,3 +71,7 @@ the focused suite succeeded offline with approved access for local Gradle proces
 
 This change is based directly on upstream `develop` at `b1f40aa2`. The earlier snapping and sweep-angle
 changes in PR #392 are not included; the approach regression and build also pass without them.
+
+## Outcome
+
+Shipped 2026-10-26 as asked: the approach pass moves a slow-water crossing with its adjoining bend. The later bare-bends and lone-turns plans built on that pass and carry its device readings. Nothing open.

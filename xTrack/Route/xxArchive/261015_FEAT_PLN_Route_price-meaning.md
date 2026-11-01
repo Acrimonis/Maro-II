@@ -7,8 +7,8 @@ delta? Can't we improve the route? So it is more consistant?"*
 
 **Scope:** the seconds the search and the pull's guard charge for slow water — their unit, their arms, and
 which of them the clock can see. It is the precondition for any consistency work on the ladder, and it
-sits beside [`261014_FEAT_PLN_Route_acquisition-perf.md`](261014_FEAT_PLN_Route_acquisition-perf.md) and
-[`261014_FEAT_PLN_Route_pull-lookback-pass.md`](261014_FEAT_PLN_Route_pull-lookback-pass.md).
+sits beside [`261014_FEAT_PLN_Route_acquisition-perf.md`](xxArchive/261014_FEAT_PLN_Route_acquisition-perf.md) and
+[`261014_FEAT_PLN_Route_pull-lookback-pass.md`](xxArchive/261014_FEAT_PLN_Route_pull-lookback-pass.md).
 
 ## What is there today
 
@@ -147,3 +147,7 @@ trace is seconds; a kept bend names the arm that kept it; no dependency is added
   string added; the words for one are the user's own, and were deliberately not part of this hop.
 - **Untouched by this hop:** the unit (P1), the per-arm split's remaining arms (P2), the depth arm's standing
   (P3) and the scale's reading (P4) stand exactly as the plan left them.
+
+## Outcome
+
+The marker arm and the presence fact shipped 2026-10-16. Archived 2026-11-01 on the user's word with the rest dropped: P1 (the unit relabelled in true seconds) changes nothing a user sees and was not re-checked; P3 is settled in practice — the berth's price reaches neither the clock nor the ranking; P4 names `route.selective.depth.priceSecPerM`, retired with its engine.

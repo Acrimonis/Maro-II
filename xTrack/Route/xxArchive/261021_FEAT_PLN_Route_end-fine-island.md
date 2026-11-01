@@ -90,3 +90,7 @@ standing beyond the fine layer anchors on the coarse cell instead of a manufactu
 - **Open:** the device pass on the La Salis → Enfer de Dante pair (the user's own run), and the fine pass's
   own force-free at [`RouteFinePass.kt:212`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RouteFinePass.kt:212)
   to be confirmed by that run.
+
+## Outcome
+
+Shipped 2026-10-21 as its `## Implemented` records; the phone check moved to the feature file's owed list on archiving.

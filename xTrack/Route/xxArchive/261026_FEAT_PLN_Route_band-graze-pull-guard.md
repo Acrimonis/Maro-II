@@ -84,3 +84,7 @@ A **band weight on the pull/sweep guard field alone**, leaving the search's band
 - **The staircase itself** — collapsing grid stair-steps before the pull would fix the artifact at the source
   for every λ, and a **dominance filter** in the ranking would drop a dominated rung like λ 3's; both were
   named in the discussion and are alternatives to this plan, not part of it.
+
+## Outcome
+
+Never built. On 2026-11-01 the bend harness routed the same pair (Village Englouti → Feu Artifice, 30 kn) and none of the three rungs keeps the bend at 43.5400,7.1029: the approach pass's lone slide replaces it on λ 5, the other rungs never keep it. The harness lines (12.5–12.7 km) differ from the phone's (11.8–12.0 km), the harness skipping the engine's end repair.

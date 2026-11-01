@@ -1,6 +1,7 @@
 package ykws.android.maro.spatial.multipass
 
 import kotlinx.coroutines.ensureActive
+import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.spatial.SpatialOperations
 import kotlin.coroutines.coroutineContext
@@ -111,7 +112,17 @@ internal class AnyAngleRule(
     val reachCells: Int,
     val estimate: ChordEstimate = ChordEstimate.STEP,
     val reopen: Boolean = false
-)
+) {
+    companion object {
+        /** **The shipped rule** — the `route.search.anyAngle.*` keys as read, an unnamed estimate falling to [ChordEstimate.STEP]. */
+        fun shipped(): AnyAngleRule = AnyAngleRule(
+            AppConfig.routeSearchAnyAngleReachCells,
+            ChordEstimate.entries.firstOrNull { it.name.equals(AppConfig.routeSearchAnyAngleEstimate, true) }
+                ?: ChordEstimate.STEP,
+            AppConfig.routeSearchAnyAngleReopen
+        )
+    }
+}
 
 object MultipassSearch {
 

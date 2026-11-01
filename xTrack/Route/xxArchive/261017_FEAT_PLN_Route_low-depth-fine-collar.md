@@ -37,3 +37,7 @@
 
 - Whether the cut grows around each harvested shallow cell or around their merged mass; the builder's one open choice.
 - Whether a seam still exists at a window boundary after the tile halo (two windows, not two tiles) and, if so, the same rule for the window assembly.
+
+## Outcome
+
+Shipped: `FineWater.depthCollarM` keeps a cell fine where its gate distance is inside the collar (`depthCollarReachM`, read by the mask and the builder's cut, keyed on the tile). The tile halo was built and later dropped — `FineTile.extract` keeps the halo as a shape no shipped build asks for. The plan's two open choices were not re-checked at archiving.

@@ -106,3 +106,7 @@ read through `AppConfig`.
   is floored at its rest height so the panel can grow but never shrink mid-swipe, releasing at settle; the
   pager is recreated on the seat so a row tap lands as one size change. A small bounce on selection change
   still remains (open).
+
+## Outcome
+
+Shipped 2026-10-22 as planned, plus the resize-jump fix. Open, now in the feature file: the small bounce on a selection change (a todo) and the table's device check (Owed device passes).

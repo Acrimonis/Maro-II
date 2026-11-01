@@ -248,3 +248,7 @@ the water allows. Two shapes, and choosing between them was this plan's first qu
   the 20–50 m berth the user asked for is invisible because the preference is in depth, not standoff; a
   per-grid distance-to-gate field would carry that berth and replace the ring's per-read cost. The zero
   clearance and the per-interval reads it buys stand beside it.
+
+## Outcome
+
+Shipped 2026-10-07 and retired 2026-10-17: the gate berth (`261017_FEAT_PLN_Route_gate-berth.md`) replaced the depth band and deleted `DepthBand` and its keys. Whether a soft depth preference returns stays in the decisions doc.

@@ -5,9 +5,8 @@
 *"Looking at the way it is implemented. Is there a way to improve the performance?"*, then *"plan this"*.
 
 **Scope:** the acquisition's own machine cost, not its answer. The coastal leg's optimistically low
-reading is a different question with its own plan
-([`261007_FEAT_PLN_Route_coastal-fine-grid-engine.md`](261007_FEAT_PLN_Route_coastal-fine-grid-engine.md)):
-that one asks whether the figure is wrong, this one whether the rung is dear.
+reading is a different question, dropped on 2026-11-01: this plan asks only
+whether the rung is dear.
 
 ## What is there today
 
@@ -153,3 +152,7 @@ figure that prices it.
 ## Implemented
 
 —
+
+## Outcome
+
+Nothing built from this plan; the 2026-10-27 search-speed evaluation and remediation re-measured the budget and shipped the work.

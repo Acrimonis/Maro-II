@@ -18,7 +18,7 @@ post-search stages), each claim re-checked in source, and the device captures al
 budget: `logcat_Le_Village_Englouti_bad-pull.log` and `route_good.log` (2026-10-26, Village Englouti →
 Feu Artifice, 30 kn, `evolutive`, λ 1 · 3 · 5, 12 km) and `route_full.log` (the same session's pre-warm).
 This supersedes the budget section of
-[`261014_FEAT_PLN_Route_acquisition-perf.md`](261014_FEAT_PLN_Route_acquisition-perf.md) and stands beside
+[`261014_FEAT_PLN_Route_acquisition-perf.md`](xxArchive/261014_FEAT_PLN_Route_acquisition-perf.md) and stands beside
 [`docs/REVIEW_2026-10-26_routing-algorithm.md`](../../docs/REVIEW_2026-10-26_routing-algorithm.md) §3, whose
 "next performance batch" it re-ranks.
 
@@ -420,3 +420,7 @@ on the existing symmetry and walk fixtures before a device pass.
 ## Implemented
 
 —
+
+## Outcome
+
+Implemented as its `## Implemented` records. Archived 2026-11-01 on the user's word with F17 (the approach pass's cost) dropped: with Evolutive + the default, the any-angle plan's P5 decides which approach-pass cases retire.

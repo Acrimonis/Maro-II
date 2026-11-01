@@ -33,3 +33,7 @@
 ## Open
 
 - Whether λ alone brakes the berth — there is no cap — and the next device pass once the inclusive standoff is landed.
+
+## Outcome
+
+Shipped 2026-10-17: the per-grid gate distance and the 20–50 m berth replaced the depth band, and the standoff was made inclusive after the first device pass. The measured gate (`261017_FEAT_PLN_Route_gate-standoff-sampling.md`) carried the work on. Open, now a feature-file todo: whether λ alone brakes the berth, no cap standing.

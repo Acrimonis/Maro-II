@@ -98,3 +98,7 @@ The 2026-10-19 device session (`evolutive`, 5 kn, before both the measured gate 
 
 - `app/src/main/java/ykws/android/maro/spatial/multipass/RouteCornerPass.kt` — `attemptCorner`, `wallsAround`, `compoundLine`
 - `app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt` — `traceCornerVerdicts`, the `LINE` line
+
+## Outcome
+
+Closed 2026-11-01, F1 not built. Measured on the bend harness (`-Dmaro.harness.corners=true`): about 10–13 % of non-shallow bends stand today against 74 % on 2026-10-19, none on the 24-pair open-water survey; on 10 coastal pairs between the user's markers they are the first or last corner, 20–61 m from an end, where the line already sits on the gate's hard wall or brushes the coast. A replay of F1's stretch floor rounds one bend a rung at 5 kn (Cap Gros → Le Rascoui) and none at 25 kn. F2 was dropped as covered by the any-angle search.

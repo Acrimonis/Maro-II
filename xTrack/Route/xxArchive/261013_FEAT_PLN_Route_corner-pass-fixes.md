@@ -228,3 +228,7 @@ bracket rooms) is the code-default geometry; each fixture names the default it a
   with its comment, since it pinned the very defect this removed.
 - **Still open:** why the line places a corner inside the 50 m margin at all — the twin of the relative
   shore rule, and the one that would correct the line rather than forgive it.
+
+## Outcome
+
+Shipped as planned on 2026-10-13: the three scopes landed with their fixtures, then a follow-up hop corrected the comments and KDoc the change made false. Nothing open.

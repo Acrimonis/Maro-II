@@ -2,7 +2,7 @@
 name: Tracks
 status: active
 created: 2026-06-15 21:43
-modified: 2026-10-25 08:15
+modified: 2026-11-01 18:29
 ---
 
 # Feature: Tracks
@@ -94,6 +94,7 @@ Deferred — cross-navigation between track detail and marker detail via `>` lin
 - A route's name joins its two ends with `<->` and prints a single named end alone, never `From` or `To`; a recorded trip's name keeps the language's own `to` / `à` ([`TrackNaming.compose`](../../app/src/main/java/ykws/android/maro/data/track/TrackNaming.kt) takes the connector, the route's save in [`MapScreen.kt`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt) passing `ROUTE_CONNECTOR`).
 
 ## Docs
+- `xTrack/Tracks/261101_FEAT_PLN_Tracks_stops-and-slow-water.md` — **the slow-water time on a card**: a third stats row `Open water · 300M · Zones` on track and route cards, stops read from the stored track's own idle test, the figure on the summary behind a classifier seam, the route's attribution aligned (in design, reviewed once)
 - `xTrack/Tracks/261011_FEAT_PLN_Tracks_export-auto-markers.md` — a trip's GPX carries its markers: the payloads in a track's extensions and their `wpt` companions, the `trackId` remap on import, the transient filter and the skip-consistency rule (shipped 2026-10-11)
 - `xTrack/Tracks/261010_FEAT_PLN_Tracks_marker-zone-naming.md` — the marker-zone naming design: the timed fusion, the name shape, and the origin-led chain with the Port Salis home port excluded (settled 2026-10-11)
 - `xTrack/Tracks/261007_FEAT_PLN_Tracks_path-render-engine.md` — **the path render engine**: one painter for tracks and routes — the seam's `RenderPoint` / `LineRenderSpec` / `LineRenderPlan`, the `path.*` contract and its `pathKeyCandidates` cascade, the route parity (chevrons, speed bands and dash), the docs / rebuild-key / test pass and the grep guard (implementation landed; device pass owed); its `## Speed and arrow display` normalisation — per-axis global → kind → class tiers, the per-kind persisted settings and per-kind Settings split, the new `acquisition` class, `path.gate.*` retired — **shipped 2026-10-07**, uncommitted

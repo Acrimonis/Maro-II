@@ -237,7 +237,7 @@ runs over the bar. **This is the reserved option, taken for the search alone.**
 
 ## Relation to the earlier plan
 
-The 2026-10-13 bend work ([`261007_FEAT_PLN_Route_turn-impact-and-symmetry.md`](261007_FEAT_PLN_Route_turn-impact-and-symmetry.md))
+The 2026-10-13 bend work ([`261007_FEAT_PLN_Route_turn-impact-and-symmetry.md`](xxArchive/261007_FEAT_PLN_Route_turn-impact-and-symmetry.md))
 fixed a bend's reach and floor in size; this plan fixes the line in the order it is drawn, the half that
 plan's `## Outcome` never reached.
 
@@ -327,3 +327,7 @@ pass, since the pull was already 75–90 % of it; the canonical-end search and t
 nothing measurable, and the fine pass and corner pass are unchanged. About 0.29 → 0.47 s a ladder on `avoid`,
 1.0 → 1.8 s on `evolutive`. Desktop time, not phone time: the ratio travels, and the device's `PULL ms` /
 `FINAL ms` are the real check. A pair with no path walks up to four searches instead of two.
+
+## Outcome — 2026-11-01
+
+2026-11-01: the guard swap and the fallback walk gained their tests (`SearchCanonicalEndTest`, both walks); the one pair still crowning differently each way on `evolutive` (cannes-bay → baie-des-anges) was closed on the user's word, Evolutive + — symmetric by construction — being the shipped default.

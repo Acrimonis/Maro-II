@@ -9,7 +9,7 @@ sense"*) and the discussion that followed: tweak the extremities of the pulled s
 Sainte-Marguerite and at the 10 kn zone's corner — rather than replace them. P3: the user's *"plan recommandation"*
 of the same day, on *"there is still a bend on balanced"* and the split recommended from its log.
 
-**Related, not overlapped:** [`261026_FEAT_PLN_Route_movable-slow-approach.md`](261026_FEAT_PLN_Route_movable-slow-approach.md)
+**Related, not overlapped:** [`261026_FEAT_PLN_Route_movable-slow-approach.md`](xxArchive/261026_FEAT_PLN_Route_movable-slow-approach.md)
 shipped the approach pass this plan corrects; [`261020_FEAT_PLN_Route_smooth-corners.md`](261020_FEAT_PLN_Route_smooth-corners.md)
 owns what the corner pass does after it, the La Salis hook included (§1).
 
@@ -797,3 +797,7 @@ pair (pace radius 357.3 m, 619 m needed against 204 m), and the off-leg refusal 
     member. **Contradictions found beside the order, not changed:** `routeTurnTransitionSec` defaults to 2.0 against
     `route.turn.transitionSec=3.333333`, `routeSpeedAccelMps2` to 1.0 against `route.speed.accelMps2=0.666667`, and
     `maro.properties`'s own comments above those keys still call 0.33, 2.5 s and 1.0 the shipped values.
+
+## Outcome
+
+Shipped as its `## Implemented` records, read on the phone; P2 (the slide at its own resolution) deferred. With Evolutive + the default since 2026-11-01, the any-angle plan's P5 decides which of these cases retire.

@@ -85,3 +85,7 @@ arithmetic, the cache key and the depth law are **not** touched — each was jud
 - `xTrack/Route/FEAT_DOC_Route_engines.md` — SF4
 - `xTrack/Route/FEAT_DSC_Route.md` — SF5, SF6
 - `xTrack/Route/261005_FEAT_PLN_Route_walk-context-seam.md` — SF6
+
+## Outcome
+
+Never applied. Archived 2026-11-01 on the user's word: SF4 (the mask cache key) and SF7 (`RouteSelectivePlanTest`) are moot, their targets retired with the `selective` engine; SF1–SF3, SF5 and SF6 (KDoc and fixture hygiene, e.g. the dead `coastlineGenerationStamp`) were dropped unapplied.

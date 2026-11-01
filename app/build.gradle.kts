@@ -270,4 +270,11 @@ tasks.withType<Test>().configureEach {
     systemProperty("maro.harness.survey", System.getProperty("maro.harness.survey", "false"))
     // Property overrides for RouteBendHarnessTest, applied over the shipped files — `key=value;key=value`.
     systemProperty("maro.harness.props", System.getProperty("maro.harness.props", ""))
+    // `true` walks RouteBendHarnessTest's search as the Evolutive + row does — the any-angle walk.
+    systemProperty("maro.harness.anyAngle", System.getProperty("maro.harness.anyAngle", "false"))
+    // `true` rounds RouteBendHarnessTest's lines with the corner pass and reads their bends; the pace (kn) it plans at.
+    systemProperty("maro.harness.corners", System.getProperty("maro.harness.corners", "false"))
+    systemProperty("maro.harness.paceKn", System.getProperty("maro.harness.paceKn", ""))
+    // RouteBoxedEndSurveyTest's own gate — routes every stored marker to and from open water on the baked region.
+    systemProperty("maro.boxedEnds", System.getProperty("maro.boxedEnds", "false"))
 }

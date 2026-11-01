@@ -2,6 +2,7 @@ package ykws.android.maro.spatial.multipass
 
 import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import ykws.android.maro.config.AppConfig
@@ -20,6 +21,9 @@ import ykws.android.maro.data.regulation.SpeedZone
  * asserts the refinement's own settled pull is produced. A plan whose fine cell is at or above its coarse
  * one reaches no fine walk, and the assertion turns red on it, which is what proves the pin catches the
  * case it exists for.
+ *
+ * The same pin runs on each walk's own line (the any-angle plan's P2): the evolutive plan's pass, run as the
+ * `evolutive` row runs it and as the Evolutive + row does, hands its settled line to the fine stage.
  */
 class RouteFineReachabilityTest {
 
@@ -67,6 +71,41 @@ class RouteFineReachabilityTest {
                 "$plan reaches the movable slow-water approach pass",
                 refineTrace.any { it.startsWith("APPROACH ") }
             )
+            // The wiring tooth: the settled line is handed to the lookback, which reports itself even where its
+            // size guard or its gate stops it, so a fine pass that no longer calls it says so here.
+            assertTrue(
+                "$plan reaches the settled lookback (the sweep)",
+                refineTrace.any { it.startsWith("SWEEP ") }
+            )
+        }
+    }
+
+    /**
+     * **The pin on each walk's own line.** The evolutive plan's pass is run as the runner runs it — the A\* of the
+     * `evolutive` row and the any-angle walk of the Evolutive + row — and the line each settles is the one handed to
+     * the fine stage, which reaches its refinement, its lookback and its approach pass on both.
+     */
+    @Test
+    fun theFineStageReachesItsRefinementOnEachWalksOwnLine() = runBlocking {
+        setAvoidSwitch("routeAvoidSpeedZoneEnabled", true)
+
+        val ctx = RouteGridBuilder(EvolutiveGridPlan).buildGrid(
+            world, from, to, AppConfig.routeAvoidCorridorReachM, pace, 1.0
+        )
+        assertTrue("the evolutive plan reaches a corridor context", ctx != null)
+        for (anyAngle in listOf(false, true)) {
+            val name = if (anyAngle) "Evolutive +" else "evolutive"
+            val pass = RoutePassRunner(anyAngle).runPass(
+                ctx!!, GridWalk(ctx.grid, ctx.startCell, ctx.aimCell, ctx.cellM, ctx.windows), lambda, publishStage = false
+            )
+            assertEquals("$name: the pass walked as its row walks", anyAngle, pass.search.anyAngle)
+            assertTrue("$name: the pass settles a line", pass.line.size >= 2)
+
+            val refineTrace = mutableListOf<String>()
+            RouteFinePass().finePass(ctx, pass.line, lambda) { refineTrace += it() }
+            assertTrue("$name: the fine walk's settled pull is produced", refineTrace.any { it.startsWith("FINE settled ") })
+            assertTrue("$name: the settled lookback runs", refineTrace.any { it.startsWith("SWEEP ") })
+            assertTrue("$name: the approach pass runs", refineTrace.any { it.startsWith("APPROACH ") })
         }
     }
 

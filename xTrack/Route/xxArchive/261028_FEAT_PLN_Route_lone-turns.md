@@ -332,3 +332,7 @@ One reviewer read P1 in the working tree against §1–§5, §7, §10 and §11. 
   - **Tests:** `aLoneTurnSlidesAlongItsLegsOrStays` covers five cases, the floor, repeat skipping and reversal. The
     equivalence test's lone lines, the S line as shipped, and the direction-symmetry survey also cover it.
   - **Deviations from the plan:** the saving floor and the travel pre-check (§4), and the `slideLoneTurns` fixture switch.
+
+## Outcome
+
+Shipped as its `## Implemented` records, read on the phone; the slack probe stays until the any-angle plan's P5 reads its counter at zero.

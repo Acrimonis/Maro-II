@@ -146,6 +146,78 @@ class GateCornerTest {
         }
     }
 
+    /** A point's north and east metres in [at]'s frame. */
+    private fun metres(p: LatLng): Pair<Double, Double> = Pair(
+        (p.latitude - GateTestFixtures.LAT0) * GateTestFixtures.M_PER_DEG_LAT,
+        (p.longitude - GateTestFixtures.LON0) * GateTestFixtures.M_PER_DEG_LON
+    )
+
+    /**
+     * **F1 — a bow straight is measured, never sampled at its points and midpoint.** A fast bow is drawn in chords
+     * of about ten metres, so a point-like shoal beside a chord's quarter stands under the floor from the chord while
+     * its ends and its midpoint all read clear. The fixture finds that shoal: the bow the pass draws over deep water
+     * gives the chord, a one-node shoal is placed beside its quarter, and the line is moved across so the chord's own
+     * reading falls half the read gap under the floor — the precondition then asserts that every point and midpoint of
+     * that bow keeps the floor while one chord does not, which is what the sampled read let through. Rounded over the
+     * shoal, every drawn straight keeps the floor.
+     */
+    @Test
+    fun aBowStraightIsMeasuredBetweenItsPoints() {
+        TurnConfigFixture.withTurn(TurnConfigFixture.BUILT_AT_MPS2, TurnConfigFixture.BUILT_AT_TRANSITION_SEC) {
+            val paceKn = 12.0
+            val deep = GateTestFixtures.raster(350, 260, 2.0) { _, _ -> 10.0 }
+            val deepGate = GateTestFixtures.gateOver(deep, hardM = floorM)
+            val deepWorld = GateTestFixtures.RasterWorld(deep)
+            val floor = deepGate.preferredM
+            fun given(dn: Double, de: Double) = listOf(at(150.0 + dn, 20.0 + de), at(150.0 + dn, 420.0 + de), at(650.0 + dn, 420.0 + de))
+            fun bowOver(line: List<LatLng>) =
+                RouteCornerPass.round(line, paceKn, deepWorld, deepGate, 50.0).points.drop(1).dropLast(1)
+
+            // The bow's longest chord over deep water, its quarter, and the normal pointing away from the corner.
+            val bow0 = bowOver(given(0.0, 0.0))
+            val (i, _) = bow0.zipWithNext().withIndex().maxBy { (_, ab) -> SpatialOperations.haversine(ab.first, ab.second) }
+            val (an, ae) = metres(bow0[i])
+            val (bn, be) = metres(bow0[i + 1])
+            val lengthM = hypot(bn - an, be - ae)
+            assertTrue("a fast bow is drawn in long chords ($lengthM m)", lengthM > 8.0)
+            val (cn, ce) = metres(at(150.0, 420.0))
+            var nn = -(be - ae) / lengthM
+            var ne = (bn - an) / lengthM
+            val qn = an + 0.25 * (bn - an)
+            val qe = ae + 0.25 * (be - ae)
+            if (nn * (qn - cn) + ne * (qe - ce) < 0.0) { nn = -nn; ne = -ne }
+            val shoalN = qn + nn * (floor + deepGate.padM + 1.0)
+            val shoalE = qe + ne * (floor + deepGate.padM + 1.0)
+            val shoal = GateTestFixtures.raster(350, 260, 2.0) { n, e -> if (hypot(n - shoalN, e - shoalE) < 1.5) 2.0 else 10.0 }
+            val gate = GateTestFixtures.gateOver(shoal, hardM = floorM)
+            val world = GateTestFixtures.RasterWorld(shoal)
+
+            // Move the line across so the chord's own reading sits half the read gap under the floor.
+            fun pointEdge(a: LatLng, b: LatLng) = minOf(gate.edgeM(a, 50.0), gate.edgeM(chordPointAt(a, b, 0.5), 50.0), gate.edgeM(b, 50.0))
+            val chordEdge0 = gate.segmentEdgeM(bow0[i], bow0[i + 1], 50.0)
+            val gap0 = pointEdge(bow0[i], bow0[i + 1]) - chordEdge0
+            val shiftM = chordEdge0 - (floor - gap0 / 2.0)
+            val line = given(nn * shiftM, ne * shiftM)
+            val bow = bowOver(line)
+            val chords = bow.zipWithNext()
+            assertTrue(
+                "the precondition — every bow point and midpoint keeps the floor (the sampled read)",
+                chords.all { (a, b) -> !gate.isShallow(a) && pointEdge(a, b) >= floor - 1e-6 }
+            )
+            assertTrue(
+                "while one chord comes under it (${chords.minOf { (a, b) -> gate.segmentEdgeM(a, b, 50.0) }} m, gap $gap0 m)",
+                chords.any { (a, b) -> gate.segmentEdgeM(a, b, 50.0) < floor - 1e-6 }
+            )
+
+            val rounded = RouteCornerPass.round(line, paceKn, world, gate, 50.0)
+
+            assertTrue(
+                "every drawn straight keeps the floor (${leastEdgeM(gate, rounded.points)} m)",
+                leastEdgeM(gate, rounded.points) >= floor - 1e-6
+            )
+        }
+    }
+
     /**
      * The lead-chord fixture run the other way: the bow at the corner passes the kink **after** it. The kink
      * is not drawn again behind the bow, so the line never runs back along the bow's overrun, and the chord

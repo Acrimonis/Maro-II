@@ -114,7 +114,11 @@ Two promises, read off the shipped gate ([`261017_FEAT_PLN_Route_gate-standoff-s
 - **Docs.** `maro.properties` and `AppConfig` (the allowance), `FEAT_DOC_Route_decisions.md` §8 (amended), `FEAT_DOC_Route_engines.md` (step 10, the gate's waiver).
 
 **Still open:**
-- G1's own gap is centimetres against a contour corner, so no test can fail on it; F1 stands for the recorded rule's sake.
+- G1's gap is decimetres on a bow's ~10 m chords, and `GateCornerTest.aBowStraightIsMeasuredBetweenItsPoints` (2026-11-01) fails on a sampled read; F1 stands.
 - The aim's boxed check reads its exits as entries, approximate across the seam's one-way crossings; the waived re-walk covers it.
 - With `route.turn.reachFraction=1.0` a bow passing a kink near the line's end can leave a short, measured hook to the end.
 - The device pass: `LINE` `strictStart`/`strictAim`, `bodyEdgeIdx`, and the `SWEEP` keeps where the berth binds.
+
+## Outcome
+
+Implemented 2026-10-20 as its `## Implemented` records; F1's gap is pinned by `GateCornerTest.aBowStraightIsMeasuredBetweenItsPoints` (2026-11-01). Its open points were closed on the user's word of 2026-11-01 and accepted as known limits: the aim's boxed check reads its exits as entries (approximate across the seam, the waived re-walk covering it), and a bow passing a kink near the line's end can leave a short measured hook.

@@ -145,3 +145,7 @@ A **windowed sweep with an allowance**, the user's *average taunt*, specified so
   prints no `chordSec`/`pathSec` and a refused one prints nothing, so its proof cannot be audited; the sweep has no clock
   of its own; four of the window's branches are unowned by fixtures; `AvoidPullLookbackTest` leans on the shipped key
   without naming it; and the sweep's KDoc overstates what the memo saves.
+
+## Outcome
+
+Shipped 2026-10-16; its reach measured short (3 of 48 refusals flipped). The open reach was dropped on the user's word of 2026-11-01, Evolutive +'s taut search leaving the pull little to straighten.

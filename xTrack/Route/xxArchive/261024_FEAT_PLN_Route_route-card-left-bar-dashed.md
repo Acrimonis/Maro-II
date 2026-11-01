@@ -17,3 +17,7 @@
 
 - **Double line** — invents geometry the map never uses, and at 6 dp two strokes blur into one at low density unless the rail widens and reflows both cards.
 - **Colour-only** — the bar's colour already encodes rank (newest→oldest fade), so a second hue channel would muddy it.
+
+## Outcome
+
+Shipped as decided: `ListSelectionRail` carries `dashed`, so a route card's bar draws the saved-route dash rhythm and a track card's stays solid.

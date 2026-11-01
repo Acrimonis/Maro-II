@@ -126,3 +126,7 @@ active locale. Review hop: no blocking findings; the flagged pace-header duplica
 locale `route_comment_zone_entry_fmt`, and the zone line is gated on `searchDurationSec != null`. Build:
 `:app:compileDebugKotlin` and the scoped `TrackFromCourseTest`, `RoutePlanTest`, `PartialPlanOfTest`,
 `PerPointSpeedInvariantTest`, `RouteAcquisitionTest` green (79 tests).
+
+## Outcome
+
+Shipped as its `## Implemented` records; the phone check moved to the feature file's owed list on archiving.

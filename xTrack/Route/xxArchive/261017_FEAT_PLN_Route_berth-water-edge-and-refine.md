@@ -25,3 +25,7 @@
 ## Open
 
 - The half-cell is taken as `routeEvolutiveGridFineCellM / 2`; the depth raster's own sounding width may differ, and whether to read it once on the device is the plan's one open number.
+
+## Outcome
+
+Superseded 2026-11-01, never built: the measured gate (`261017_FEAT_PLN_Route_gate-standoff-sampling.md`, implemented 2026-10-20) reads the wall and the berth off the traced 3 m line rather than the soundings, so the half-cell shift this plan proposed has nothing left to correct.

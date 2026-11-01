@@ -5,11 +5,24 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
 import ykws.android.maro.spatial.multipass.GateTestFixtures.at
 import kotlin.math.hypot
+
+/**
+ * **The rule the Evolutive + row's runner walks under** — the shipped `route.search.anyAngle.*` keys, read as
+ * `RoutePassRunner.runPass` reads them, so a suite that runs "as Evolutive +" walks that row's own search.
+ */
+internal fun evolutivePlusRule(): AnyAngleRule = AnyAngleRule.shipped()
+
+/**
+ * **The two coarse walks a suite runs on** (the any-angle plan's P2): the eight-direction A\* every other row walks,
+ * `null`, and the Evolutive + row's any-angle walk — each named for the assertion messages.
+ */
+internal fun bothWalks(): List<Pair<String, AnyAngleRule?>> = listOf("A*" to null, "Evolutive +" to evolutivePlusRule())
 
 /**
  * **The any-angle walk — the Lazy Theta\* the Evolutive + row runs**
@@ -162,6 +175,125 @@ class AnyAngleWalkTest {
         assertEquals(plain.costSec, off.costSec, 0.0)
         assertEquals(false, off.anyAngle)
         assertTrue("a staircase, many cells", off.path!!.size > 40)
+    }
+
+    // ── The lone-turn fixture (the plan's P2) ──────────────────────────────────
+
+    /**
+     * The water of `RouteApproachPassTest`'s lone turn "far off a wide disc", in [at]'s metres: two ends on one row
+     * and a slow disc whose rim the straight between them crosses, so the line turns once, round the disc's south.
+     */
+    private val loneStart = at(900.0, 1600.0)
+    private val loneAim = at(900.0, 2800.0)
+    private val discCentre = at(1100.0, 2200.0)
+    private val discM = 300.0
+    private val discSecPerM = 0.35
+    private val loneCellM = 20.0
+    private val lonePaceKn = 25.0
+
+    /** The disc rastered on a 20 m grid: a cell whose centre stands inside it pays the disc's rate over its size. */
+    private fun loneGrid(): MultipassGrid {
+        val south = 600.0
+        val west = 1500.0
+        val corner = at(south, west)
+        val grid = MultipassGrid(
+            corner.latitude, corner.longitude,
+            loneCellM / GateTestFixtures.M_PER_DEG_LAT, loneCellM / GateTestFixtures.M_PER_DEG_LON,
+            45, 70, loneCellM, baseCostSec(loneCellM, lonePaceKn)
+        )
+        for (r in 0 until grid.rows) for (c in 0 until grid.cols) {
+            if (inDisc(grid.center(r, c))) grid.addSourceCost(r, c, discSecPerM * loneCellM, MultipassCellState.BAND)
+        }
+        return grid
+    }
+
+    /** A point's north and east metres in [at]'s frame. */
+    private fun metres(p: LatLng): Pair<Double, Double> = Pair(
+        (p.latitude - GateTestFixtures.LAT0) * GateTestFixtures.M_PER_DEG_LAT,
+        (p.longitude - GateTestFixtures.LON0) * GateTestFixtures.M_PER_DEG_LON
+    )
+
+    private fun inDisc(p: LatLng): Boolean {
+        val (n, e) = metres(p)
+        val (cn, ce) = metres(discCentre)
+        return hypot(n - cn, e - ce) < discM
+    }
+
+    /** Whether the straight [a]–[b] stays out of the slow disc — its least distance to the centre, read exactly. */
+    private fun clearOfDisc(a: LatLng, b: LatLng): Boolean {
+        val (an, ae) = metres(a)
+        val (bn, be) = metres(b)
+        val (cn, ce) = metres(discCentre)
+        val dn = bn - an
+        val de = be - ae
+        val t = (((cn - an) * dn + (ce - ae) * de) / (dn * dn + de * de)).coerceIn(0.0, 1.0)
+        return hypot(an + t * dn - cn, ae + t * de - ce) >= discM
+    }
+
+    /** The slide a turn's slack allows: how far it could move along one leg, and the travel that move would save. */
+    private data class Slide(val slackM: Double, val savedSec: Double)
+
+    /**
+     * **The slide of the turn at [v]**, read independently of the approach pass's own probe and in its sense: how far
+     * [v] could slide along its leg toward [toward] while the rotated leg to [far] stays out of the slow water —
+     * bisected to a metre — and the travel the slide to that point saves at [paceMps].
+     */
+    private fun slideOf(v: LatLng, toward: LatLng, far: LatLng, paceMps: Double): Slide {
+        val legM = SpatialOperations.haversine(v, toward)
+        var freeM = 0.0
+        var blockedM = legM
+        if (clearOfDisc(toward, far)) {
+            freeM = legM
+        } else {
+            while (blockedM - freeM > 1.0) {
+                val midM = (freeM + blockedM) / 2.0
+                if (clearOfDisc(chordPointAt(v, toward, midM / legM), far)) freeM = midM else blockedM = midM
+            }
+        }
+        val p = chordPointAt(v, toward, freeM / legM)
+        val savedM = SpatialOperations.haversine(toward, v) + SpatialOperations.haversine(v, far) -
+            SpatialOperations.haversine(toward, p) - SpatialOperations.haversine(p, far)
+        return Slide(freeM, savedM / paceMps)
+    }
+
+    /** Each inner vertex of [line]'s dearer-saving slide, along either of its legs. */
+    private fun slides(line: List<LatLng>, paceMps: Double): List<Slide> = (1 until line.lastIndex).map { i ->
+        listOf(
+            slideOf(line[i], line[i - 1], line[i + 1], paceMps),
+            slideOf(line[i], line[i + 1], line[i - 1], paceMps)
+        ).maxBy { it.savedSec }
+    }
+
+    /**
+     * **On the lone-turn fixture the any-angle search's own chain has no vertex with slack** (the plan's P2), read as
+     * the lone-turns plan reads slack (its §3): no turn the chain hands on could slide along a leg to a saving the
+     * shipped lone slide would take (`route.approach.lone.minSavedSec`). What geometric slack it shows is the
+     * raster's own rim — a tangent cell centre stands up to half a cell off the true disc — the grid's quantisation,
+     * not a misplaced turn.
+     */
+    @Test
+    fun onTheLoneTurnFixtureTheAnyAngleChainHasNoVertexWithSlack() = runTest {
+        val grid = loneGrid()
+        val walk = WalkWindows.of(grid)
+        val from = grid.cellOf(loneStart.latitude, loneStart.longitude)
+        val to = grid.cellOf(loneAim.latitude, loneAim.longitude)
+        val paceMps = Units.knotsToMps(lonePaceKn)
+        assertTrue("the straight between the ends crosses the slow disc", !clearOfDisc(walk.point(from), walk.point(to)))
+        val chain = RoutePassRunner().searchFromCanonicalEnd(
+            walk, from, to, walk.point(from), walk.point(to), paceMps,
+            zonePriceSec = { _, _, _, _ -> 0.0 }, berthK = 0.0, berth = null, gate = null, anyAngle = evolutivePlusRule()
+        ).path!!.map { walk.point(it) }
+        val floorSec = AppConfig.routeApproachLoneMinSavedSec
+
+        assertTrue("the chain turns round the disc: ${chain.size} vertices", chain.size >= 3)
+        for ((a, b) in chain.zipWithNext()) assertTrue("each straight keeps out of the slow water", clearOfDisc(a, b))
+        for ((i, slide) in slides(chain, paceMps).withIndex()) {
+            assertTrue(
+                "vertex ${i + 1} of the any-angle chain slides to a saving the lone slide would take: $slide " +
+                    "(floor $floorSec s)",
+                slide.savedSec < floorSec
+            )
+        }
     }
 
     @Test

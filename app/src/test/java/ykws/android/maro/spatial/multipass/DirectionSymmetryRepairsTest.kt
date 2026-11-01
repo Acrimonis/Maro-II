@@ -69,16 +69,19 @@ class DirectionSymmetryRepairsTest {
         assertTrue("the fixture's cell is a block's fine copy", walk.isFineCopyCell(1, 7, 17))
         assertEquals("and it supersedes block (1, 3)'s coarse cell", walk.rawSlotOf(1, 7, 17), walk.supersedingSlot(0, 1, 3))
 
-        val into = MultipassSearch.searchWalk(walk, far, copy, paceMps)
-        val out = MultipassSearch.searchWalk(walk, copy, far, paceMps)
+        // Both coarse walks: the A* and the Evolutive + row's any-angle walk (the any-angle plan's P2).
+        for ((name, rule) in bothWalks()) {
+            val into = MultipassSearch.searchWalk(walk, far, copy, paceMps, anyAngle = rule)
+            val out = MultipassSearch.searchWalk(walk, copy, far, paceMps, anyAngle = rule)
 
-        assertNotNull("the copy is entered from the coarse water", into.path)
-        assertTrue("the copy has a way out of its own cell", out.startOpenSteps > 0)
-        assertNotNull("and the walk leaves it — the pair is routable from either end", out.path)
-        assertEquals(
-            "the two directions pay the same for the pair",
-            into.costSec, out.costSec, 1e-6
-        )
+            assertNotNull("$name: the copy is entered from the coarse water", into.path)
+            assertTrue("$name: the copy has a way out of its own cell", out.startOpenSteps > 0)
+            assertNotNull("$name: and the walk leaves it — the pair is routable from either end", out.path)
+            assertEquals(
+                "$name: the two directions pay the same for the pair",
+                into.costSec, out.costSec, 1e-6
+            )
+        }
     }
 
     @Test

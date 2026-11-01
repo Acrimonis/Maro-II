@@ -341,3 +341,7 @@ The device confirms these through `EDGES`, `GRID`, `PULL`, `FINE` and `DEVICE PA
 - **The device pass** — the 2026-10-19 end pairs and a Pointe du Bacon – La Grenille pair: every `LINE` at `minDepth ≥ 3.0m` and `bodyEdgeIdx ≥ 10m` with the auditor agreeing, `innerM` read to tune `innerSecPerM`, the passage line centred, and `EDGES` / `PULL farEdgeReads` / `GRID` timings beside the old ones.
 - **`avoid` behaves differently, and it is the default row** (`route.engine.id=avoid`; the device runs `evolutive` by its own setting) — its 100 m cells now keep the measured 20 m with checked steps, so a passage is always open only from about 148 m (narrower ones where the grid falls well), and ends beside shallows depend on the carve. It is the honest wall where the old one grazed; whether `avoid` should also take the berth's floor and ramp, or stay the strict engine, is the user's call.
 - **Health nits left** — chunk lookups box their `Long` keys; the EMODnet cutoff can still hide a sliver narrower than one sub-cell inside a traced quad (stated in the index's KDoc).
+
+## Outcome
+
+Implemented 2026-10-20 as its `## Implemented` records; the phone check is in the feature file's owed list. Its open points were closed on the user's word of 2026-11-01 and accepted as known limits: the berth's price has no cap beyond λ, `avoid` (no longer the default) keeps the strict 20 m on 100 m cells, `route.evolutive.berth.innerSecPerM` stays untuned on the device, and an end the shallows enclose fails as no path.

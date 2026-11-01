@@ -227,3 +227,7 @@ tests now derive their gap from `route.avoid.corridor.reach` and assert that no 
 and two-ends tests, and dropping the crossing-zone clause fails the inside-an-end-zone test. Full suite 1421
 green, `assembleDebug` packaged. One incremental run failed `GateGuardsTest` twice and passed after
 `--rerun-tasks` and on repeat; the cause is not identified and nothing in these files touches it.
+
+## Outcome — 2026-11-01
+
+2026-11-01: the parallel walks shipped as the exact speed-ups' S1; the end-zone probe's phone check stays in the feature file's owed list.

@@ -19,17 +19,18 @@ import kotlin.math.hypot
 /**
  * **A route's own ends keep the wall from the waiver's rim** — the step out of the start's cell and into
  * the aim's is read past the gate's 20 m disc, each end on its own, and an end the shallows box in still
- * walks out as the gate always let it. On a straight shelf, shallow south of 100 m, under 20 m cells.
+ * walks out as the gate always let it. On a straight shelf, shallow south of 100 m, under 20 m cells. Every walk
+ * runs on both coarse walks — the A\* and the Evolutive + row's any-angle walk (the any-angle plan's P2).
  */
 class GateEndStepTest {
 
     private val paceKn = 25.0
     private val cellM = 20.0
 
-    private fun shelf(extra: (Double, Double) -> Boolean = { _, _ -> false }): DepthGrid =
+    internal fun shelf(extra: (Double, Double) -> Boolean = { _, _ -> false }): DepthGrid =
         GateTestFixtures.raster(200, 220, 2.0) { n, e -> if (n < 100.0 || extra(n, e)) 2.0 else 10.0 }
 
-    private fun gridOver(raster: DepthGrid, gate: GateRule): MultipassGrid {
+    internal fun gridOver(raster: DepthGrid, gate: GateRule): MultipassGrid {
         val world = GateTestFixtures.RasterWorld(raster)
         val box = GateTestFixtures.box(60.0, 340.0, 0.0, 420.0)
         return rasterize(
@@ -43,18 +44,24 @@ class GateEndStepTest {
         return walk.slotOf(cell.row, cell.col)
     }
 
-    private suspend fun search(grid: MultipassGrid, gate: GateRule, start: LatLng, aim: LatLng, waiveEndSlots: Boolean = true) =
-        MultipassSearch.search(
-            grid, grid.cellOf(start.latitude, start.longitude), grid.cellOf(aim.latitude, aim.longitude),
-            Units.knotsToMps(paceKn), stepGuard = StepGuard(gate, start, aim),
-            waiveEndSlots = waiveEndSlots
-        )
+    private suspend fun search(
+        grid: MultipassGrid,
+        gate: GateRule,
+        start: LatLng,
+        aim: LatLng,
+        rule: AnyAngleRule?,
+        waiveEndSlots: Boolean = true
+    ) = MultipassSearch.searchWalk(
+        WalkWindows.of(grid), grid.cellOf(start.latitude, start.longitude), grid.cellOf(aim.latitude, aim.longitude),
+        Units.knotsToMps(paceKn), stepGuard = StepGuard(gate, start, aim),
+        waiveEndSlots = waiveEndSlots, anyAngle = rule
+    )
 
     /**
      * Whether every straight of [drawn] keeps [hardM] wherever it stands more than [clearM] from both ends —
      * read on one-metre pieces, independently of the guard's own cut.
      */
-    private fun keepsWallPast(gate: GateRule, drawn: List<LatLng>, start: LatLng, aim: LatLng, hardM: Double, clearM: Double): Boolean {
+    internal fun keepsWallPast(gate: GateRule, drawn: List<LatLng>, start: LatLng, aim: LatLng, hardM: Double, clearM: Double): Boolean {
         fun near(p: LatLng) = SpatialOperations.haversine(p, start) < clearM || SpatialOperations.haversine(p, aim) < clearM
         for (k in 0 until drawn.size - 1) {
             val pieces = ceil(SpatialOperations.haversine(drawn[k], drawn[k + 1])).toInt().coerceAtLeast(1)
@@ -120,12 +127,14 @@ class GateEndStepTest {
             gate.segmentEdgeM(at(210.0, 210.0), at(230.0, 230.0), 50.0) < 20.0
         )
         assertTrue("while its far cell stands clear of the wall", gate.edgeM(at(230.0, 230.0), 50.0) >= 20.0)
-        val outcome = search(grid, gate, start, aim)
-        val path = outcome.path
-        assertNotNull("the start walks out", path)
-        assertTrue("held to the wall", outcome.strictStart)
-        val drawn = listOf(start) + path!!.map { grid.center(it.row, it.col) } + listOf(aim)
-        assertTrue("every leg keeps the wall from the disc's rim", keepsWallPast(gate, drawn, start, aim, 20.0, 22.0))
+        for ((name, rule) in bothWalks()) {
+            val outcome = search(grid, gate, start, aim, rule)
+            val path = outcome.path
+            assertNotNull("$name: the start walks out", path)
+            assertTrue("$name: held to the wall", outcome.strictStart)
+            val drawn = listOf(start) + path!!.map { grid.center(it.row, it.col) } + listOf(aim)
+            assertTrue("$name: every leg keeps the wall from the disc's rim", keepsWallPast(gate, drawn, start, aim, 20.0, 22.0))
+        }
     }
 
     @Test
@@ -136,10 +145,12 @@ class GateEndStepTest {
         val grid = gridOver(raster, gate)
         val start = at(101.0, 200.0)
         val aim = at(125.0, 390.0)
-        val outcome = search(grid, gate, start, aim)
-        assertNotNull("the boxed start still walks out", outcome.path)
-        assertFalse("under the old waiver", outcome.strictStart)
-        assertTrue("while the open aim stays held", outcome.strictAim)
+        for ((name, rule) in bothWalks()) {
+            val outcome = search(grid, gate, start, aim, rule)
+            assertNotNull("$name: the boxed start still walks out", outcome.path)
+            assertFalse("$name: under the old waiver", outcome.strictStart)
+            assertTrue("$name: while the open aim stays held", outcome.strictAim)
+        }
     }
 
     /** An aim in a pool no legal step reaches: the walk finds nothing, refused no end step, and is not walked again. */
@@ -150,11 +161,13 @@ class GateEndStepTest {
         val grid = gridOver(raster, gate)
         val start = at(150.0, 50.0)
         val aim = at(250.0, 330.0)
-        val ends = search(grid, gate, start, aim)
-        val bound = search(grid, gate, start, aim, waiveEndSlots = false)
-        assertNull("no way reaches the pool", ends.path)
-        assertNull(bound.path)
-        assertEquals("one walk's expansions, not two", bound.expansions, ends.expansions)
+        for ((name, rule) in bothWalks()) {
+            val ends = search(grid, gate, start, aim, rule)
+            val bound = search(grid, gate, start, aim, rule, waiveEndSlots = false)
+            assertNull("$name: no way reaches the pool", ends.path)
+            assertNull(bound.path)
+            assertEquals("$name: one walk's expansions, not two", bound.expansions, ends.expansions)
+        }
     }
 
     /**
@@ -177,17 +190,19 @@ class GateEndStepTest {
             "while both its cells stand clear of it",
             gate.edgeM(at(210.0, 210.0), 50.0) >= 20.0 && gate.edgeM(at(230.0, 230.0), 50.0) >= 20.0
         )
-        val bound = search(grid, gate, start, aim, waiveEndSlots = false)
-        assertNull("held to the wall, nothing crosses", bound.path)
+        for ((name, rule) in bothWalks()) {
+            val bound = search(grid, gate, start, aim, rule, waiveEndSlots = false)
+            assertNull("$name: held to the wall, nothing crosses", bound.path)
 
-        val outcome = search(grid, gate, start, aim)
+            val outcome = search(grid, gate, start, aim, rule)
 
-        assertNotNull("the waived re-walk crosses the door", outcome.path)
-        assertFalse("and says the start was not held", outcome.strictStart)
-        assertTrue("the outcome says the re-walk answered", outcome.rewalked)
-        assertEquals("the start slot is the single grid's own", 0, outcome.startLayer)
-        assertTrue("and has a way out", outcome.startOpenSteps > 0)
-        assertTrue("its expansions add to the held walk's", outcome.expansions > bound.expansions)
+            assertNotNull("$name: the waived re-walk crosses the door", outcome.path)
+            assertFalse("$name: and says the start was not held", outcome.strictStart)
+            assertTrue("$name: the outcome says the re-walk answered", outcome.rewalked)
+            assertEquals("$name: the start slot is the single grid's own", 0, outcome.startLayer)
+            assertTrue("$name: and has a way out", outcome.startOpenSteps > 0)
+            assertTrue("$name: its expansions add to the held walk's", outcome.expansions > bound.expansions)
+        }
     }
 
     @Test
@@ -197,11 +212,13 @@ class GateEndStepTest {
         val grid = gridOver(raster, gate)
         val start = at(125.0, 30.0)
         val aim = at(125.0, 390.0)
-        val outcome = search(grid, gate, start, aim)
-        val path = outcome.path
-        assertNotNull("the open end walks", path)
-        assertTrue("held to the wall", outcome.strictStart && outcome.strictAim)
-        val drawn = listOf(start) + path!!.map { grid.center(it.row, it.col) } + listOf(aim)
-        assertTrue("every leg keeps the wall from the disc's rim", keepsWallPast(gate, drawn, start, aim, 20.0, 22.0))
+        for ((name, rule) in bothWalks()) {
+            val outcome = search(grid, gate, start, aim, rule)
+            val path = outcome.path
+            assertNotNull("$name: the open end walks", path)
+            assertTrue("$name: held to the wall", outcome.strictStart && outcome.strictAim)
+            val drawn = listOf(start) + path!!.map { grid.center(it.row, it.col) } + listOf(aim)
+            assertTrue("$name: every leg keeps the wall from the disc's rim", keepsWallPast(gate, drawn, start, aim, 20.0, 22.0))
+        }
     }
 }

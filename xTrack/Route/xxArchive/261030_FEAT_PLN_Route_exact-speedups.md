@@ -142,3 +142,7 @@ table's join keeps a found distance over a "none", and of two "none"s the longer
   small, and that was never read on the phone.
 - The harness's marker copy predates the device runs; its lines serve as a before/after baseline only, which
   is all this plan needs.
+
+## Outcome
+
+Shipped 2026-10-30 (S0, S1), each reviewed once; the user read the phone build as good on 2026-11-01, no timings given. The remaining levers each measure under ~5 % of a coastal rung.

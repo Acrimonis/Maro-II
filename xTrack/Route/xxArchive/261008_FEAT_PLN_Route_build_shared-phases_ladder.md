@@ -80,3 +80,7 @@ those crossing regulated zones or needing a widened corridor.
 - **It ranks below trimming the per-rung work.** The bulk of every arm is the three A\* passes and their refinements, which no sharing can remove; this plan is a bounded saving on the failure paths.
 - **Open: is a device reading owed before building?** The tree cannot quantify the win; the user owns the device, and a pass on a zone-crossing coastal route would decide whether this outranks other Route work. Nothing here gates a code landing (R97).
 - **Open: whether candidate 3 joins.** The guard field's wall half is unproven and deliberately excluded from the first cut.
+
+## Outcome
+
+Not built by this plan: on 2026-11-01 the code already shares both candidates — the grown corridor's grid once per arm (`grownDeferred` in `RouteAvoidEngine`) and the forced-crossing probe once per arm and grid (`ctx.probe.avoiding`). Candidate 3, the guard field's walls, stays unproven.
