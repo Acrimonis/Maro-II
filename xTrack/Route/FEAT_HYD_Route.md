@@ -1,20 +1,20 @@
-# Context Hydration — Route — 2026-10-30
+# Context Hydration — Route — 2026-11-01
 
-**Last Bake:** 2026-10-30 17:53 UTC — written by `#bake` on `feature/roouttinggg`.
+**Last Bake:** 2026-11-01 18:53 UTC — written by `#bake` on `feature/rooouting`.
 
-**Directive trace:** no dependency was added and no binary file opened (an APK's `maro.properties` and the phone's markers JSON read as text); the device was read only — `logcat`, `dumpsys`, the markers via `run-as` — on the user's word that each run had happened, every install the user's own through the `D:\.tmp\p6a` scripts; the code moved under `#impl` and the user's go for build C, whose one property flip was restored; the `ask` hop reviewed once, nothing blocking, three should-fix folded; none of the covered action classes stopped.
+**Directive trace:** no dependency was added, no binary file opened and the device not touched; the code moved on the user's `#impl` with the Tracks card plan picked (*"Tracks card plan, P0 on"*), P0–P4 implemented and built, the `ask` hop reviewing once; a later *"add the row on route cards also"* was answered with a question the user declined, nothing written on it; no git write ran before this bake's `#commit`; none of the covered action classes stopped.
 
 ## State
 
-`feature/roouttinggg` ships the any-angle search as a fourth algorithm, Evolutive + (`evolutive_plus` in `RouteEngineChoice`): the `route.search.anyAngle` switch and its accessor are deleted, the walk an engine flag (`RoutePassRunner(anyAngle)`, `RouteAvoidEngine(anyAngle)`, forwarded by `RouteEvolutiveEngine`), the `route.search.anyAngle.*` keys tuning that row alone; `route.fine.crossingResolve=false`. The suite (1 688, 24 skipped) and `apk-build.bat` green. P6a read (plan §17): the 43° bend is the 24 kn pace's, the re-solve no part of it, the walk removing it at +2–9 % warm; the row itself read on the phone at 18:51, no bend, B's lines exactly.
+`feature/rooouting` ships Evolutive + as the default engine and P2's tests. The route's published slow-water table now counts every second on water with a limit — every corridor ring, priced or not, the zone over the band through `SlowWater.of` — while `rungSlowWater`'s cost keeps the priced slow-legs-only walk (`slowLegsOnly`), so the crown is unmoved; a settled route's figure is saved on its track for the cards' `Open water · 300M · Zones` row (owned by Tracks). `apk-build.bat` green, the suite at 1 717 tests, 27 skipped, 0 failures. Six open tasks: any-angle P3/P5, the parked boxed end and swap-ends, the channel after its device pass, the multi-route save, the provisional mark.
 
 ## Target Files
 
-- `xTrack/Route/261029_FEAT_PLN_Route_any-angle-search.md` — §17 the P6a read and D3; P2's owed tests, P3, P5 open
-- `app/src/main/java/ykws/android/maro/spatial/RouteEngineChoice.kt`, `RouteEvolutiveEngine.kt`, `RouteAvoidEngine.kt` — the row and the flag's path
-- `app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassRunner.kt` — where the flag builds the `AnyAngleRule`
-- `app/src/test/java/ykws/android/maro/spatial/RouteEngineChoiceTest.kt`, `RouteAvoidEngineTest.kt`, `multipass/RouteBendHarnessTest.kt` (`-Dmaro.harness.anyAngle=true`)
+- `xTrack/Route/261029_FEAT_PLN_Route_any-angle-search.md` — P3 (one pricing for steps and chords, the `bound`/`full`/`reopen` knobs) and P5
+- `app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt` — `rungSlowWater`: the table's second `LegWater` re-reads the band per leg (review finding 5) and its doc still states the old meaning (finding 6)
+- `app/src/main/java/ykws/android/maro/spatial/multipass/RouteEta.kt` — `slowTimeByLimit` and `slowLegsOnly`
+- `xTrack/Tracks/261101_FEAT_PLN_Tracks_stops-and-slow-water.md` — the Ask hop's open findings in `## Outcome`
 
 ## Next Step
 
-P2's owed tests on the Evolutive + engine — the five named suites and the lone-turn fixture test (plan §17, feature todo).
+The any-angle plan's P3.

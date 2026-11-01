@@ -20,7 +20,9 @@ import kotlin.math.abs
  * cell's own size.
  *
  * The fixture is a straight channel with a vertical seam: the fine band west of the seam, the coarse
- * interior east of it, aligned on an exact coarse-block face so the many-to-one relation is arithmetic.
+ * interior east of it, aligned on an exact coarse-block face so the many-to-one relation is arithmetic. The two
+ * solves run on both coarse walks — the A\* and the Evolutive + row's any-angle walk (the any-angle plan's P2), whose
+ * chain is priced on the cells its chords cross and must agree with the same clock.
  */
 class SeamCrossingTest {
 
@@ -61,18 +63,20 @@ class SeamCrossingTest {
     @Test
     fun aSeamCrossingPathIsPricedFromTheTwoCellCentres() = runTest {
         val walk = hybridWalk()
-        val outcome = MultipassSearch.searchWalk(walk, CellIndex(2, 0), CellIndex(0, 9), paceMps)
-        val path = outcome.path
-        assertNotNull("the seam connects the two layers", path)
+        for ((name, rule) in bothWalks()) {
+            val outcome = MultipassSearch.searchWalk(walk, CellIndex(2, 0), CellIndex(0, 9), paceMps, anyAngle = rule)
+            val path = outcome.path
+            assertNotNull("$name: the seam connects the two layers", path)
 
-        val centres = path!!.map { walk.center(it.layer, it.row, it.col) }
-        val timedGeometric =
-            centres.zipWithNext { a, b -> SpatialOperations.haversine(a, b) }.sum() / paceMps
+            val centres = path!!.map { walk.center(it.layer, it.row, it.col) }
+            val timedGeometric =
+                centres.zipWithNext { a, b -> SpatialOperations.haversine(a, b) }.sum() / paceMps
 
-        assertEquals(
-            "the A*'s g is the path's own timed length, seam crossing included",
-            timedGeometric, outcome.costSec, timedGeometric * 0.01
-        )
+            assertEquals(
+                "$name: the walk's g is the path's own timed length, seam crossing included",
+                timedGeometric, outcome.costSec, timedGeometric * 0.01
+            )
+        }
     }
 
     /**
@@ -83,20 +87,23 @@ class SeamCrossingTest {
      */
     @Test
     fun aHybridSolveAndAUniformFineSolveAgreeOnTotalTime() = runTest {
-        val hybrid = MultipassSearch.searchWalk(hybridWalk(), CellIndex(2, 0), CellIndex(0, 9), paceMps)
-        assertNotNull("the hybrid walk crosses the seam", hybrid.path)
-
         // The same channel as one 20 m grid. The hybrid aim's coarse (0, 9) centre is the central fine cell
         // of that block, (2, 47) — the same point, so the two solves run between the same two places.
         val family = LatticeFamily.of(corridor, coarseCellM = 100.0, fineCellM = 20.0)
         val fine = windowOn(family.fine, 0, 0, rows = 10, cols = 50, layer = 0)
-        val uniform = MultipassSearch.search(fine.grid, CellIndex(2, 0), CellIndex(2, 47), paceMps)
-        assertNotNull("the uniform fine walk connects the same two points", uniform.path)
+        for ((name, rule) in bothWalks()) {
+            val hybrid = MultipassSearch.searchWalk(hybridWalk(), CellIndex(2, 0), CellIndex(0, 9), paceMps, anyAngle = rule)
+            assertNotNull("$name: the hybrid walk crosses the seam", hybrid.path)
+            val uniform = MultipassSearch.searchWalk(
+                WalkWindows.of(fine.grid), CellIndex(2, 0), CellIndex(2, 47), paceMps, anyAngle = rule
+            )
+            assertNotNull("$name: the uniform fine walk connects the same two points", uniform.path)
 
-        assertTrue(
-            "the hybrid's total time is the fine grid's own, within the discretisation",
-            abs(hybrid.costSec - uniform.costSec) / uniform.costSec < 0.01
-        )
+            assertTrue(
+                "$name: the hybrid's total time is the fine grid's own, within the discretisation",
+                abs(hybrid.costSec - uniform.costSec) / uniform.costSec < 0.01
+            )
+        }
     }
 
     /**

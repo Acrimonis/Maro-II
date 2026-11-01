@@ -298,6 +298,11 @@ internal fun OverlayLayer(
     val trackRecorderState by trackViewModel.uiState.collectAsState()
     val trackSummaries by trackViewModel.summaries.collectAsState()
     val routeSummaries by trackViewModel.routeSummaries.collectAsState()
+    // The dashboard card's slow-water figure: a recording's lives on its stored summary alone, so the
+    // hand-built summaries below read it there, a route falling back to its own stored figure.
+    val storedSummaryOf: (String) -> ykws.android.maro.data.track.TrackSummary? = { id ->
+        trackSummaries.firstOrNull { it.id == id } ?: routeSummaries.firstOrNull { it.id == id }
+    }
 
     // ── The one list surface, resolved to a scope (S4, S11) ──────────────────
     // The two chrome flags are mutually exclusive, so whichever stands names the scope — never a
@@ -587,6 +592,7 @@ internal fun OverlayLayer(
             ) {
                 val track = trackInfoDrawerData
                 if (showTrackInfoDrawer && track != null) {
+                    val stored = storedSummaryOf(track.id)
                     val summary = ykws.android.maro.data.track.TrackSummary(
                         id = track.id,
                         name = track.name,
@@ -605,7 +611,9 @@ internal fun OverlayLayer(
                         // The flag rides the hand-built summary too: both dashboard cards render the
                         // same card as the list, so a route opened on the map reads as a route — its
                         // three cells, its creation stamp and its refused Resume hang off this field.
-                        route = track.route
+                        route = track.route,
+                        slowWater = stored?.slowWater ?: track.slowWater,
+                        slowWaterStamp = stored?.slowWaterStamp ?: track.slowWaterStamp
                     )
                     DrawerScaffold(
                         title = track.name,
@@ -699,6 +707,7 @@ internal fun OverlayLayer(
         } else {
             val track = trackInfoDrawerData
             val summary = track?.let {
+                val stored = storedSummaryOf(it.id)
                 ykws.android.maro.data.track.TrackSummary(
                     id = it.id,
                     name = it.name,
@@ -717,7 +726,9 @@ internal fun OverlayLayer(
                     // The flag rides the hand-built summary too: the two dashboard cards render the
                     // same card as the list, so a route opened there must read as a route — its three
                     // cells, its creation stamp and its refused Resume all hang off this one field.
-                    route = it.route
+                    route = it.route,
+                    slowWater = stored?.slowWater ?: it.slowWater,
+                    slowWaterStamp = stored?.slowWaterStamp ?: it.slowWaterStamp
                 )
             }
             // The portrait half of the one selected-item slot: the slot stays mounted and only its

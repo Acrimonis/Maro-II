@@ -250,6 +250,8 @@
     <string name="track_stat_total_estimated">Total (est.)</string>
     <string name="track_stat_avg_estimated">Avg (est.)</string>
     <string name="track_stat_max">Max</string>
+    <string name="track_stat_open_water">Open water</string>
+    <string name="track_stat_zones">Zones</string>
     <!-- A recording's elapsed and idle durations: hours when there are any, else minutes and seconds. -->
     <string name="duration_h_m_s_fmt">%1$dh %2$dm %3$ds</string>
     <string name="duration_m_s_fmt">%1$dm %2$ds</string>

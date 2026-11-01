@@ -870,7 +870,8 @@ class RouteAvoidEngine(
             inZone = inZone(ctx.pricedZoneSet),
             inBand = inBand(ctx.world),
             bandLimitKn = AppConfig.routeAvoidZone300LimitKn,
-            ceilingKnAt = rounded.ceilingKnAt
+            ceilingKnAt = rounded.ceilingKnAt,
+            inAnyZone = inZone(ctx.zoneSet)
         )
         val slowMs = msSince(slowStartNs)
         // **The device reading** — the coarse walk's own A* cost and duration, the fine stage's duration,
@@ -1439,6 +1440,11 @@ private class LadderGridHolder(
  * minutes, the drawing, the price, the clock, the dial's stops, the stored stop and the weight all
  * keep reading what they read today.
  *
+ * **The table and the crown read two walks since 2026-11-01.** The published table counts every second on
+ * water with a limit — every ring of [inAnyZone], priced or not, at or above the pace or not — which is
+ * what a card's `300M · Zones` cells mean; the crown keeps reading the priced rings' slow legs alone
+ * ([slowTimeByLimit]'s `slowLegsOnly`), so its figure is unmoved by the table's wider meaning.
+ *
  * This is the one expression the cost site uses, named so a fixture can pin **the engine's wiring** —
  * that the table and the ramps really reach the weight the crown is read with — rather than
  * re-deriving the sum beside it.
@@ -1450,16 +1456,20 @@ internal fun rungSlowWater(
     inZone: (LatLng) -> Boolean,
     inBand: (LatLng) -> Boolean,
     bandLimitKn: Double,
-    ceilingKnAt: (LatLng) -> Double?
+    ceilingKnAt: (LatLng) -> Double?,
+    /** Every ring the clock reads, priced or not — the published table's zone test. */
+    inAnyZone: (LatLng) -> Boolean = inZone
 ): RungSlowWater {
-    // The legs' water — in a ring, in the band's width — read once here for the two readers that ask it.
+    // The legs' water — in a ring, in the band's width — read once here for the readers that ask it.
     val water = LegWater.of(timed, inZone, inBand)
-    val byLimit = slowTimeByLimit(timed, paceKn, limitAt, inZone, inBand, bandLimitKn, water)
+    val crown = slowTimeByLimit(timed, paceKn, limitAt, inZone, inBand, bandLimitKn, water, slowLegsOnly = true)
     val ramps = rampSlowSeconds(timed, paceKn, limitAt, inZone, inBand, ceilingKnAt, water)
+    val anyWater = if (inAnyZone === inZone) water else LegWater.of(timed, inAnyZone, inBand)
+    val byLimit = slowTimeByLimit(timed, paceKn, limitAt, inAnyZone, inBand, bandLimitKn, anyWater)
     return RungSlowWater(
         byLimit = byLimit,
         cost = RoutePassRanking.PassCost(
-            slowWaterSec = byLimit.sumOf { it.seconds * slowWaterSeverity(paceKn, it.limitKn) } + ramps,
+            slowWaterSec = crown.sumOf { it.seconds * slowWaterSeverity(paceKn, it.limitKn) } + ramps,
             durationSec = timed.durationSec
         )
     )

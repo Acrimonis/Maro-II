@@ -123,16 +123,7 @@ internal class RoutePassRunner(
             gate = gate,
             probe = probe,
             // The any-angle walk, where the engine runs it (the Evolutive + row), its reach beside it.
-            anyAngle = if (anyAngle) {
-                AnyAngleRule(
-                    AppConfig.routeSearchAnyAngleReachCells,
-                    ChordEstimate.entries.firstOrNull { it.name.equals(AppConfig.routeSearchAnyAngleEstimate, true) }
-                        ?: ChordEstimate.STEP,
-                    AppConfig.routeSearchAnyAngleReopen
-                )
-            } else {
-                null
-            }
+            anyAngle = if (anyAngle) AnyAngleRule.shipped() else null
         )
         // The search's own clock, beside the PULL / FINAL / FINE / APPROACH ones: both walks where the
         // canonical one found nothing, the held/waived re-walk inside each.

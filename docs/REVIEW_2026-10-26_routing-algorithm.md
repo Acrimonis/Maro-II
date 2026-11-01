@@ -107,7 +107,7 @@ fixture: three rungs, point-for-point reversal, one crown.
   destination-rate edge price is directional and the canonical end makes it one convention per pair;
   `KDoc` in `FEAT_DOC_Route_engines.md` said "a metres-equivalent g-cost" where `g` is seconds.
 - **Code health left for a later pass:** six local metric frames that could be one; the even-odd crossing
-  loop written three times; `RouteSmoothPassTest.kt` holding `RouteStraightenTest`; the pull's setup and
+  loop written three times; `RouteSmoothPassTest.kt` holding `RouteStraightenTest` (renamed 2026-11-01); the pull's setup and
   context re-listing one value set four times.
 
 ## 6. Strongest objection

@@ -307,4 +307,23 @@ class SlowWaterSecondsTest {
         }
         return rampSlowSeconds(oneLeg(1.0), paceKn, reader, { false }, { false }, { null })
     }
+
+    /**
+     * **An unpriced ring stands in the published table and never in the crown** (2026-11-01): the price
+     * switch leaves the fixture's ring out of the priced test, yet its leg is time on water with a limit,
+     * so the table reads it through `inAnyZone` while the cost — the crown's figure — is the very figure
+     * the ring's absence gives.
+     */
+    @Test
+    fun anUnpricedRingStandsInTheTableAndLeavesTheCostUnmoved() {
+        val timed = timedLine()
+        val unpriced = rungSlowWater(timed, paceKn, limitAt, { false }, inBand, bandLimitKn, bendCeiling)
+        val read = rungSlowWater(
+            timed, paceKn, limitAt, { false }, inBand, bandLimitKn, bendCeiling, inAnyZone = inZone
+        )
+
+        assertTrue("the ring's leg stands in the table", read.byLimit.any { !it.isBand && it.limitKn == 5.0 })
+        assertTrue("and in no entry with the ring unread", unpriced.byLimit.none { !it.isBand })
+        assertEquals("the crown's figure is unmoved", unpriced.cost.slowWaterSec, read.cost.slowWaterSec, 1e-9)
+    }
 }

@@ -249,6 +249,8 @@
     <string name="track_stat_total_estimated">Total (est.)</string>
     <string name="track_stat_avg_estimated">Moy (est.)</string>
     <string name="track_stat_max">Max</string>
+    <string name="track_stat_open_water">Eau libre</string>
+    <string name="track_stat_zones">Zones</string>
     <!-- Les durées écoulée et d\'arrêt d\'un enregistrement : les heures s\'il y en a, sinon minutes et secondes. -->
     <string name="duration_h_m_s_fmt">%1$d h %2$d min %3$d s</string>
     <string name="duration_m_s_fmt">%1$d min %2$d s</string>

@@ -1,21 +1,20 @@
-# Context Hydration — Tracks — 2026-10-25
+# Context Hydration — Tracks — 2026-11-01
 
-**Last Bake:** 2026-10-25 08:15 UTC — written by `#bake` on `feature/route-mono`.
+**Last Bake:** 2026-11-01 18:53 UTC — written by `#bake` on `feature/rooouting`.
 
-**Directive trace:** two covered action classes were met and none stopped — the branch was opened on the user's `#new`, and implementation ran on the user's order; no dependency was added, no machine-shaped data file was opened, the device was not touched, and every claim about the code came from a file read.
+**Directive trace:** the code moved on the user's `#impl` with this feature's card plan picked; no dependency was added, no machine-shaped data file was opened, the device was not touched, and every claim about the code came from a file read; none of the covered action classes stopped.
 
 ## State
 
-A route's auto name no longer carries a direction: both ends read `A <-> B` through `TrackNaming.ROUTE_CONNECTOR`, one named end reads alone, and the `route_name_from_fmt` / `route_name_to_fmt` strings are removed from both locales; a recorded trip keeps `A to B` with the language's own connector. The home-port radius is now 150 m (`tracking.homePort.geofenceRadiusM`), because the device log put the last search's destination 106–113 m from the port, outside the old 100 m circle, so the port's marker still named it; the radius is shared with the arrival prompt and the trip naming exclusion. `compileDebugKotlin` is green and the device pass is owed. The Source filter of `feature/list-filters` (All · GPS · Demo on `TrackSummary.gpsSourced`) stands as baked on 2026-10-24, with `GpxImporter` still not reading `<accuracy>`.
+The slow-water card plan shipped P0–P4: track and route cards show `Open water · 300M · Zones` (`SlowWaterRow`, `slowWaterCells`), a recording's figure computed by `TrackSlowWater.of` on its stored points (stops removed by the shared `isIdleStretch`) and kept on `TrackSummary` fields 24/25 behind `attachSlowWaterClassifier`, gated on `NavigationViewModel.slowWaterStamp` and re-marked by a regulation stamp; a route's figure is the plan's own, written at save on a settled search. The map's dashboard card reads the stored summary too. `apk-build.bat` green, 1 717 tests green; the Ask hop returned no blocker and six should-fix findings, open in the plan's `## Outcome`; P5 not taken; the device pass is owed. The 2026-09-15 walk level is still open.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/data/track/TrackNaming.kt` — `ROUTE_CONNECTOR`
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — the route save composes the name with it; the composable connector read is gone
-- `app/src/main/assets/maro.properties` — `tracking.homePort.geofenceRadiusM` 100 → 150
-- `app/src/main/res/values/strings.xml`, `values-fr/strings.xml` — the From / To strings removed
-- `app/src/main/java/ykws/android/maro/data/track/GpxImporter.kt` — the open gap: `<accuracy>` is not parsed
+- `app/src/main/java/ykws/android/maro/data/track/TrackRepository.kt` — the catch-up under `writeMutex` (finding 1), the pass flag (nit)
+- `app/src/main/java/ykws/android/maro/ui/map/NavigationViewModel.kt` — `slowWaterAt`'s full zone query per point (finding 2), the stamp missing `zones.properties` (finding 4)
+- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt` — the stored-summary lookup reads the filtered lists (finding 3)
+- `xTrack/Tracks/261101_FEAT_PLN_Tracks_stops-and-slow-water.md` — the Outcome and its findings
 
 ## Next Step
 
-Save a route with both ends named and with one end named on the device and read its name in the list and the save toast; then decide whether `GpxImporter` should read `<accuracy>`.
+The device pass: a dive trip's card summing to Nav and a freshly saved route's card summing to Total.

@@ -392,8 +392,8 @@ class RouteDirectionSymmetryTest {
     }
 
     private fun pullSnapPull(setup: PullSetup, sets: List<CornerSet>, full: List<LatLng>): List<LatLng> {
-        val pulled = MultipassPull.pullBothWays(setup, full)
-        return MultipassPull.pullBothWays(setup, snapToCorners(setup, sets, pulled))
+        val pulled = runBlocking { MultipassPull.pullBothWays(setup, full) }
+        return runBlocking { MultipassPull.pullBothWays(setup, snapToCorners(setup, sets, pulled)) }
     }
 
     // ── Measures ──────────────────────────────────────────────────────────────

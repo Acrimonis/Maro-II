@@ -415,11 +415,11 @@ class CoastlineRepository(
     }
 
     /**
-     * Returns the minimum distance (meters) from a GPS position to the coastline.
-     * Convenience delegate to [distanceToCoast].
+     * Returns the minimum distance (meters) from a GPS position to the coastline — [distanceToCoast]'s own
+     * distance, read through the index's per-cell candidates ([CoastlineSpatialIndex.distanceM]).
      */
     fun distanceToCoastMeters(latitude: Double, longitude: Double): Double =
-        distanceToCoast(latitude, longitude).distanceMeters
+        spatialIndex?.distanceM(latitude, longitude) ?: Double.MAX_VALUE
 
     // ── 300 m regulatory band ────────────────────────────────────────────────
 

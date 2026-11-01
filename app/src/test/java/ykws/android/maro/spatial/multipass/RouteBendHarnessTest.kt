@@ -13,6 +13,10 @@ import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
 import java.io.File
 import java.util.Properties
+import kotlin.math.abs
+import kotlin.math.ceil
+import kotlin.math.max
+import kotlin.math.min
 
 /**
  * **The bends' device pair, routed on the desktop** — the Lérins → La Salis pair the 2026-10-27 device runs read, or
@@ -52,6 +56,15 @@ import java.util.Properties
  * `LEGS` line per rung reads the refined line's legs: their count, the longest, and how many fall in each length
  * band, the reading the any-angle reach cap is set on.
  *
+ * **The corner pass's bends** (the smooth-corners plan's S1). `-Dmaro.harness.corners=true` also rounds each rung's
+ * refined line as the engine does ([RouteCornerPass.round]) and prints a `CORNERS` line — the verdict tally, the
+ * sharpest bend left standing and the largest heading change on the drawn line — then a `STANDING` line per bend
+ * left as an angle; each bow-wall refusal is re-asked on its own three points ([stretchProbe]) once at today's floors
+ * and once at floors read off the stretch the floor's bow replaces (the plan's F1), never in the engine. One
+ * `CORNERS-TOTAL` line per rung closes the report, which then lands in its own
+ * `app/build/route-bend-harness[-survey]-corners-<engine>-<pace>kn.txt`. `-Dmaro.harness.paceKn=<kn>` plans and
+ * rounds at another pace than the runs' 30 kn.
+ *
  * **The chord read's cost gate** (the any-angle plan's P1). The search's expansions are recorded in order
  * ([ExpansionProbe]) and, once the rung is done and outside its clock, a chord ([ChordReader], the
  * rung's own price and gate) is timed from the walk's own first cell to every cell it expanded, and along the search's
@@ -65,7 +78,10 @@ class RouteBendHarnessTest {
     // Read on first use, after the gate below: a malformed property fails the opted-in run, never a skipped one.
     private val start by lazy { endFrom("maro.harness.start") ?: LatLng(43.50982, 7.04681) }
     private val aim by lazy { endFrom("maro.harness.aim") ?: LatLng(43.57055, 7.13144) }
-    private val paceKn = 30.0
+    private val paceKn = System.getProperty("maro.harness.paceKn")?.takeIf { it.isNotBlank() }?.toDouble() ?: 30.0
+
+    /** Whether each rung's line is also rounded and its bends read — the smooth-corners plan's S1 and F1 probe. */
+    private val corners = System.getProperty("maro.harness.corners") == "true"
 
     /** Whether the harness walks as the Evolutive + row does — the any-angle search. */
     private val anyAngle = System.getProperty("maro.harness.anyAngle") == "true"
@@ -106,12 +122,13 @@ class RouteBendHarnessTest {
         say(
             "BEND HARNESS — ${BuildConfig.REGION_ID}, ${if (survey) "survey of ${pairs.size} pairs" else "$start -> $aim"}, " +
                 "$paceKn kn, evolutive, lambdas ${rungs.map { it.second }}, costed markers ${world.routeMarkers().size}, " +
-                "best of $repeats, anyAngle=$anyAngle " +
+                "best of $repeats, anyAngle=$anyAngle corners=$corners " +
                 "reachCells=${AppConfig.routeSearchAnyAngleReachCells}" +
                 (if (overrides.isEmpty()) "" else ", overrides ${overrides.joinToString(";")}")
         )
         val totals = rungs.associate { it.first to DoubleArray(CLOCK_KEYS.size) }
         val gateTotals = rungs.associate { it.first to DoubleArray(GATE_KEYS.size) }
+        val cornerTotals = rungs.associate { it.first to CornerTally() }
         for (pair in pairs) {
             if (survey) say("## ${pair.name} ${MultipassPull.atText(pair.a)} -> ${MultipassPull.atText(pair.b)}")
             for ((name, lambda) in rungs) {
@@ -137,6 +154,9 @@ class RouteBendHarnessTest {
                 }
                 run.ctx?.let { ctx -> if (refined.size >= 2) say("  ${readingOf(ctx, refined, lambda, run.trace)}") }
                 if (refined.size >= 2) say("  ${legsOf(refined)}")
+                if (corners) {
+                    run.ctx?.let { ctx -> cornerReading(ctx, refined, cornerTotals.getValue(name)).forEach { say("  $it") } }
+                }
                 run.trace.filter { line -> TRACE_PREFIXES.any { line.startsWith(it) } }
                     .distinct().forEach { say("  $it") }
                 say("  LINE ${refined.joinToString(" ") { MultipassPull.atText(it) }}")
@@ -153,7 +173,13 @@ class RouteBendHarnessTest {
                     "corridorRatio=${fmt(ratio, 2)} (bar ${fmt(GATE_BAR, 1)}) ${verdictOf(ratio)}"
             )
         }
-        val reportName = if (survey) "route-bend-harness-survey.txt" else "route-bend-harness.txt"
+        if (corners) for ((name, tally) in cornerTotals) say("CORNERS-TOTAL $name ${tally.line()}")
+        val reportStem = if (survey) "route-bend-harness-survey" else "route-bend-harness"
+        val reportName = if (corners) {
+            "$reportStem-corners-${if (anyAngle) "evolutive_plus" else "evolutive"}-${fmt(paceKn)}kn.txt"
+        } else {
+            "$reportStem.txt"
+        }
         File(repoDir, "app/build/$reportName").apply { parentFile?.mkdirs() }.writeText(report.toString())
     }
 
@@ -297,6 +323,210 @@ class RouteBendHarnessTest {
             labels.indices.joinToString(" ") { "${labels[it]}=${bands[it]}" }
     }
 
+    /** The corner readings summed over a rung's lines — the `CORNERS-TOTAL` line. */
+    private class CornerTally {
+        val outcomes = IntArray(RouteCornerPass.CornerOutcome.entries.size)
+        val standingBins = IntArray(STANDING_BINS_DEG.size + 1)
+        var lines = 0
+        var sharpestDeg = 0.0
+        var maxTurnDeg = 0.0
+        var probed = 0
+        var replayed = 0
+        var f1Rounds = 0
+        var f1RoundsReplayed = 0
+        var unprobed = 0
+        var nearEnd = 0
+
+        fun line(): String {
+            val tally = RouteCornerPass.CornerOutcome.entries.filter { outcomes[it.ordinal] > 0 }
+                .joinToString(" ") { "${it.name}=${outcomes[it.ordinal]}" }
+            val bounds = STANDING_BINS_DEG.map { it.toInt() }
+            val labels = listOf("<${bounds.first()}") + bounds.zipWithNext { a, b -> "$a-$b" } + ">=${bounds.last()}"
+            return "lines=$lines $tally sharpest=${"%.1f".format(java.util.Locale.ROOT, sharpestDeg)} " +
+                "maxTurn=${"%.1f".format(java.util.Locale.ROOT, maxTurnDeg)} " +
+                "standingDeg[${labels.indices.joinToString(" ") { "${labels[it]}=${standingBins[it]}" }}] " +
+                "bowWallProbed=$probed replayAgrees=$replayed f1Rounds=$f1Rounds f1RoundsOfAgreeing=$f1RoundsReplayed " +
+                "unprobed=$unprobed nearEnd=$nearEnd"
+        }
+    }
+
+    /**
+     * **The corner pass over [line], read** — rounded as the engine rounds the refined line (its pace, the arm's gate
+     * and margin, the world's whole zone set) into a `CORNERS` line (the verdict tally, `sharpest=` the largest turn
+     * left standing, `maxTurn=` the largest heading change between two consecutive drawn straights) and one
+     * `STANDING` line per bend of at least [RouteCornerPass.MIN_TURN_DEG] left as an angle, each bow-wall refusal
+     * carrying its [stretchProbe]. The sums ride [tally].
+     */
+    private fun cornerReading(ctx: GridContext, line: List<LatLng>, tally: CornerTally): List<String> {
+        if (line.size < 3) return emptyList()
+        val zoneAt: (Double, Double) -> Double? = ctx.worldZoneSet::strictestLimitKnAt
+        val rounded = RouteCornerPass.round(line, ctx.pace, ctx.world, ctx.gate, ctx.marginM, zoneLimitKnAt = zoneAt)
+        val verdicts = rounded.verdicts
+        val drawn = rounded.points
+        val standing = verdicts.filter { it.outcome != RouteCornerPass.CornerOutcome.ROUNDED }
+        val sharpest = standing.maxOfOrNull { it.turnDeg } ?: 0.0
+        val maxTurn = (1 until drawn.lastIndex).maxOfOrNull {
+            abs(RouteCornerPass.turnDegreesAt(drawn[it - 1], drawn[it], drawn[it + 1]))
+        } ?: 0.0
+        tally.lines++
+        verdicts.forEach { tally.outcomes[it.outcome.ordinal]++ }
+        tally.sharpestDeg = max(tally.sharpestDeg, sharpest)
+        tally.maxTurnDeg = max(tally.maxTurnDeg, maxTurn)
+        val counts = verdicts.groupingBy { it.outcome }.eachCount().entries.joinToString(" ") { "${it.key}=${it.value}" }
+        val out = mutableListOf(
+            "CORNERS total=${verdicts.size} pace=${fmt(ctx.pace)}kn $counts sharpest=${fmt(sharpest)} maxTurn=${fmt(maxTurn)}"
+        )
+        for (v in standing.filter { it.turnDeg >= RouteCornerPass.MIN_TURN_DEG }) {
+            val bin = STANDING_BINS_DEG.indexOfFirst { v.turnDeg < it }
+            tally.standingBins[if (bin < 0) STANDING_BINS_DEG.size else bin]++
+            val bowWall = v.outcome == RouteCornerPass.CornerOutcome.BOW_DEPTH ||
+                v.outcome == RouteCornerPass.CornerOutcome.BOW_COAST
+            val probe = if (bowWall) stretchProbe(ctx, line, v, zoneAt) else null
+            if (bowWall && probe == null) tally.unprobed++
+            if (probe != null) {
+                tally.probed++
+                // The replay agrees where it refuses on a wall too: which wall a bow meets first rides the order its
+                // points are read in, which the probe's own three-point line may turn.
+                val agrees = probe.today == RouteCornerPass.CornerOutcome.BOW_DEPTH ||
+                    probe.today == RouteCornerPass.CornerOutcome.BOW_COAST
+                val rounds = probe.f1 == RouteCornerPass.CornerOutcome.ROUNDED
+                if (agrees) tally.replayed++
+                if (rounds) tally.f1Rounds++
+                if (agrees && rounds) tally.f1RoundsReplayed++
+                if (probe.nearEnd) tally.nearEnd++
+            }
+            out += "STANDING why=${v.outcome} turn=${fmt(v.turnDeg)} in=${fmt(v.legInM)} out=${fmt(v.legOutM)} " +
+                "room=${fmt(v.roomM)} endM=${endOf(line, v.at)?.let { fmt(it) } ?: "-"} at=${MultipassPull.atText(v.at)}" +
+                (probe?.let { " ${it.text}" } ?: if (bowWall) " probe=none" else "")
+        }
+        return out
+    }
+
+    /** One bow-wall refusal re-asked: today's floors, then the stretch's (F1), and the readings between. */
+    private class StretchProbe(
+        val today: RouteCornerPass.CornerOutcome,
+        val f1: RouteCornerPass.CornerOutcome,
+        val nearEnd: Boolean,
+        val text: String
+    )
+
+    /**
+     * **A bow-wall refusal re-asked on its own three points** — the corner and its two neighbours on [line], the
+     * legs cut to the room the pass worked with, so the pass meets the same room, the same bow and the same walls at
+     * that corner with no other bend beside it — twice:
+     * - at **today's floors** (the arm's gate and margin): the replay, which must refuse as the line's own pass did;
+     * - at the **stretch's floors** (the plan's F1): the gate's preferred standoff lowered to the least edge reading
+     *   ([GateRule.segmentEdgeM]) over the stretch of [line] the shrink's smallest bow replaces — tangent-in → corner
+     *   → tangent-out, the tangent read off that bow drawn in open water — and the coast's margin lowered to the
+     *   least coast distance sampled every [WALL_SAMPLE_M] over it. A lowered preferred standoff is the floor itself
+     *   (`min(preferred, the corner's edge)` reads it, every edge read capped at it), and the wall still holds where
+     *   the gate does not waive itself. The shrink's smallest bow is the one whose refusal leaves the corner standing,
+     *   so the F1 answer at it is F1's own answer to whether the corner rounds at all.
+     *
+     * The probe's gate waives itself only where one of its ends is one of the line's (a room running to an end), and
+     * then about both of its ends; a corner within the gate's waiver disc plus its stretch of either real end is
+     * counted `nearEnd`. The joining chords to kinks a bow passes are not re-read. `null` where the corner is no
+     * vertex of [line] (a merged pair's crossing).
+     */
+    private fun stretchProbe(
+        ctx: GridContext,
+        line: List<LatLng>,
+        v: RouteCornerPass.CornerVerdict,
+        zoneAt: (Double, Double) -> Double?
+    ): StretchProbe? {
+        val gate = ctx.gate
+        val k = line.indexOf(v.at)
+        if (k <= 0 || k >= line.lastIndex) return null
+        val at = v.at
+        val prev = line[k - 1]
+        val next = line[k + 1]
+        fun along(to: LatLng, metres: Double) = chordPointAt(at, to, metres / SpatialOperations.haversine(at, to))
+        val legM = v.roomM / AppConfig.routeTurnReachFraction
+        val probeLine = listOf(along(prev, legM), at, along(next, legM))
+        val openWater = object : MultipassWorld by ctx.world {
+            override fun distanceToCoastM(latitude: Double, longitude: Double): Double = Double.MAX_VALUE
+        }
+
+        /** The tangent (m) of the bow drawn at [speedKn] on this corner's legs in open water. */
+        fun tangentAt(speedKn: Double): Double {
+            val bow = RouteCornerPass.round(
+                listOf(along(prev, OPEN_LEG_M), at, along(next, OPEN_LEG_M)), speedKn, openWater, null, 0.0,
+                zoneLimitKnAt = { _, _ -> null }
+            )
+            return SpatialOperations.haversine(bow.points[1], at)
+        }
+        // The shrink's bottom: the floor's bow, or the pass's 1 kn bottom where the floor's overshoots the room.
+        val floorTangentM = tangentAt(AppConfig.routeTurnMinSpeedKn)
+        val tangentM = if (floorTangentM > v.roomM) tangentAt(1.0) else floorTangentM
+        val pieces = stretchOf(line, k, tangentM).zipWithNext()
+        val cornerCoast = ctx.world.distanceToCoastM(at.latitude, at.longitude)
+        val stretchCoast = pieces.minOf { (a, b) ->
+            val n = max(1, ceil(SpatialOperations.haversine(a, b) / WALL_SAMPLE_M).toInt())
+            (0..n).minOf {
+                val p = chordPointAt(a, b, it.toDouble() / n)
+                ctx.world.distanceToCoastM(p.latitude, p.longitude)
+            }
+        }
+        val cornerEdge = gate?.edgeM(at, gate.preferredM) ?: Double.NaN
+        val stretchEdge = gate?.let { g -> pieces.minOf { (a, b) -> g.segmentEdgeM(a, b, g.preferredM) } } ?: Double.NaN
+
+        // The gate waives itself only where a probe end is one of the line's own (a corner whose room runs to an end).
+        val endsShared = probeLine.first().isEndOf(line) || probeLine.last().isEndOf(line)
+        val waiverM = if (endsShared) gate?.waiverM ?: 0.0 else 0.0
+
+        fun asked(preferredM: Double, marginM: Double): RouteCornerPass.CornerVerdict {
+            val probeGate = gate?.let { GateRule(it.edges, it.hardM, preferredM, waiverM, it.berthOuterM) }
+            return RouteCornerPass.round(probeLine, ctx.pace, ctx.world, probeGate, marginM, zoneLimitKnAt = zoneAt)
+                .verdicts.single()
+        }
+        val today = asked(gate?.preferredM ?: 0.0, ctx.marginM)
+        val f1 = asked(gate?.let { min(it.preferredM, stretchEdge) } ?: 0.0, min(ctx.marginM, stretchCoast))
+        val reachM = (gate?.waiverM ?: 0.0) + tangentM
+        val nearEnd =
+            SpatialOperations.haversine(at, ctx.start) < reachM || SpatialOperations.haversine(at, ctx.aim) < reachM
+
+        fun m(x: Double) = if (x.isNaN() || x == Double.MAX_VALUE) "-" else fmt(x)
+        val text = "tangent=${fmt(tangentM)} coastCorner=${m(cornerCoast)} coastStretch=${m(stretchCoast)} " +
+            "margin=${fmt(ctx.marginM)} edgeCorner=${m(cornerEdge)} edgeStretch=${m(stretchEdge)} " +
+            "preferred=${m(gate?.preferredM ?: Double.NaN)} hard=${m(gate?.hardM ?: Double.NaN)} " +
+            "replay=${today.outcome} f1=${f1.outcome}" +
+            (if (f1.outcome == RouteCornerPass.CornerOutcome.ROUNDED) "@${fmt(f1.speedKn)}kn" else "") +
+            (if (nearEnd) " nearEnd" else "")
+        return StretchProbe(today.outcome, f1.outcome, nearEnd, text)
+    }
+
+    /** Whether this point stands on one of [line]'s two ends, to the corner pass's own on-leg rounding. */
+    private fun LatLng.isEndOf(line: List<LatLng>): Boolean =
+        SpatialOperations.haversine(this, line.first()) < ON_END_M || SpatialOperations.haversine(this, line.last()) < ON_END_M
+
+    /** The metres along [line] from its vertex [at] to the nearer of its two ends, `null` where [at] is no vertex. */
+    private fun endOf(line: List<LatLng>, at: LatLng): Double? {
+        val k = line.indexOf(at).takeIf { it >= 0 } ?: return null
+        val legs = line.zipWithNext { a, b -> SpatialOperations.haversine(a, b) }
+        return min(legs.take(k).sum(), legs.drop(k).sum())
+    }
+
+    /** The stretch of [line] within [reachM] of its vertex [k] along the line on either side, its points in order. */
+    private fun stretchOf(line: List<LatLng>, k: Int, reachM: Double): List<LatLng> {
+        fun walk(step: Int): List<LatLng> {
+            val pts = mutableListOf<LatLng>()
+            var acc = 0.0
+            var j = k
+            while (j + step in line.indices) {
+                val seg = SpatialOperations.haversine(line[j], line[j + step])
+                if (acc + seg >= reachM) {
+                    pts += chordPointAt(line[j], line[j + step], (reachM - acc) / seg)
+                    return pts
+                }
+                pts += line[j + step]
+                acc += seg
+                j += step
+            }
+            return pts
+        }
+        return walk(-1).asReversed() + line[k] + walk(1)
+    }
+
     /** The fine pass's own water for [oriented] at [lambda]: its field at the fine cell and the pull's setup over it. */
     private fun fineSetupOf(ctx: GridContext, oriented: List<LatLng>, lambda: Double): PullSetup {
         val field = costField(
@@ -426,6 +656,18 @@ class RouteBendHarnessTest {
 
         /** The `LEGS` line's length bands (m), each band up to and including its bound. */
         val LEG_BANDS_M = doubleArrayOf(500.0, 1000.0, 2000.0, 3200.0, 6400.0)
+
+        /** The `CORNERS-TOTAL` line's bins (deg) for the bends of at least 10° left standing, each below its bound. */
+        val STANDING_BINS_DEG = doubleArrayOf(20.0, 30.0, 45.0, 60.0)
+
+        /** The corner pass's own sample (m) between two coast reads along a straight — the probe's stretch read. */
+        const val WALL_SAMPLE_M = 2.0
+
+        /** The open-water legs (m) the probe reads a bow's tangent on — far beyond any floor bow's reach. */
+        const val OPEN_LEG_M = 1000.0
+
+        /** How near (m) a probe end must stand to a line end to be that end — the corner pass's own on-leg rounding. */
+        const val ON_END_M = 0.01
 
         /** The timed sweeps per chord sample; the fastest is kept. */
         const val GATE_SWEEPS = 5

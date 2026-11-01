@@ -25,6 +25,7 @@ import ykws.android.maro.data.model.ListFilter
 import ykws.android.maro.data.model.ListSortState
 import ykws.android.maro.data.model.MapRenderFocus
 import ykws.android.maro.data.model.RegionBounds
+import ykws.android.maro.data.model.SlowWater
 import ykws.android.maro.data.model.matchesFilter
 import ykws.android.maro.data.model.todayMidnightMs
 import ykws.android.maro.data.settings.AppSettings
@@ -310,6 +311,16 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun attachPositionClassifier(waterTest: (Double, Double) -> Boolean?, region: RegionBounds) {
         repository.attachPositionClassifier(waterTest, region)
+        refreshSummaries()
+    }
+
+    /**
+     * Inject the zone-and-band test and the regulation stamp it reads, then reload so the recordings
+     * already listed pick up their slow-water figure — the same injection shape as
+     * [attachPositionClassifier], called by MapScreen once the zones and the coastline can both answer.
+     */
+    fun attachSlowWaterClassifier(classifier: (Double, Double) -> SlowWater?, stamp: Long) {
+        repository.attachSlowWaterClassifier(classifier, stamp)
         refreshSummaries()
     }
 

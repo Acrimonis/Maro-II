@@ -11,6 +11,7 @@ import kotlinx.serialization.protobuf.ProtoBuf
 import kotlinx.serialization.protobuf.ProtoNumber
 import ykws.android.maro.data.markers.UserMarkerRepository
 import ykws.android.maro.data.model.RegionBounds
+import ykws.android.maro.data.model.SlowWater
 import ykws.android.maro.data.model.markers.MarkerOrigin
 import java.io.File
 import java.io.IOException
@@ -86,6 +87,28 @@ open class TrackRepository(
         positionPassDone = false
     }
 
+    /** The slow-water test and the stamp its figures are computed under, attached as one pair. */
+    private class SlowWaterSource(val classifier: (Double, Double) -> SlowWater?, val stamp: Long)
+
+    /**
+     * Null until the screen attaches it — once the zones and the coastline can both answer — which is
+     * itself the gate: a figure is never computed against "no data yet" and baked in as open water.
+     */
+    @Volatile
+    private var slowWaterSource: SlowWaterSource? = null
+
+    /** One slow-water catch-up per attachment, as [positionPassDone] is for the position counts. */
+    private var slowWaterPassDone = false
+
+    /**
+     * Attach the zone-and-band test ([SlowWater], the zone over the band) and the regulation [stamp] it
+     * reads, and let one pass over the recordings whose figure is absent or stale follow.
+     */
+    fun attachSlowWaterClassifier(classifier: (Double, Double) -> SlowWater?, stamp: Long) {
+        slowWaterSource = SlowWaterSource(classifier, stamp)
+        slowWaterPassDone = false
+    }
+
     /**
      * Save a completed track. Throws [IOException] when the file could not be written or replaced —
      * the caller decides what a failed save means (the recorder keeps its checkpoint).
@@ -128,9 +151,12 @@ open class TrackRepository(
         decodeTrackOrQuarantine(file)
     }
 
-    /** List all track summaries from the index, sampling any whose position counts are still absent. */
+    /**
+     * List all track summaries from the index, sampling any whose position counts are still absent and
+     * computing any recording's slow-water figure that is absent or stale.
+     */
     suspend fun listTracks(): List<TrackSummary> = withContext(Dispatchers.IO) {
-        writeMutex.withLock { classifyUnclassified(readIndex()) }
+        writeMutex.withLock { attributeSlowWater(classifyUnclassified(readIndex())) }
     }
 
     /**
@@ -454,6 +480,7 @@ open class TrackRepository(
     /** The complete projection shared by incremental publication and the recovery/reference rebuild. */
     private fun summarize(track: Track, previous: TrackSummary?): TrackSummary {
         val counts = classifyOrCarry(track, previous)
+        val slowWater = slowWaterOrCarry(track, previous)
         return TrackSummary(
             id = track.id,
             name = track.name,
@@ -484,7 +511,9 @@ open class TrackRepository(
             routeStartMarkerId = track.routeStartMarkerId,
             routeDestinationMarkerId = track.routeDestinationMarkerId,
             demo = track.demo,
-            gpsSourced = track.hasGpsFix()
+            gpsSourced = track.hasGpsFix(),
+            slowWater = slowWater.entries,
+            slowWaterStamp = slowWater.stamp
         )
     }
 
@@ -539,6 +568,54 @@ open class TrackRepository(
         val test = positionClassifier ?: return TrackPositionCounts()
         val bounds = positionRegion ?: return TrackPositionCounts()
         return classifyTrackPosition(track.trackPoints, bounds, test)
+    }
+
+    /** A summary's slow-water pair: the entries and the stamp they were computed under, `0` for none. */
+    private class SlowWaterFigure(val entries: List<SlowWaterEntry>, val stamp: Long)
+
+    /**
+     * The slow-water figure for a freshly decoded track. A route projects its own stored figure — a
+     * source fact, never recomputed. A recording carries the index's figure when the track has not been
+     * written since and the stamp still matches the attached one, and is computed otherwise when the
+     * classifier is attached; with none attached it stays uncomputed, which the catch-up fills.
+     */
+    private fun slowWaterOrCarry(track: Track, previous: TrackSummary?): SlowWaterFigure {
+        if (track.route) return SlowWaterFigure(track.slowWater, track.slowWaterStamp)
+        val source = slowWaterSource
+        if (previous != null &&
+            previous.updatedAtEpochMs == track.updatedAtEpochMs &&
+            previous.slowWaterComputed &&
+            (source == null || previous.slowWaterStamp == source.stamp)
+        ) {
+            return SlowWaterFigure(previous.slowWater, previous.slowWaterStamp)
+        }
+        val entries = source?.let { TrackSlowWater.of(track.trackPoints, it.classifier) }
+            ?: return SlowWaterFigure(emptyList(), 0L)
+        return SlowWaterFigure(entries, source.stamp)
+    }
+
+    /**
+     * Compute the slow-water figure of every recording whose figure is absent or carries another stamp —
+     * a regulation bake re-marks them all — and write the index once if any changed. Routes are skipped:
+     * theirs is the plan's own figure, and a route saved before it existed keeps its row hidden for good.
+     * One pass per attachment, shaped like [classifyUnclassified].
+     */
+    private suspend fun attributeSlowWater(
+        summaries: List<TrackSummary>
+    ): List<TrackSummary> = withContext(Dispatchers.IO) {
+        if (slowWaterPassDone) return@withContext summaries
+        val source = slowWaterSource ?: return@withContext summaries
+        var changed = false
+        val updated = summaries.map { summary ->
+            if (summary.route || summary.slowWaterStamp == source.stamp) return@map summary
+            val track = load(summary.id) ?: return@map summary
+            val entries = TrackSlowWater.of(track.trackPoints, source.classifier) ?: return@map summary
+            changed = true
+            summary.copy(slowWater = entries, slowWaterStamp = source.stamp)
+        }
+        slowWaterPassDone = true
+        if (changed) writeIndexLocked(updated)
+        updated
     }
 
     /**

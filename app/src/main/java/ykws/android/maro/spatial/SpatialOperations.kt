@@ -54,6 +54,14 @@ object SpatialOperations {
     fun shortestDegLonM(widestLat: Double): Double = EARTH_RADIUS_M * PI / 180.0 * cos(Math.toRadians(widestLat))
 
     /**
+     * **The metres in the longest degree of longitude anywhere in [lowLat]..[highLat]** — the degree at the latitude
+     * nearest the equator, the equator's own where the span straddles it: no point of that span projects a degree of
+     * longitude longer in [pointToSegmentDistance], whose scale is read at a mean of latitudes inside it.
+     */
+    fun longestDegLonM(lowLat: Double, highLat: Double): Double =
+        shortestDegLonM(if (lowLat <= 0.0 && highLat >= 0.0) 0.0 else min(abs(lowLat), abs(highLat)))
+
+    /**
      * **Whether no segment inside the box [minLat]..[maxLat] × [minLon]..[maxLon] can measure under [bestM]** in
      * [pointToSegmentDistance] — the point's distance to the box, its longitude read at [shortestDegLonM]'s
      * degree, which no projection of the segment can make shorter, already reaching [bestM] plus

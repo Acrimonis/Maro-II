@@ -62,7 +62,7 @@ internal class BakedRegionWorld private constructor(
     override fun isWater(latitude: Double, longitude: Double): Boolean = index.isWater(latitude, longitude)
 
     override fun distanceToCoastM(latitude: Double, longitude: Double): Double =
-        index.query(latitude, longitude).distanceMeters
+        index.distanceM(latitude, longitude)
 
     override fun depthAt(latitude: Double, longitude: Double): DepthSample =
         grid.depthAtFilled(latitude, longitude, cutoffM, gateMinM)

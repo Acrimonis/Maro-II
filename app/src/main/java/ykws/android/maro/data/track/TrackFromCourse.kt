@@ -66,6 +66,9 @@ object TrackFromCourse {
      * @param routeDestinationMarkerId the flagged marker id the route's destination end stood on, or
      *                   `""` when it was not a marker.
      * @param comment              the comment the saved route carries; empty by default.
+     * @param slowWater            the plan's own time on water with a limit ([TrackSlowWater.fromRoute]),
+     *                   or null when the plan carries none — a draft, or a route read back — so the track
+     *                   is stamped only when the search settled and the card hides the row otherwise.
      */
     fun build(
         start: RoutePoint,
@@ -76,7 +79,8 @@ object TrackFromCourse {
         name: String? = null,
         routeStartMarkerId: String = "",
         routeDestinationMarkerId: String = "",
-        comment: String = ""
+        comment: String = "",
+        slowWater: List<SlowWaterEntry>? = null
     ): Track {
         val distanceM = legs.sumOf { it.distanceM }
         val durationSec = legs.sumOf { it.durationSec }
@@ -126,7 +130,9 @@ object TrackFromCourse {
             // The ends' identities, persisted on the track so a later acquisition on the same pair
             // can pull this line back rather than search again (R82).
             routeStartMarkerId = routeStartMarkerId,
-            routeDestinationMarkerId = routeDestinationMarkerId
+            routeDestinationMarkerId = routeDestinationMarkerId,
+            slowWater = slowWater.orEmpty(),
+            slowWaterStamp = if (slowWater != null) TrackSlowWater.ROUTE_STAMP else 0L
         )
     }
 
