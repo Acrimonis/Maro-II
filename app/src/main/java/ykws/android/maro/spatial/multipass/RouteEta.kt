@@ -3,6 +3,7 @@ package ykws.android.maro.spatial.multipass
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.RouteSlowLimit
+import ykws.android.maro.data.model.SlowWater
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
 import kotlin.math.ceil
@@ -315,25 +316,31 @@ internal fun slowWaterSeverity(paceKn: Double, limitKn: Double): Double =
     if (paceKn <= 0.0) 0.0 else ((paceKn - limitKn) / paceKn).coerceAtLeast(0.0)
 
 /**
- * **The time a route spends in slow water, summed per speed limit** — the companion of [slowShares],
- * keyed by the limit rather than by the water's kind.
+ * **The time a route spends on water with a limit, summed per speed limit** — the companion of
+ * [slowShares], keyed by the limit rather than by the water's kind.
  *
- * A slow leg's **midpoint** names the entry it belongs to: a leg inside a priced ring answers the
- * strictest limit in force there ([limitKnAt], the clock's own read), a leg inside the 300 m band
- * answers [bandLimitKn] as its own entry, and a slow leg on open water — a bend's floor, an
- * acceleration, a ramp between two limits — is charged to **no** entry at all. There is no fold and no
- * nearest-neighbour search: a limit's figure is **its own legs'** seconds, never a neighbour's, so the
- * band's entry can never grow into the route's own duration. The zone wins over the band where both
- * hold, so the entries never double-count. Entries come band-first, then by ascending limit. Empty when
- * nothing slowed the route.
+ * A leg's **midpoint** names the entry it belongs to, through the one precedence a recorded track's
+ * walk reads too ([SlowWater.of]): a leg inside a ring answers the strictest limit in force there
+ * ([limitKnAt], the clock's own read), a leg inside the 300 m band and no ring answers [bandLimitKn] as
+ * its own entry, and a leg on open water — a bend's floor, an acceleration, a ramp between two limits —
+ * is charged to **no** entry at all. There is no fold and no nearest-neighbour search: a limit's figure
+ * is **its own legs'** seconds, never a neighbour's, so the band's entry can never grow into the route's
+ * own duration. The zone wins over the band where both hold, so the entries never double-count. Entries
+ * come band-first, then by ascending limit. Empty when the route never meets a limit.
+ *
+ * **Every second on that water counts** (the user's word, 2026-11-01): a ring whose limit stands at or
+ * above the pace, or one the price switch leaves unpriced, is still water with a limit, so the table a
+ * card and the panel publish reads the time on limited water whatever the pace — the meaning a recorded
+ * track's card reads. [slowLegsOnly] keeps the **crown's** reading apart: it charges only the legs
+ * slower than the pace, which is all the ranking ever weighs, so the crown's figure never moves with
+ * the published table.
  *
  * **A leg is charged what lies inside, never the whole crossing.** The midpoint names the entry, but
  * the seconds it pays are the fraction of its own time that lies on that water — so a leg straddling
  * 300 m's edge no longer charges the whole leg to the band. A leg wholly inside (or outside) pays its
  * whole time (or none) exactly as before; a straddling leg is measured by sampling and bisecting each
  * crossing. The clock's own read inside a ring is never null — `inZone` **is** that read's predicate —
- * so the old `?: bandLimitKn` fallback was dead and is dropped: a ring's leg is keyed to the ring's own
- * limit and never to the band's.
+ * so a ring's leg is keyed to the ring's own limit and never to the band's.
  */
 fun slowTimeByLimit(
     timed: TimedLine,
@@ -343,7 +350,9 @@ fun slowTimeByLimit(
     inBand: (LatLng) -> Boolean,
     bandLimitKn: Double,
     /** The legs' water read once by the caller ([LegWater]), or `null` to read it here per leg. */
-    water: LegWater? = null
+    water: LegWater? = null,
+    /** True for the crown's reading: a leg no slower than the pace is charged to no entry. */
+    slowLegsOnly: Boolean = false
 ): List<RouteSlowLimit> {
     val legs = timed.legTimesSec.size
     if (legs == 0 || paceKn <= 0.0) return emptyList()
@@ -354,27 +363,24 @@ fun slowTimeByLimit(
         val a = timed.points[i]
         val b = timed.points[i + 1]
         val dist = legLengthM(timed, i)
-        if (timed.legTimesSec[i] - dist / paceMps <= 0.0) continue
+        if (slowLegsOnly && timed.legTimesSec[i] - dist / paceMps <= 0.0) continue
         val mid = legMidpoint(timed, i)
-        val key: Pair<Double, Boolean>
-        val inside: (LatLng) -> Boolean
-        if (water?.midInZone?.get(i) ?: inZone(mid)) {
+        val zoneKn = if (water?.midInZone?.get(i) ?: inZone(mid)) {
             // The clock's own raw read at the midpoint, kept by the profile where it built this line.
-            val zoneKn = (if (facts != null) facts.midLimitKn[i] else limitKnAt(mid))
+            (if (facts != null) facts.midLimitKn[i] else limitKnAt(mid))
                 ?: continue // unreachable: inZone is this read's own predicate
-            key = roundHalfKn(zoneKn) to false
-            inside = inZone
-        } else if (water?.midInBand?.get(i) ?: inBand(mid)) {
-            key = roundHalfKn(bandLimitKn) to true
-            inside = inBand
         } else {
-            continue // slow on open water: a bend's floor or a ramp is no limit's time.
+            null
         }
+        // Open water — a bend's floor or a ramp — is no limit's time.
+        val slow = SlowWater.of(zoneKn, { water?.midInBand?.get(i) ?: inBand(mid) }, bandLimitKn) ?: continue
+        val isBand = slow is SlowWater.Band
+        val key = roundHalfKn(slow.limitKn) to isBand
         // **Spent, not lost**: the entry is the leg's own seconds — the time the boat spends on that
         // limit's water — because the panel's label reads *spent in* that limit, not the excess over
-        // the cruise pace, which is the slow test above and nothing more. The fraction inside is the
-        // leg's own metres on that water over its length, and a leg at a constant speed spends its time
-        // in the same proportion.
+        // the cruise pace. The fraction inside is the leg's own metres on that water over its length,
+        // and a leg at a constant speed spends its time in the same proportion.
+        val inside = if (isBand) inBand else inZone
         totals[key] = (totals[key] ?: 0.0) + insideSeconds(a, b, dist, timed.legTimesSec[i], inside)
     }
     return totals.entries

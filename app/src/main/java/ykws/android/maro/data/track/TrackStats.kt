@@ -11,7 +11,21 @@ const val IDLE_MAX_SPEED_MPS = 0.5
 const val IDLE_MAX_DRIFT_M = 500.0
 
 /**
- * Derive idle duration from the point timeline using the compound idle predicate.
+ * **The stored track's own idle test, for one interval** — the boat moved under [IDLE_MAX_SPEED_MPS] on
+ * average and drifted less than [IDLE_MAX_DRIFT_M] between [prev] and [point]. A recorder stores no
+ * point while stopped, so a native stop is one long interval and this is the net-distance rule in
+ * effect. An interval with no positive duration is never idle. One home for the two readers that walk
+ * the points: [timelineIdleSec] and `TrackSlowWater`.
+ */
+fun isIdleStretch(prev: TrackPoint, point: TrackPoint): Boolean {
+    val dtSec = (point.timeOffsetMs - prev.timeOffsetMs) / 1000.0
+    if (dtSec <= 0) return false
+    val dM = SpatialOperations.haversine(LatLng(prev.lat, prev.lon), LatLng(point.lat, point.lon))
+    return dM / dtSec < IDLE_MAX_SPEED_MPS && dM < IDLE_MAX_DRIFT_M
+}
+
+/**
+ * Derive idle duration from the point timeline using the compound idle predicate ([isIdleStretch]).
  * GAP markers are filtered out first, so a long stop that produced no points is classified
  * by the displacement vs duration across the gap (idle if the boat stayed put).
  */
@@ -25,14 +39,8 @@ fun timelineIdleSec(points: List<TrackPoint>): Long {
         val prev = previous
         previous = point
         if (prev == null) continue
-        val dtSec = (point.timeOffsetMs - prev.timeOffsetMs) / 1000.0
-        if (dtSec <= 0) continue
-        val dM = SpatialOperations.haversine(
-            LatLng(prev.lat, prev.lon),
-            LatLng(point.lat, point.lon)
-        )
-        if (dM / dtSec < IDLE_MAX_SPEED_MPS && dM < IDLE_MAX_DRIFT_M) {
-            idle += dtSec.toLong()
+        if (isIdleStretch(prev, point)) {
+            idle += ((point.timeOffsetMs - prev.timeOffsetMs) / 1000.0).toLong()
         }
     }
     return idle

@@ -3,7 +3,7 @@
 > State only — routing map, feature index, focus history, global todos, doc index. Rules and instructions live in `AGENTS.md`.
 
 ## Focus History
-- [2026-11-01 13:48 UTC] Route — on `feature/rooouting`: Evolutive + made the shipped default and P2's tests landed (five suites on both searches, the lone-turn test, the harness flag forwarded); the task list cut from 21 to 7 (covered items dropped, open points accepted as limits, the coast-boxed end parked with reproductions, smooth driving closed on a harness reading); 31 plans archived and one dropped; the slow-water card row planned in Tracks and reviewed once; 1 704 tests green → xTrack/Route/FEAT_HYD_Route.md
+- [2026-11-01 13:48 UTC] Route — on `feature/rooouting`: Evolutive + made the shipped default and P2's tests landed (five suites on both searches, the lone-turn test, the harness flags forwarded); the task list cut from 21 to 7, 31 plans archived; then the Tracks slow-water card plan implemented P0–P4 — the `Open water · 300M · Zones` row on track and route cards, a recording's figure on its summary behind the attached zone-and-band classifier, a route's written at save, the route table counting every second on limited water with the crown unmoved; `apk-build.bat` and 1 717 tests green, the Ask hop's findings open in the plan → xTrack/Route/FEAT_HYD_Route.md
 - [2026-10-30 18:09 UTC] Route — on `feature/rooouting` (on `develop` at PR #398), two exact speed-ups shipped with every harness line identical: the coast distance read off a per-cell candidate list (the 24-pair survey −67–73 %, the default pair −13–23 %) and the pull's two walks side by side on memo forks (the survey −11–16 % more), each reviewed once; the rest measured under the noise bar; 1 692 tests and `apk-build.bat` green → xTrack/Route/FEAT_HYD_Route.md
 - [2026-10-29 08:28 UTC] Route — on `feature/roouttinggg`, the any-angle search went from a prototype behind `route.search.anyAngle` to its own algorithm: P6b gave the fine crossing re-solve its key (`false`), P6c kept the 32-cell reach, and P6a read on the phone found the 43° bend a 24 kn one, the re-solve no part of it, the walk curing it at +2–9 % warm; D3 taken as Evolutive + (`evolutive_plus`) in Settings, the switch deleted, read on the device; 1 688 tests and `apk-build.bat` green → xTrack/Route/FEAT_HYD_Route.md
 - [2026-10-27 23:28 UTC] Route — on `feature/roouttinggg` (cut from `develop` at PR #397, lone-turns P1 merged): the device pass of 2026-10-29 read P1 (two lone slides took) and a 43° bend between the 10 kn zone's collar and Pointe du Bacon no one-point slide reaches; the patch series ended and the any-angle coarse search was designed — a Lazy Theta\* over the existing walk, its chord priced on the walk's own cells, the gate read per cell and never whole-waived, behind `route.search.anyAngle` — reviewed once (three blockers folded), its decisions taken and every post-search stage's fate assessed; nothing implemented, ready for `#implement` from P0; the slack probe kept → xTrack/Route/FEAT_HYD_Route.md
@@ -49,11 +49,11 @@
 
 | Feature | Status | Created | Modified | Link |
 |---|---|---|---|---|
-| Route | active | 2026-08-16 10:44 | 2026-11-01 18:29 | [FEAT_DSC_Route.md](Route/FEAT_DSC_Route.md) |
+| Route | active | 2026-08-16 10:44 | 2026-11-01 18:53 | [FEAT_DSC_Route.md](Route/FEAT_DSC_Route.md) |
 | Ui_Dashboard | active | 2026-06-06 00:00 | 2026-10-12 08:58 | [FEAT_DSC_Ui_Dashboard.md](Ui_Dashboard/FEAT_DSC_Ui_Dashboard.md) |
 | Ui_General | active | 2026-06-08 16:43 | 2026-10-23 15:22 | [FEAT_DSC_Ui_General.md](Ui_General/FEAT_DSC_Ui_General.md) |
 | Markers | active | 2026-06-22 11:52 | 2026-10-23 17:41 | [FEAT_DSC_Markers.md](Markers/FEAT_DSC_Markers.md) |
-| Tracks | active | 2026-06-15 21:43 | 2026-11-01 18:29 | [FEAT_DSC_Tracks.md](Tracks/FEAT_DSC_Tracks.md) |
+| Tracks | active | 2026-06-15 21:43 | 2026-11-01 18:53 | [FEAT_DSC_Tracks.md](Tracks/FEAT_DSC_Tracks.md) |
 | Performance | active | 2026-06-07 00:00 | 2026-09-20 13:50 | [FEAT_DSC_Performance.md](Performance/FEAT_DSC_Performance.md) |
 | Ui_Settings | active | 2026-06-09 15:28 | 2026-10-20 19:40 | [FEAT_DSC_Ui_Settings.md](Ui_Settings/FEAT_DSC_Ui_Settings.md) |
 | UI_Map | active | 2026-06-07 00:00 | 2026-10-23 16:20 | [FEAT_DSC_UI_Map.md](UI_Map/FEAT_DSC_UI_Map.md) |

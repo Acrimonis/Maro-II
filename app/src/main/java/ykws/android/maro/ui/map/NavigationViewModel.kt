@@ -14,6 +14,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewModelScope
 import ykws.android.maro.data.track.TrackRecordingService
+import ykws.android.maro.data.track.TrackSlowWater
 import kotlinx.coroutines.Dispatchers
 import ykws.android.maro.data.RetryingInitializer
 import kotlinx.coroutines.Job
@@ -52,6 +53,7 @@ import ykws.android.maro.data.location.GpsLocationSource
 import ykws.android.maro.data.model.CoastlineState
 import ykws.android.maro.data.model.GenerationProgress
 import ykws.android.maro.data.model.LatLng
+import ykws.android.maro.data.model.SlowWater
 import ykws.android.maro.data.model.Zone300Data
 import ykws.android.maro.data.regulation.RegulatedZoneSet
 import ykws.android.maro.data.regulation.RegulatedZonesRepository
@@ -275,6 +277,27 @@ class NavigationViewModel(
     /** The built speed-zone list — the same objects the index above was built from, exposed for the avoid engine. */
     private val _speedZones = MutableStateFlow<List<SpeedZone>>(emptyList())
     val speedZones: StateFlow<List<SpeedZone>> = _speedZones.asStateFlow()
+
+    /** The zone set the published [_speedZoneIndex] was built from — null until the first publication. */
+    private class IndexedZones(val zoneSet: RegulatedZoneSet?)
+    private val _indexedZones = MutableStateFlow<IndexedZones?>(null)
+
+    /**
+     * **The regulation stamp [slowWaterAt] answers under**, or null while it cannot answer: the zone list's
+     * first load has not answered, or the index of the set it answered with is not published yet. A track's
+     * slow-water figure is computed only once this is set, so "no zones yet" never bakes in as open water.
+     */
+    val slowWaterStamp: StateFlow<Long?> = combine(
+        regulatedZonesRepository.loaded,
+        regulatedZonesRepository.zoneSet,
+        _indexedZones
+    ) { loaded, zoneSet, indexed ->
+        if (loaded && indexed != null && indexed.zoneSet === zoneSet) {
+            TrackSlowWater.regulationStamp(zoneSet?.metadata?.fetchTimestampMs)
+        } else {
+            null
+        }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
     /** Non-speed regulated zone index — for the REGULATED re-display proximity. */
     private val _nonSpeedIndex = MutableStateFlow<ykws.android.maro.spatial.NonSpeedZoneIndex?>(null)
 
@@ -1139,12 +1162,13 @@ class NavigationViewModel(
                 Log.w(TAG, "SpeedZoneIndex: no speed zones found (zoneSet=${zoneSet != null})")
                 null
             }
-            zones to index
+            Triple(zoneSet, zones, index)
         }
             .flowOn(Dispatchers.Default)
-            .onEach { (zones, index) ->
+            .onEach { (zoneSet, zones, index) ->
                 _speedZones.value = zones
                 _speedZoneIndex.value = index
+                _indexedZones.value = IndexedZones(zoneSet)
             }
             .launchIn(viewModelScope)
 
@@ -1536,10 +1560,19 @@ class NavigationViewModel(
     fun isWaterOrNull(latitude: Double, longitude: Double): Boolean? =
         repository.isWaterOrNull(latitude, longitude)
 
+    /**
+     * **The water a limit governs at one point** — a speed zone with its strictest limit, the 300 m band,
+     * or null for open water, the zone over the band ([SlowWater.of]). One test for the history seed's
+     * guard ([isRouteRestricted]) and a track's slow-water figure.
+     */
+    fun slowWaterAt(latitude: Double, longitude: Double): SlowWater? = SlowWater.of(
+        zoneLimitKn = _speedZoneIndex.value?.query(latitude, longitude)?.mostRestrictiveSpeedKn,
+        inBand = { repository.distanceToCoastMeters(latitude, longitude) <= CoastlineRepository.ZONE_DISTANCE_M },
+        bandLimitKn = AppConfig.routeAvoidZone300LimitKn
+    )
+
     /** True when a point sits inside a speed zone or the 300 m band — the history seed's "not cruising" guard. */
-    fun isRouteRestricted(latitude: Double, longitude: Double): Boolean =
-        _speedZoneIndex.value?.query(latitude, longitude)?.insideAnyZone == true ||
-            repository.distanceToCoastMeters(latitude, longitude) <= CoastlineRepository.ZONE_DISTANCE_M
+    fun isRouteRestricted(latitude: Double, longitude: Double): Boolean = slowWaterAt(latitude, longitude) != null
 
     /** The region the coastline can answer for, or null before it is loaded. */
     val coastlineRegionBounds: ykws.android.maro.data.model.RegionBounds?

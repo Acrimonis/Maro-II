@@ -2,7 +2,7 @@
 name: Route
 status: active
 created: 2026-08-16 10:44
-modified: 2026-11-01 18:29
+modified: 2026-11-01 18:53
 ---
 
 # Feature: Route
@@ -17,7 +17,7 @@ of 2026-10-07, so this file states the current code and nothing else.
 - The post-search stages stand as shipped — the pull and its lookback, the snap, the approach pass's slides and splits, the straightener, the nudge and the corner pass; on the 2026-11-01 harness 10–13 % of non-shallow bends stand, all end corners where the line already sits on the gate's wall, so F1 was closed unbuilt.
 - The search's speed: the remediation, waves F–G and the exact speed-ups (a per-cell coast candidate list, the pull's two walks side by side) stand; what remains measures under ~5 % of a coastal rung.
 - The depth gate is measured off the traced 3 m line; its open points (the berth's missing cap, `avoid` strict at 20 m on 100 m cells, the aim's boxed check, a short hook near an end) were accepted as known limits on 2026-11-01. A coast-boxed end fails as no path on every engine — parked with two `@Ignore` reproductions, none of the user's markers hitting it.
-- Next on the cards: a third stats row `Open water · 300M · Zones` on route and track cards, planned in Tracks → [`261101_FEAT_PLN_Tracks_stops-and-slow-water.md`](../Tracks/261101_FEAT_PLN_Tracks_stops-and-slow-water.md).
+- A route's published slow-water table (`slowLimitSeconds`, the panel's Speed limits column and the comment's zone line) counts every second on water with a limit — every corridor ring, priced or not, the zone over the band (`SlowWater.of`) — while the crown keeps its priced slow-legs-only walk, unmoved; a saved route stores that figure for the cards' `Open water · 300M · Zones` row (2026-11-01, owned by Tracks) → [`261101_FEAT_PLN_Tracks_stops-and-slow-water.md`](../Tracks/261101_FEAT_PLN_Tracks_stops-and-slow-water.md).
 - The device passes are the user's and stand in `## Owed device passes`; none gates a code landing (R97).
 
 ## Concept
@@ -219,7 +219,6 @@ One list, newest first: everything the Route feature has planned and **not yet i
 - [ ] **The provisional figure is shown unmarked (R96)** — a waiting row's early distance and ETA wear the settled weight while the figure will move by up to a percent; decide whether a mark is owed.
 - [ ] **Parked — swap the drawer's route ends** — a tier-2 `swap_vert` button on the ends row that exchanges the two stored end tokens; the `RouteEndSelection.resolve` fallback keeps each selector honest.
 
-- [ ] **The slow-water time on the cards** — a third stats row, `Open water · 300M · Zones`, on the saved-route and the track cards, both meaning time on water with a limit (the zone over the band), so the route's attribution is redefined to match; planned in Tracks, reviewed once, every decision taken → [`261101_FEAT_PLN_Tracks_stops-and-slow-water.md`](../Tracks/261101_FEAT_PLN_Tracks_stops-and-slow-water.md)
 
 
 ## Owed device passes

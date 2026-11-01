@@ -93,7 +93,18 @@ data class Track(
      * new one. It lives on the track rather than a recorder field because a checkpoint resume must
      * keep the departure side, and the checkpoint is the track itself.
      */
-    @ProtoNumber(23) val startedAtHomePort: Boolean = false
+    @ProtoNumber(23) val startedAtHomePort: Boolean = false,
+    /**
+     * **A saved route's time on water with a limit** — the plan's own seconds per limit, written at save
+     * only when the search settled ([TrackSlowWater.fromRoute]). A recording never carries it here: its
+     * figure is derived, and lives on [TrackSummary] alone, so computing it never rewrites a track file.
+     */
+    @ProtoNumber(24) val slowWater: List<SlowWaterEntry> = emptyList(),
+    /**
+     * Non-zero when [slowWater] was written ([TrackSlowWater.ROUTE_STAMP]); `0` — a draft, a route saved
+     * before the field, every recording — means no figure, so the card keeps its row hidden.
+     */
+    @ProtoNumber(25) val slowWaterStamp: Long = 0L
 )
 
 /**
@@ -194,7 +205,20 @@ data class TrackSummary(
      * An index written before the field existed decodes `false` — every track would read as demo — which
      * is why its introduction bumped [SUMMARY_INDEX_VERSION]: the stale stamp rebuilds the index once.
      */
-    @ProtoNumber(23) val gpsSourced: Boolean = false
+    @ProtoNumber(23) val gpsSourced: Boolean = false,
+    /**
+     * **The time on water with a limit** the card's `Open water · 300M · Zones` row reads: a route's own
+     * [Track.slowWater] projected, or a recording's moving seconds per limit ([TrackSlowWater.of]) —
+     * derived and rebuildable, like the position counts. An index written before the field decodes it
+     * empty with a zero stamp, which is "not computed", so no version bump is owed.
+     */
+    @ProtoNumber(24) val slowWater: List<SlowWaterEntry> = emptyList(),
+    /**
+     * What [slowWater] was computed under, `0` meaning not computed: a route's [Track.slowWaterStamp], or
+     * for a recording the regulation set's stamp ([TrackSlowWater.regulationStamp]), so a regulation bake
+     * re-marks every recording. The band has no content stamp, so a coastline change does not.
+     */
+    @ProtoNumber(25) val slowWaterStamp: Long = 0L
 ) : ListableItem {
     override val title: String get() = name
     override val description: String get() = comment
@@ -222,6 +246,9 @@ data class TrackSummary(
 
     /** Sampled points that were on land, or null when the track was never classified. */
     val sampledLandPoints: Int? get() = landPointCount.takeIf { positionClassified }?.minus(1)
+
+    /** Whether [slowWater] holds a figure — the card shows its slow-water row only then, zeros included. */
+    val slowWaterComputed: Boolean get() = slowWaterStamp != 0L
 
     /**
      * The position filter's reading of this track: water wins the tie, and a track nothing could be

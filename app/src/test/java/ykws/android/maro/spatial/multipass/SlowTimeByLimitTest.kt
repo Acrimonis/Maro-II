@@ -205,9 +205,10 @@ class SlowTimeByLimitTest {
     }
 
     /**
-     * **No double count and no orphan** — the entries' sum never exceeds the route's own slow seconds,
-     * and a limit the line never stands on never appears. On a line standing only in the band, the sole
-     * entry is the band's and nothing it never stood on is invented.
+     * **No double count and no orphan, on the crown's reading** — with `slowLegsOnly` the entries' sum
+     * never exceeds the route's own slow seconds, and a limit the line never stands on never appears. On a
+     * line standing only in the band, the sole entry is the band's and nothing it never stood on is
+     * invented.
      */
     @Test
     fun theEntriesNeverExceedTheSlowSecondsAndInventNoLimit() {
@@ -222,7 +223,7 @@ class SlowTimeByLimitTest {
         val timed = TimedLine(points, legTimes, legTimes.map { 0.0 })
         val slowSeconds = legTimes[1] + legTimes[3]
 
-        val entries = slowTimeByLimit(timed, paceKn, { null }, { false }, inBand, bandLimitKn)
+        val entries = slowTimeByLimit(timed, paceKn, { null }, { false }, inBand, bandLimitKn, slowLegsOnly = true)
 
         assertEquals("only the band stands", 1, entries.size)
         assertTrue("no zone entry is invented for water the line never stood on", entries.none { !it.isBand })
@@ -257,5 +258,28 @@ class SlowTimeByLimitTest {
 
         assertEquals("the zone stands", 1, entries.size)
         assertTrue("and no band entry stands on a line that never entered the band", entries.none { it.isBand })
+    }
+
+    /**
+     * **The table counts every second on water with a limit** (2026-11-01): a ring whose limit stands at
+     * the pace slows no leg, yet its leg is time on limited water — the meaning a recorded track's card
+     * reads — so the published table charges it, while the crown's reading (`slowLegsOnly`) still leaves
+     * it out, its figure unmoved.
+     */
+    @Test
+    fun aZoneAtThePaceCountsInTheTableAndNotInTheCrownsReading() {
+        val points = (0..2).map { LatLng(43.0 + 0.01 * it, 7.0) }
+        val d = SpatialOperations.haversine(points[0], points[1])
+        val atPace = d / Units.knotsToMps(paceKn)
+        val timed = TimedLine(points, listOf(atPace, atPace), listOf(0.0, 0.0))
+        val inZone: (LatLng) -> Boolean = { it.latitude > 43.00 && it.latitude < 43.01 }
+        val limitAt: (LatLng) -> Double? = { p -> if (inZone(p)) paceKn else null }
+
+        val table = slowTimeByLimit(timed, paceKn, limitAt, inZone, { false }, bandLimitKn)
+        val crown = slowTimeByLimit(timed, paceKn, limitAt, inZone, { false }, bandLimitKn, slowLegsOnly = true)
+
+        assertEquals("the zone's leg stands in the table", atPace, table.single().seconds, 1e-6)
+        assertEquals(paceKn, table.single().limitKn, 1e-9)
+        assertTrue("and in no entry of the crown's reading", crown.isEmpty())
     }
 }

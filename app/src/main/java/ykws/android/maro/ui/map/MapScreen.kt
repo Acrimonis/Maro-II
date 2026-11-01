@@ -209,6 +209,7 @@ import ykws.android.maro.ui.components.PendingDeletion
 import ykws.android.maro.ui.components.bandHeightFor
 import ykws.android.maro.data.model.RoutePoint
 import ykws.android.maro.data.track.TrackFromCourse
+import ykws.android.maro.data.track.TrackSlowWater
 import ykws.android.maro.data.track.TrackViewModel
 import ykws.android.maro.data.track.TrackSummary
 import ykws.android.maro.data.track.sortSummaries
@@ -1593,6 +1594,19 @@ fun MapScreen(
         )
     }
 
+    // Wire the zone-and-band test into the same repository once the zones and the coastline can both
+    // answer: the recordings then get the slow-water figure their card's `Open water · 300M · Zones` row
+    // reads, and a regulation bake's new stamp re-marks them.
+    val slowWaterStamp by viewModel.slowWaterStamp.collectAsState()
+    LaunchedEffect(coastlineReady, slowWaterStamp) {
+        val stamp = slowWaterStamp
+        if (!coastlineReady || stamp == null) return@LaunchedEffect
+        trackViewModel.attachSlowWaterClassifier(
+            classifier = { lat, lon -> viewModel.slowWaterAt(lat, lon) },
+            stamp = stamp
+        )
+    }
+
     // ── Inspect mode's inspectable set (plan §3) ─────────────────────────
     // One source for the sweep and the ladder: the map-filtered items whose layer is showing. The
     // render cap is not a restriction — a filtered track beyond it is a legitimate pick and the mode's
@@ -2705,7 +2719,14 @@ fun MapScreen(
                     name = name ?: composeRouteName(plan),
                     routeStartMarkerId = startMarkerId ?: "",
                     routeDestinationMarkerId = destinationMarkerId ?: "",
-                    comment = routeCommentFor(plan)
+                    comment = routeCommentFor(plan),
+                    // The card's slow-water row reads the plan's own seconds, stored only for a settled
+                    // search — the zone line's own marker — so a draft never shows false zeros.
+                    slowWater = if (plan.searchDurationSec != null) {
+                        TrackSlowWater.fromRoute(plan.slowLimitSeconds)
+                    } else {
+                        null
+                    }
                 )
                 val savedId = trackViewModel.saveBuiltTrack(track)
                 toastSaved(track.name)

@@ -2,7 +2,7 @@
 name: Tracks
 status: active
 created: 2026-06-15 21:43
-modified: 2026-11-01 18:29
+modified: 2026-11-01 18:53
 ---
 
 # Feature: Tracks
@@ -21,6 +21,7 @@ Track the boat's movement (position, speed) during active navigation. One record
 - The two render axes per kind run on a global → kind → class `enabled` leaf, one painter serves both kinds over the `path.*` family, and the render count runs 0–30 plus an **All** value.
 - A trip's GPX carries the markers that own it, re-pointed at the landed track id on import.
 - The track list's **Source** filter (All · GPS · Demo) reads `TrackSummary.gpsSourced` — any point with an accuracy makes a track GPS, none makes it demo — not the sticky `Track.demo` flag; routes and the live recording always pass, and the route lists carry neither Source nor the On water / On land axis. `GpxImporter` never reads `<accuracy>`, so a foreign or re-imported GPX reads as demo.
+- Track and route cards carry a third stats row, `Open water · 300M · Zones`: time on water with a limit, the zone over the band, open water the remainder of Nav (a track) or Total (est.) (a route). A recording's figure is its moving seconds per limit, stops removed by the stored idle test, kept on `TrackSummary` alone behind the screen's attached classifier and re-marked by a regulation bake's stamp; a route's is the plan's own, written at save on a settled search, so drafts and routes saved before 2026-11-01 hide the row. The Ask hop's findings stand open in the plan's Outcome → [`261101_FEAT_PLN_Tracks_stops-and-slow-water.md`](261101_FEAT_PLN_Tracks_stops-and-slow-water.md)
 
 ## Sections
 
@@ -94,7 +95,7 @@ Deferred — cross-navigation between track detail and marker detail via `>` lin
 - A route's name joins its two ends with `<->` and prints a single named end alone, never `From` or `To`; a recorded trip's name keeps the language's own `to` / `à` ([`TrackNaming.compose`](../../app/src/main/java/ykws/android/maro/data/track/TrackNaming.kt) takes the connector, the route's save in [`MapScreen.kt`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt) passing `ROUTE_CONNECTOR`).
 
 ## Docs
-- `xTrack/Tracks/261101_FEAT_PLN_Tracks_stops-and-slow-water.md` — **the slow-water time on a card**: a third stats row `Open water · 300M · Zones` on track and route cards, stops read from the stored track's own idle test, the figure on the summary behind a classifier seam, the route's attribution aligned (in design, reviewed once)
+- `xTrack/Tracks/261101_FEAT_PLN_Tracks_stops-and-slow-water.md` — **the slow-water time on a card**: a third stats row `Open water · 300M · Zones` on track and route cards, stops read from the stored track's own idle test, the figure on the summary behind a classifier seam, the route's attribution aligned (implemented 2026-11-01, review findings open)
 - `xTrack/Tracks/261011_FEAT_PLN_Tracks_export-auto-markers.md` — a trip's GPX carries its markers: the payloads in a track's extensions and their `wpt` companions, the `trackId` remap on import, the transient filter and the skip-consistency rule (shipped 2026-10-11)
 - `xTrack/Tracks/261010_FEAT_PLN_Tracks_marker-zone-naming.md` — the marker-zone naming design: the timed fusion, the name shape, and the origin-led chain with the Port Salis home port excluded (settled 2026-10-11)
 - `xTrack/Tracks/261007_FEAT_PLN_Tracks_path-render-engine.md` — **the path render engine**: one painter for tracks and routes — the seam's `RenderPoint` / `LineRenderSpec` / `LineRenderPlan`, the `path.*` contract and its `pathKeyCandidates` cascade, the route parity (chevrons, speed bands and dash), the docs / rebuild-key / test pass and the grep guard (implementation landed; device pass owed); its `## Speed and arrow display` normalisation — per-axis global → kind → class tiers, the per-kind persisted settings and per-kind Settings split, the new `acquisition` class, `path.gate.*` retired — **shipped 2026-10-07**, uncommitted
@@ -343,6 +344,8 @@ Deferred — cross-navigation between track detail and marker detail via `>` lin
 - Resolutions: four points settled in one pass — the axis joining the shipped link with no per-axis code written for it; the four inert colour keys and the three unread fields removed, nothing a user sees changing; the trace render count opening at its sibling's default of 5, within the same 0–20 bound and the same row pattern; and the export staying blob-only, a third-party round trip knowingly losing the flag. Dropped: the list-only axis, and a `<type>` element with the token it would have needed. Parked: nothing — what the level describes is work, and it is ordered in the plan and the todo list rather than held here.
 
 ## Implemented
+
+- **The slow-water row (2026-11-01, `feature/rooouting`)** — track and route cards gain `Open water · 300M · Zones`, both meaning time on water with a limit (the zone over the band); a recording's figure lives on its summary behind the attached classifier and the regulation stamp, a route's is the plan's own written at save; the route table now counts every second on limited water, the crown unmoved; `apk-build.bat` and 1 717 tests green, the Ask hop's findings open, the device pass owed → [`261101_FEAT_PLN_Tracks_stops-and-slow-water.md`](261101_FEAT_PLN_Tracks_stops-and-slow-water.md)
 
 - A route's auto name drops the direction: both ends read `A <-> B`, one named end reads alone, and the `route_name_from_fmt` / `route_name_to_fmt` strings are gone from both locales; a recorded trip keeps `A to B` and the home-port radius widened to 150 m after the device log put a route's destination 106–113 m from the port, outside the old circle, so the port's marker still named it (shipped 2026-10-25 on `feature/route-mono`, `compileDebugKotlin` green, device pass owed)
 

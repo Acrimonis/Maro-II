@@ -1,7 +1,7 @@
 <!-- scope: feature -->
 # Tracks — the slow-water time on a card (stops read from the stored track)
 
-**Date:** 2026-11-01 · **Status:** in design, reviewed once (v2), every decision taken · **Order:** the user's word of 2026-11-01 —
+**Date:** 2026-11-01 · **Status:** implemented 2026-11-01 (P0–P4; P5 not taken), Ask hop's findings open in `## Outcome` · **Order:** the user's word of 2026-11-01 —
 *"plan stop detection + plan card display extension (discuss how)"*, then *"g2"* and *"plan, review, update
 plan, report"*. Origin: the Route todo *"The crown's card figures"* (the slow-water minutes on a saved route's
 card), widened to recorded tracks. Owner: Tracks (the card, the store, the index); Route owns the attribution
@@ -148,3 +148,18 @@ A third stats row on both cards, `Open water · 300M · Zones`:
 ## Open
 
 None: the definition, the old routes, the GPX jitter, the demo tracks and the split are decided above.
+
+## Outcome — `#implement`, 2026-11-01 on `feature/rooouting`
+
+- **Shipped P0–P4.** `SlowWater.of` (`data/model/SlowWater.kt`) holds the zone-over-band precedence for both readings; `isIdleStretch` is shared by `timelineIdleSec` and `TrackSlowWater.of`; the route table counts every second on limited water over every corridor ring, the crown keeping its priced slow-legs-only walk (`slowLegsOnly`), pinned by `anUnpricedRingStandsInTheTableAndLeavesTheCostUnmoved`; `Track` and `TrackSummary` fields 24/25; the repository's `attachSlowWaterClassifier`, the summary projection and the `attributeSlowWater` catch-up; the `Open water · 300M · Zones` row on both card kinds, both locales.
+- **Deviations.** The attach waits on `NavigationViewModel.slowWaterStamp` (zones loaded and their index published), not `loaded` alone; the map's dashboard card reads the figure off the stored summary too; the crown and the table are two walks per rung; a track with no time span is retried once per attachment rather than marked.
+- **Verification.** `apk-build.bat` SUCCESS; full unit suite 1 717 tests, 27 skipped, 0 failures; the device pass is the user's.
+- **Ask hop's findings, open (none blocking):**
+  1. should-fix — the catch-up walks the library under `writeMutex`, blocking the recorder's checkpoint on a first run or after a regulation bake.
+  2. should-fix — `slowWaterAt` runs the full `SpeedZoneIndex.query` (nearest edge included) per track point; a containment-only read would do.
+  3. should-fix — the dashboard looks the stored summary up in the filtered lists, so a recording hidden by the list filter loses its row there.
+  4. should-fix — `zones.properties` overrides change no stamp, so a recording is not re-marked when they change (a second named gap beside the coastline's).
+  5. should-fix — the table's second `LegWater` re-reads the band per leg; the `===` shortcut never fires in production.
+  6. should-fix — three docs still state the old slow-only meaning (`RouteAvoidEngine.kt` rung note, `RouteOverlay.kt` `routeSlowLimitEntries`, `SlowTimeByLimitTest` class doc).
+  7. nit — `inAnyZone` identity check fragile; `slowWaterPassDone` can mark a newer source done; a metadata edit before attach drops a valid figure; `ROUTE_STAMP` and `NO_REGULATION_STAMP` share `1L`.
+  8. nit — a track's row overshoots Nav when the walk's idle differs from the recorder's (open water clamps at 0); excluded zones count on a track but not on a route; a zone in the band is keyed at the band's limit, now more visible; the dashboard's two hand-built summaries grew.

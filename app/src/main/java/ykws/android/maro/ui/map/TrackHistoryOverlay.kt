@@ -116,6 +116,8 @@ import ykws.android.maro.data.model.trackFilterAxes
 import ykws.android.maro.data.track.TrackRecorderState
 import ykws.android.maro.data.track.TrackRecorderUiState
 import ykws.android.maro.data.track.TrackSummary
+import ykws.android.maro.data.track.SlowWaterCells
+import ykws.android.maro.data.track.slowWaterCells
 import ykws.android.maro.data.track.mergeCandidates
 import ykws.android.maro.ui.components.ListOverlayScaffold
 import ykws.android.maro.ui.components.ListSelectionCheck
@@ -844,6 +846,8 @@ internal fun TrackCardContent(
                 Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_total_estimated), fmtDuration(totalSec)) }
                 Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_avg_estimated), fmtKnFromMps(summary.averageSpeedMps)) }
             }
+            // The plan's own time on limited water, the remainder of Total (est.) as open water.
+            if (summary.slowWaterComputed) SlowWaterRow(slowWaterCells(totalSec, summary.slowWater))
         } else {
             Row(modifier = Modifier.fillMaxWidth()) {
                 Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_total), fmtDuration(totalSec)) }
@@ -855,6 +859,8 @@ internal fun TrackCardContent(
                 Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_idle), fmtDuration(summary.idleDurationSec)) }
                 Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_max), fmtKnFromMps(summary.fastestSpeedMps)) }
             }
+            // The moving time on limited water, the remainder of Nav as open water.
+            if (summary.slowWaterComputed) SlowWaterRow(slowWaterCells(summary.navigatingDurationSec, summary.slowWater))
         }
     }
     }
@@ -1078,6 +1084,19 @@ private fun LiveTrackCard(
             Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_idle), fmtDuration(liveState.idleDurationSec)) }
             Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_max), fmtKn(liveState.maxSpeedKn)) }
         }
+    }
+}
+
+/**
+ * The card's third stats row, `Open water · 300M · Zones` — shown once the figure is computed, zeros
+ * included, and never split per limit.
+ */
+@Composable
+private fun SlowWaterRow(cells: SlowWaterCells) {
+    Row(modifier = Modifier.fillMaxWidth()) {
+        Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_open_water), fmtDuration(cells.openWaterSec)) }
+        Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.route_slow_band_label), fmtDuration(cells.bandSec)) }
+        Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_zones), fmtDuration(cells.zonesSec)) }
     }
 }
 
