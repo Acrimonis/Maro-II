@@ -97,8 +97,19 @@ open class TrackRepository(
     @Volatile
     private var slowWaterSource: SlowWaterSource? = null
 
-    /** One slow-water catch-up per attachment, as [positionPassDone] is for the position counts. */
-    private var slowWaterPassDone = false
+    /**
+     * The attachment the last slow-water catch-up completed under: a pass is owed whenever this is not
+     * the attached source. It is a reference, not a flag, so an attach landing at any instant — the end of
+     * a pass included — leaves the two different and the next list sweeps under the newer stamp.
+     */
+    @Volatile
+    private var slowWaterPassDoneFor: SlowWaterSource? = null
+
+    /**
+     * Serialises the catch-up's off-lock walk, so two list calls never walk the library twice at once.
+     * Taken before [writeMutex], never after, and by [listTracks] alone — the recorder never waits on it.
+     */
+    private val slowWaterPassMutex = Mutex()
 
     /**
      * Attach the zone-and-band test ([SlowWater], the zone over the band) and the regulation [stamp] it
@@ -106,7 +117,6 @@ open class TrackRepository(
      */
     fun attachSlowWaterClassifier(classifier: (Double, Double) -> SlowWater?, stamp: Long) {
         slowWaterSource = SlowWaterSource(classifier, stamp)
-        slowWaterPassDone = false
     }
 
     /**
@@ -156,7 +166,10 @@ open class TrackRepository(
      * computing any recording's slow-water figure that is absent or stale.
      */
     suspend fun listTracks(): List<TrackSummary> = withContext(Dispatchers.IO) {
-        writeMutex.withLock { attributeSlowWater(classifyUnclassified(readIndex())) }
+        slowWaterPassMutex.withLock {
+            val classified = writeMutex.withLock { classifyUnclassified(readIndex()) }
+            attributeSlowWater(classified)
+        }
     }
 
     /**
@@ -610,28 +623,62 @@ open class TrackRepository(
         return SlowWaterFigure(entries, source.stamp)
     }
 
+    /** One recording's walked figure and the version of it the walk saw — the merge's compare-and-set key. */
+    private class WalkedFigure(
+        val id: String,
+        val updatedAtEpochMs: Long,
+        val stampSeen: Long,
+        val entries: List<SlowWaterEntry>
+    )
+
     /**
      * Compute the slow-water figure of every recording whose figure is absent or carries another stamp —
      * a regulation bake re-marks them all — and write the index once if any changed. Routes are skipped:
      * theirs is the plan's own figure, and a route saved before it existed keeps its row hidden for good.
-     * One pass per attachment, shaped like [classifyUnclassified].
+     * One pass per attachment ([slowWaterPassDoneFor]).
+     *
+     * **The walk holds no lock.** A track file is replaced atomically, so [load] is safe unlocked, and
+     * the recorder's checkpoint never queues behind a long first run. The results then merge under
+     * [writeMutex] into a fresh index, each one **only where that recording still carries the
+     * `updatedAtEpochMs` and the stamp the walk saw**: a track saved meanwhile took its figure from
+     * [summarize], and a track deleted meanwhile is absent from the fresh index. Call under
+     * [slowWaterPassMutex], never under [writeMutex].
      */
     private suspend fun attributeSlowWater(
         summaries: List<TrackSummary>
-    ): List<TrackSummary> = withContext(Dispatchers.IO) {
-        if (slowWaterPassDone) return@withContext summaries
-        val source = slowWaterSource ?: return@withContext summaries
-        var changed = false
-        val updated = summaries.map { summary ->
-            if (summary.route || summary.slowWaterStamp == source.stamp) return@map summary
-            val track = load(summary.id) ?: return@map summary
-            val entries = TrackSlowWater.of(track.trackPoints, source.classifier) ?: return@map summary
-            changed = true
-            summary.copy(slowWater = entries, slowWaterStamp = source.stamp)
+    ): List<TrackSummary> {
+        val source = slowWaterSource ?: return summaries
+        if (slowWaterPassDoneFor === source) return summaries
+        val walked = summaries.mapNotNull { summary ->
+            if (summary.route || summary.slowWaterStamp == source.stamp) return@mapNotNull null
+            val track = load(summary.id) ?: return@mapNotNull null
+            val entries = TrackSlowWater.of(track.trackPoints, source.classifier) ?: return@mapNotNull null
+            WalkedFigure(summary.id, track.updatedAtEpochMs, summary.slowWaterStamp, entries)
+        }.associateBy { it.id }
+        if (walked.isEmpty()) {
+            // The usual case once a library is computed: nothing to merge, so no lock and no index decode.
+            slowWaterPassDoneFor = source
+            return summaries
         }
-        slowWaterPassDone = true
-        if (changed) writeIndexLocked(updated)
-        updated
+        return writeMutex.withLock {
+            val current = readIndex()
+            var changed = false
+            val merged = current.map { summary ->
+                val figure = walked[summary.id]
+                if (figure == null || summary.route ||
+                    summary.updatedAtEpochMs != figure.updatedAtEpochMs ||
+                    summary.slowWaterStamp != figure.stampSeen
+                ) {
+                    return@map summary
+                }
+                changed = true
+                summary.copy(slowWater = figure.entries, slowWaterStamp = source.stamp)
+            }
+            if (changed) writeIndexLocked(merged)
+            // After the write: a failed write leaves the pass owed rather than recorded as done.
+            slowWaterPassDoneFor = source
+            merged
+        }
     }
 
     /**

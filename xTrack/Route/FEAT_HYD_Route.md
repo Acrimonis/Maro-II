@@ -1,19 +1,19 @@
-# Context Hydration — Route — 2026-11-01
+# Context Hydration — Route — 2026-11-11
 
-**Last Bake:** 2026-11-01 18:53 UTC — written by `#bake` on `feature/rooouting`.
+**Last Bake:** 2026-11-11 14:53 UTC — written by `#bake` on `feature/route-tweeks`.
 
-**Directive trace:** no dependency was added, no binary file opened and the device not touched; the code moved on the user's `#impl` with the Tracks card plan picked (*"Tracks card plan, P0 on"*), P0–P4 implemented and built, the `ask` hop reviewing once; a later *"add the row on route cards also"* was answered with a question the user declined, nothing written on it; no git write ran before this bake's `#commit`; none of the covered action classes stopped.
+**Directive trace:** no dependency was added, no binary file opened and the device not touched; the code moved on the user's `#impl` after a plan the user approved point by point (D1–D7), the `ask` hop reviewing the design and the built change; the user then invoked `#bake`, `#commit` and `#push` in one message; none of the covered action classes stopped.
 
 ## State
 
-`feature/rooouting` ships Evolutive + as the default engine and P2's tests. The route's published slow-water table now counts every second on water with a limit — every corridor ring, priced or not, the zone over the band through `SlowWater.of` — while `rungSlowWater`'s cost keeps the priced slow-legs-only walk (`slowLegsOnly`), so the crown is unmoved; a settled route's figure is saved on its track for the cards' `Open water · 300M · Zones` row (owned by Tracks). `apk-build.bat` green, the suite at 1 717 tests, 27 skipped, 0 failures. Six open tasks: any-angle P3/P5, the parked boxed end and swap-ends, the channel after its device pass, the multi-route save, the provisional mark.
+`feature/route-tweeks` removes the question at the end of a followed route. The toggle's off and the back key end it through the deferred window with Undo (`leaveRouteMode()` is the one door), the menu's Go restarts silently, and arrival is a status pill held one second (`route.follow.arrival.settleSec`) while the boat is within `route.follow.arrival.etaSec` of the destination, in a new stack of status pills (`MapStatusBannerStack`). The exit dialog, its doors and the arrival cue are gone. `apk-build.bat` green, the suite at 1 762 tests, 27 skipped, 0 failures. Open: the device pass (the status stack against the Undo snack column), the hold's missing unit test, and the any-angle P3/P5 and the parked items in the feature file.
 
 ## Target Files
 
-- `xTrack/Route/261029_FEAT_PLN_Route_any-angle-search.md` — P3 (one pricing for steps and chords, the `bound`/`full`/`reopen` knobs) and P5
-- `app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt` — `rungSlowWater`: the table's second `LegWater` re-reads the band per leg (review finding 5) and its doc still states the old meaning (finding 6)
-- `app/src/main/java/ykws/android/maro/spatial/multipass/RouteEta.kt` — `slowTimeByLimit` and `slowLegsOnly`
-- `xTrack/Tracks/261101_FEAT_PLN_Tracks_stops-and-slow-water.md` — the Ask hop's open findings in `## Outcome`
+- `xTrack/Route/261111_FEAT_PLN_Route_end-of-life.md` — the plan, implemented; §5 names the `goRoute` commit-before-in-flight-guard race left alone
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `leaveRouteMode()` and the arrival notice's settle hold
+- `app/src/main/java/ykws/android/maro/ui/map/MapControls.kt` — `MapStatusBannerStack`
+- `xTrack/Route/261029_FEAT_PLN_Route_any-angle-search.md` — P3 and P5, still open
 
 ## Next Step
 

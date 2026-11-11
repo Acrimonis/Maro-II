@@ -64,6 +64,7 @@ import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.data.settings.SettingsManager
 import ykws.android.maro.BuildConfig
 import ykws.android.maro.spatial.SpeedZoneIndex
+import ykws.android.maro.spatial.multipass.ZoneSet
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
 import kotlin.math.sqrt
@@ -278,22 +279,43 @@ class NavigationViewModel(
     private val _speedZones = MutableStateFlow<List<SpeedZone>>(emptyList())
     val speedZones: StateFlow<List<SpeedZone>> = _speedZones.asStateFlow()
 
-    /** The zone set the published [_speedZoneIndex] was built from — null until the first publication. */
-    private class IndexedZones(val zoneSet: RegulatedZoneSet?)
+    /**
+     * The zone set the published [_speedZoneIndex] was built from — null until the first publication — and
+     * the containment-only [limits] read built over the same speed zones, so the stamp and the read a
+     * track's figure is walked with always come from one publication.
+     */
+    private class IndexedZones(val zoneSet: RegulatedZoneSet?, val limits: ZoneSet)
+
+    /** What one zone-set publication builds on the worker, handed to the ViewModel lane as a unit. */
+    private class Published(
+        val zoneSet: RegulatedZoneSet?,
+        val zones: List<SpeedZone>,
+        val index: SpeedZoneIndex?,
+        val limits: ZoneSet
+    )
     private val _indexedZones = MutableStateFlow<IndexedZones?>(null)
 
+    /** A regulation [stamp] and the slow-water test bound to the zones of the very publication it names. */
+    class SlowWaterAttachment(val stamp: Long, val classifier: (Double, Double) -> SlowWater?)
+
     /**
-     * **The regulation stamp [slowWaterAt] answers under**, or null while it cannot answer: the zone list's
-     * first load has not answered, or the index of the set it answered with is not published yet. A track's
-     * slow-water figure is computed only once this is set, so "no zones yet" never bakes in as open water.
+     * **The slow-water test and the regulation stamp it answers under, built together from one
+     * publication**, or null while it cannot answer: the zone list's first load has not answered, or the
+     * index of the set it answered with is not published yet. A track's slow-water figure is computed only
+     * once this is set, so "no zones yet" never bakes in as open water — and a stamp can never be paired
+     * with the zones of another publication, the pair being made here from the same [IndexedZones].
      */
-    val slowWaterStamp: StateFlow<Long?> = combine(
+    val slowWaterAttachment: StateFlow<SlowWaterAttachment?> = combine(
         regulatedZonesRepository.loaded,
         regulatedZonesRepository.zoneSet,
         _indexedZones
     ) { loaded, zoneSet, indexed ->
         if (loaded && indexed != null && indexed.zoneSet === zoneSet) {
-            TrackSlowWater.regulationStamp(zoneSet?.metadata?.fetchTimestampMs)
+            val limits = indexed.limits
+            SlowWaterAttachment(
+                stamp = TrackSlowWater.regulationStamp(zoneSet?.metadata?.fetchTimestampMs),
+                classifier = { latitude, longitude -> slowWaterAt(limits, latitude, longitude) }
+            )
         } else {
             null
         }
@@ -1148,13 +1170,15 @@ class NavigationViewModel(
                 Log.w(TAG, "SpeedZoneIndex: no speed zones found (zoneSet=${zoneSet != null})")
                 null
             }
-            Triple(zoneSet, zones, index)
+            Published(zoneSet, zones, index, ZoneSet(zones))
         }
             .flowOn(Dispatchers.Default)
-            .onEach { (zoneSet, zones, index) ->
-                _speedZones.value = zones
-                _speedZoneIndex.value = index
-                _indexedZones.value = IndexedZones(zoneSet)
+            .onEach { published ->
+                _speedZones.value = published.zones
+                // Before the index: a reader gated on the index (the speed-history seed) then never
+                // asks `isRouteRestricted` against the previous zone set.
+                _indexedZones.value = IndexedZones(published.zoneSet, published.limits)
+                _speedZoneIndex.value = published.index
             }
             .launchIn(viewModelScope)
 
@@ -1549,10 +1573,15 @@ class NavigationViewModel(
     /**
      * **The water a limit governs at one point** — a speed zone with its strictest limit, the 300 m band,
      * or null for open water, the zone over the band ([SlowWater.of]). One test for the history seed's
-     * guard ([isRouteRestricted]) and a track's slow-water figure.
+     * guard ([isRouteRestricted]) and a track's slow-water figure. The zone is a containment read
+     * ([ZoneSet.strictestDisplayLimitKnAt], boxes rejected first), not the full point query: no nearest
+     * edge is wanted here, and a figure is asked of every point of every recording.
      */
-    fun slowWaterAt(latitude: Double, longitude: Double): SlowWater? = SlowWater.of(
-        zoneLimitKn = _speedZoneIndex.value?.query(latitude, longitude)?.mostRestrictiveSpeedKn,
+    fun slowWaterAt(latitude: Double, longitude: Double): SlowWater? =
+        slowWaterAt(_indexedZones.value?.limits, latitude, longitude)
+
+    private fun slowWaterAt(limits: ZoneSet?, latitude: Double, longitude: Double): SlowWater? = SlowWater.of(
+        zoneLimitKn = limits?.strictestDisplayLimitKnAt(latitude, longitude),
         inBand = { repository.distanceToCoastMeters(latitude, longitude) <= CoastlineRepository.ZONE_DISTANCE_M },
         bandLimitKn = AppConfig.routeAvoidZone300LimitKn
     )

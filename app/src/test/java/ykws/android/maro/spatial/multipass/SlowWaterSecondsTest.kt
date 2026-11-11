@@ -326,4 +326,25 @@ class SlowWaterSecondsTest {
         assertTrue("and in no entry with the ring unread", unpriced.byLimit.none { !it.isBand })
         assertEquals("the crown's figure is unmoved", unpriced.cost.slowWaterSec, read.cost.slowWaterSec, 1e-9)
     }
+
+    /**
+     * **The table's legs reuse the band the crown's legs read.** The table's rings are another predicate
+     * (`inAnyZone`, never the same lambda as `inZone` in production), and its legs once re-read the band at
+     * every midpoint with it — two reads per leg per rung. A line of open water at the pace, so no ramp or
+     * band walk reads the band either, isolates the legs' own read: one per leg.
+     */
+    @Test
+    fun theTablesLegsReadTheBandOncePerLegNotTwice() {
+        val points = (0..4).map { LatLng(43.5 + 0.01 * it, 7.0) }
+        val leg = SpatialOperations.haversine(points[0], points[1]) / Units.knotsToMps(paceKn)
+        val timed = TimedLine(points, List(4) { leg }, List(4) { 0.0 })
+        var bandReads = 0
+
+        rungSlowWater(
+            timed, paceKn, { null }, { false }, { bandReads++; false }, bandLimitKn, { null },
+            inAnyZone = { false }
+        )
+
+        assertEquals("one band read per leg midpoint", 4, bandReads)
+    }
 }

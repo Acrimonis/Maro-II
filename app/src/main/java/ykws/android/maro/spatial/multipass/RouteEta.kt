@@ -90,10 +90,23 @@ class LegFacts(
 
 /**
  * **One leg's water, read once for a reader that asks it of several functions** — whether the leg's
- * midpoint stands in a priced ring and in the band's own width, the two predicates the per-limit table and
- * the ramps both ask of every slow leg. Built by the caller that owns both reads; `null` walks as before.
+ * midpoint stands in a ring and in the band's own width, the two predicates the per-limit table asks of
+ * every leg and the ramps ask of every slow one. Built by the caller that owns both reads; `null` walks
+ * as before. A reader of another ring set takes [withZone], which keeps the band the leg already read.
  */
 class LegWater(val midInZone: BooleanArray, val midInBand: BooleanArray) {
+
+    /**
+     * The same legs under another ring predicate: [midInBand] is shared, not read again. [timed] must be
+     * the line this was built over — nothing ties them but the caller.
+     */
+    fun withZone(timed: TimedLine, inZone: (LatLng) -> Boolean): LegWater {
+        val zone = BooleanArray(midInZone.size) { i ->
+            inZone(timed.facts?.midpoints?.get(i) ?: midpoint(timed.points[i], timed.points[i + 1]))
+        }
+        return LegWater(zone, midInBand)
+    }
+
     companion object {
         /** The water of every leg of [timed] under the two predicates, read once per leg. */
         fun of(timed: TimedLine, inZone: (LatLng) -> Boolean, inBand: (LatLng) -> Boolean): LegWater {

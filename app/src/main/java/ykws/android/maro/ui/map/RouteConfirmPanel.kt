@@ -124,7 +124,7 @@ private val ROUTE_CELL_LINE_HEIGHT get() = AppConfig.uiRouteTableCellLineHeight.
  *                        selected line away** — presents the ending at once, the panel and the line leave,
  *                        the toggle reads off, while the real disposal waits on the toast (R57). Its word
  *                        follows the cost (§5.6): the acquisition's own short *Discard* while the selected
- *                        line is unwritten, the exit dialog's own *Leave* once it is written and nothing
+ *                        line is unwritten, `route_exit_leave` once it is written and nothing
  *                        is lost — the short word existing only because this door holds a third of the
  *                        footer row.
  * @param onLeave         **Leave**: the ending that costs nothing — the written state's own door, which
@@ -209,7 +209,7 @@ internal fun RouteConfirmationPanel(
     // Saving waits for a landed line: a partial line opens `Select route` (R88) but never the save door.
     val canSave = selectedPlan != null && !frontSaved
     // The third door's word follows the cost (§5.6): its own short red one while the selected line is
-    // unwritten, the exit dialog's own *Leave* under the accent once `frontSaved` says nothing is lost.
+    // unwritten, `route_exit_leave` under the accent once `frontSaved` says nothing is lost.
     val endingDoor = routeAcquisitionEndingDoor(written = frontSaved)
     // **The ranks are live and the crown waits.** A landed row prints its rank at once, read over the
     // routes landed so far — the row's stage word and the header's `Landed x/n` say the set is not

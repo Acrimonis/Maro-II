@@ -124,7 +124,7 @@ internal data class RouteSlowLimitEntry(val limitKn: Double, val seconds: Int, v
 
 /**
  * **The Speed limits entries of a plan** — [RoutePlan.slowLimitSeconds] rounded to the second, a zero
- * dropped and the band kept apart. Empty when nothing slowed the route, which is what leaves the line
+ * dropped and the band kept apart. Empty when the route meets no limit, which is what leaves the line
  * off the panel.
  */
 internal fun routeSlowLimitEntries(plan: RoutePlan): List<RouteSlowLimitEntry> =
@@ -197,30 +197,48 @@ internal fun routeAnchorLead(fix: RouteFix, leadSec: Int = AppConfig.routeAnchor
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// The followed route's own progression (R99) — the time-to-go history, the loss
-// toggle and the arrival cue
+// The followed route's own progression (R99) — the time-to-go history and the loss
+// toggle; the arrival notice (R100) is a state read off the same time-to-go
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** One timestamped reading of the followed route's own time-to-go, on `SystemClock` elapsed-realtime. */
 internal data class RouteEtaSample(val etaSec: Double, val atMs: Long)
 
 /**
- * **The followed route's own progression reading** (R99): the gathered time-to-go samples, whether the
- * arrival cue is armed, and when the line last flipped. [routeEtaStep] advances it by one fix, and the
- * detector holds one — cleared on entering `Following` and at every flip.
+ * **The followed route's own progression reading** (R99): the gathered time-to-go samples and when the
+ * line last flipped. [routeEtaStep] advances it by one fix, and the detector holds one — cleared on
+ * entering `Following` and at every flip.
  */
 internal data class RouteEtaState(
     val samples: List<RouteEtaSample> = emptyList(),
-    val cueArmed: Boolean = false,
     val lastFlipMs: Long? = null
 )
 
-/** What one fix decides: the advanced [state], whether the line flips, and whether the arrival cue fires. */
+/** What one fix decides: the advanced [state] and whether the line flips. */
 internal data class RouteEtaDecision(
     val state: RouteEtaState,
-    val flip: Boolean,
-    val arrivalCue: Boolean
+    val flip: Boolean
 )
+
+/**
+ * **Whether the boat is at the destination** (R100) — the followed [plan]'s time-to-go from [boat] is under
+ * [thresholdSec]. A state read off the position and the plan, not an event: it holds for as long as the
+ * boat stays inside the threshold and clears when it leaves, and the loss mirror needs no rule of its own,
+ * since a flip makes the old destination the start and its time-to-go large. No plan, or a time-to-go that
+ * is not finite, is not at the destination.
+ */
+internal fun routeAtDestination(plan: RoutePlan?, boat: RoutePoint, thresholdSec: Double): Boolean {
+    if (plan == null) return false
+    val etaSec = plan.remainingFrom(boat).durationSec
+    return etaSec.isFinite() && etaSec < thresholdSec
+}
+
+/**
+ * **Whether the arrival notice stands** (R100): the route is displayed — armed and not mid-discard — and
+ * followed, and the boat is at the destination. Any one of the three failing clears it.
+ */
+internal fun routeArrivalNoticeShown(displayArmed: Boolean, following: Boolean, atDestination: Boolean): Boolean =
+    displayArmed && following && atDestination
 
 /** The history buckets to about one sample a second, on elapsed-realtime, so a demo pan cannot churn it. */
 internal const val ROUTE_ETA_BUCKET_MS = 1_000L
@@ -285,48 +303,35 @@ internal fun routeEtaToggle(
 }
 
 /**
- * **The followed route's progression, advanced by one fix** (R99, R100) — the one reading behind both
- * the loss toggle and the arrival cue.
+ * **The followed route's progression, advanced by one fix** (R99) — the loss toggle's reading.
  *
  * A loss of [lossSec] against the look-back low flips the line, unless the [debounceSec] since the last
  * flip has not yet elapsed; a flip **clears the history**, since the time-to-go jumps to the other
  * end's own value and the samples behind it belong to the other orientation — without the clear that
  * stale low would make the jump read as a loss and turn the line straight back. Otherwise the sample
- * joins the history and the arrival cue fires when the time-to-go has fallen below [arrivalEtaSec] as a
- * **new look-back low** with the cue armed: the cue arms on any reading above the threshold **and on
- * every flip**, so a route taken up already inside the zone raises no prompt while its mirrored end
- * does, and disarms when it fires, so a boat that leaves and comes back down legitimately re-prompts.
- * Pure: the caller holds [state] and reads the flip and the cue off the answer.
+ * joins the history. Pure: the caller holds [state] and reads the flip off the answer.
  */
 internal fun routeEtaStep(
     state: RouteEtaState,
     etaSec: Double,
     nowMs: Long,
     lossSec: Double,
-    debounceSec: Double,
-    arrivalEtaSec: Double
+    debounceSec: Double
 ): RouteEtaDecision {
-    if (!etaSec.isFinite()) return RouteEtaDecision(state, flip = false, arrivalCue = false)
+    if (!etaSec.isFinite()) return RouteEtaDecision(state, flip = false)
     val lookBackMs = routeEtaLookBackMs(lossSec)
     val debounceMs = (debounceSec * 1_000.0).toLong()
     val debounced = state.lastFlipMs?.let { nowMs - it < debounceMs } == true
     if (!debounced && routeEtaToggle(state.samples, etaSec, nowMs, lossSec)) {
-        // A flip clears the history and arms the cue, so the mirrored end prompts as the first end does;
-        // the cue it outranks is the caller's to close.
         return RouteEtaDecision(
-            state = RouteEtaState(samples = emptyList(), cueArmed = true, lastFlipMs = nowMs),
-            flip = true,
-            arrivalCue = false
+            state = RouteEtaState(samples = emptyList(), lastFlipMs = nowMs),
+            flip = true
         )
     }
-    val low = routeEtaLow(state.samples, nowMs, lookBackMs)
     val history = routeEtaHistory(state.samples, etaSec, nowMs, lookBackMs)
-    val armed = state.cueArmed || etaSec > arrivalEtaSec
-    val crossing = armed && etaSec < arrivalEtaSec && (low == null || etaSec < low)
     return RouteEtaDecision(
-        state = RouteEtaState(samples = history, cueArmed = armed && !crossing, lastFlipMs = state.lastFlipMs),
-        flip = false,
-        arrivalCue = crossing
+        state = RouteEtaState(samples = history, lastFlipMs = state.lastFlipMs),
+        flip = false
     )
 }
 

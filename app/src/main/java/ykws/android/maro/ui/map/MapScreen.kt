@@ -805,10 +805,9 @@ fun MapScreen(
     }
     var routeArmed by remember { mutableStateOf(false) }
     val routeSaveScope = rememberCoroutineScope()
-    // The pin the saves start with and the one exit dialog's open flag. Held by the screen rather than
-    // by the panel because the dialog's **three doors** — the toggle's off, the panel's own Exit and
-    // the back key — all reach them from outside the panel's own composition (R23), and one dialog
-    // reached by three doors needs one set of those values.
+    // The pin the saves start with. Held by the screen rather than by the panel because the endings —
+    // the toggle's off, the panel's own Exit and the back key — all reach it from outside the panel's own
+    // composition (R23), and one set of values serves them all.
     var routePinned by remember { mutableStateOf(false) }
     // **The save door's one in-flight gate** (2026-10-17) — a write already running refuses a second
     // press, so a double tap inside the IO window cannot write the same line twice; the same flag is
@@ -823,10 +822,6 @@ fun MapScreen(
     // One gate for the draft's writes: the re-save and the final overwrite serialize on it, so a
     // stale partial line can never be written after the full one.
     val routeDraftWriteMutex = remember { Mutex() }
-    // **The one exit dialog's own raiser** (R59, R100): null while it is not shown, `EXIT` when the
-    // toggle's off or the back key raises it, `ARRIVAL` when the followed route's own time-to-go crosses
-    // the arrival threshold. The dialog picks only its title from the reason; its doors are the same.
-    var routeExitReason by remember { mutableStateOf<RouteExitReason?>(null) }
     // **The auto-pick's own one-shot flag** (R80): armed by the fan's *Route (auto)* child, it takes the
     // settled line the instant that line exists and clears with it — on the selection, on an end and on a
     // new arming — so no later acquisition can inherit an intent nobody pressed for.
@@ -1226,24 +1221,48 @@ fun MapScreen(
         navigationState.speedKnots?.toDouble()
     )
 
-    // ── The followed route's one feed (R99, R100) ────────────────────────
+    // ── The followed route's one feed (R99) ──────────────────────────────
     // The boat's own fix, purely positional: while a route is followed the mode reads the plan's own
-    // time-to-go off it — a loss against its recent low flips the line in place, and a drop through the
-    // arrival threshold raises the arrival cue. Keyed on the point alone, so a stationary boat
-    // re-evaluates nothing and demo and GPS behave alike.
+    // time-to-go off it, and a loss against its recent low flips the line in place. Keyed on the point
+    // alone, so a stationary boat re-evaluates nothing and demo and GPS behave alike.
     LaunchedEffect(routeBoatPosition) {
-        val decision = routeViewModel.onBoatFix(
+        routeViewModel.onBoatFix(
             from = routeBoatPosition,
             nowElapsedMs = SystemClock.elapsedRealtime()
         )
-        if (decision.flip && routeExitReason == RouteExitReason.ARRIVAL) {
-            // A reversal outranks the arrival cue: close it as a no-action dismissal and let the flip stand.
-            routeExitReason = null
-        }
-        if (decision.arrivalCue && routeExitReason == null) {
-            routeExitReason = RouteExitReason.ARRIVAL
-        }
     }
+
+    // ── The arrival notice (R100) ────────────────────────────────────────
+    // A state, not an event: the followed plan's time-to-go from the boat is under the arrival threshold.
+    // The raw reading passes a hold of `route.follow.arrival.settleSec` before it is believed, in both
+    // directions, so a boat idling at the threshold does not make the notice blink; the mode's own
+    // facts (displayed, followed) are read at once, so an ending clears the notice with no delay.
+    val routeFollowingNow = routeState is RouteState.Following
+    val routeFollowedPlan = (routeState as? RouteState.Following)?.plan
+    val routeAtDestinationRaw = remember(routeFollowedPlan, routeBoatPosition) {
+        routeAtDestination(
+            plan = routeFollowedPlan,
+            boat = routeBoatPosition,
+            thresholdSec = AppConfig.routeFollowArrivalEtaSec
+        )
+    }
+    var routeAtDestinationSettled by remember { mutableStateOf(false) }
+    LaunchedEffect(routeAtDestinationRaw, routeFollowingNow) {
+        // Leaving `Following` clears the settled reading at once, so a route followed next never inherits it.
+        if (!routeFollowingNow) {
+            routeAtDestinationSettled = false
+            return@LaunchedEffect
+        }
+        delay((AppConfig.routeFollowArrivalSettleSec * 1_000.0).toLong())
+        routeAtDestinationSettled = routeAtDestinationRaw
+    }
+    val routeArrivalNotice = if (
+        routeArrivalNoticeShown(
+            displayArmed = routeDisplayArmed,
+            following = routeFollowingNow,
+            atDestination = routeAtDestinationSettled
+        )
+    ) stringResource(R.string.route_arrived_notice) else null
 
     // ── The Route section's standing pair (R44–R48, R66) ─────────────────────────
     // **A route's two ends are chosen in the drawer and read at the trigger** (R44, R71): each selector
@@ -1597,14 +1616,12 @@ fun MapScreen(
     // Wire the zone-and-band test into the same repository once the zones and the coastline can both
     // answer: the recordings then get the slow-water figure their card's `Open water · 300M · Zones` row
     // reads, and a regulation bake's new stamp re-marks them.
-    val slowWaterStamp by viewModel.slowWaterStamp.collectAsState()
-    LaunchedEffect(coastlineReady, slowWaterStamp) {
-        val stamp = slowWaterStamp
-        if (!coastlineReady || stamp == null) return@LaunchedEffect
-        trackViewModel.attachSlowWaterClassifier(
-            classifier = { lat, lon -> viewModel.slowWaterAt(lat, lon) },
-            stamp = stamp
-        )
+    val slowWaterAttachment by viewModel.slowWaterAttachment.collectAsState()
+    LaunchedEffect(coastlineReady, slowWaterAttachment) {
+        val attachment = slowWaterAttachment
+        if (!coastlineReady || attachment == null) return@LaunchedEffect
+        // The test and the stamp arrive as one value, made from one zone publication.
+        trackViewModel.attachSlowWaterClassifier(attachment.classifier, attachment.stamp)
     }
 
     // ── Inspect mode's inspectable set (plan §3) ─────────────────────────
@@ -2063,8 +2080,27 @@ fun MapScreen(
             }
             // Whether that stack draws at all — the Boolean every banner in the band reads, derived here
             // once from the set beside it rather than re-derived by each caller around `isNotEmpty()`.
-            val bandTagsDrawn = remember(tagRegulatedZones, mapCenter, markerInZone300) {
-                regulatedZoneTags(tagRegulatedZones, mapCenter, markerInZone300).isNotEmpty()
+            // The temperature tile heads that same stack, so while it is on the stack is drawn whatever
+            // the zones say and the banners keep clear of it.
+            val bandTagsDrawn = remember(tagRegulatedZones, mapCenter, markerInZone300, appSettings.temperatureEnabled) {
+                appSettings.temperatureEnabled ||
+                    regulatedZoneTags(tagRegulatedZones, mapCenter, markerInZone300).isNotEmpty()
+            }
+
+            // ── Air/water temperature: fed by the marker position, the water test and the settings ──
+            val temperatureViewModel: TemperatureViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+            // Keyed on the coastline state: what the sample points were learned to be is forgotten when it changes.
+            LaunchedEffect(temperatureViewModel, viewModel, state) {
+                temperatureViewModel.bindWaterTest(viewModel::isWaterOrNull)
+            }
+            LaunchedEffect(temperatureViewModel, appSettings.temperatureEnabled) {
+                temperatureViewModel.configure(appSettings.temperatureEnabled)
+            }
+            // Keyed on the coastline too: the water test answers "land" until it is loaded, so the tile
+            // reads the position again the moment it can tell water.
+            val coastlineReady = state is CoastlineState.Ready
+            LaunchedEffect(temperatureViewModel, mapCenter, coastlineReady) {
+                temperatureViewModel.onPosition(mapCenter.latitude, mapCenter.longitude)
             }
 
             // ── Inspect mode: arming, disarming and the quiet openers (plan §5, §6) ──
@@ -2355,14 +2391,12 @@ fun MapScreen(
              * The **real disposal** — the second phase of the ending (R57). A discarding press presents
              * the ending at once but defers this call to the toast's confirmation; the acquisition's own
              * Cancel, the back key while acquiring, and any leaving that is not a followed route's reach
-             * it directly. Leaving the acquisition asks nothing — the pin and the dialog's own state go
-             * with the mode.
+             * it directly. Leaving the acquisition asks nothing — the pin goes with the mode.
              */
             fun endRouteMode() {
                 if (!routeArmed) return
                 routeArmed = false
                 routePinned = false
-                routeExitReason = null
                 // An end clears the auto-pick too (R80): the intent belongs to one arming and dies with it.
                 routeAutoPick = false
                 routeDraftId = null
@@ -2376,8 +2410,8 @@ fun MapScreen(
 
             /**
              * **The deferred discard's one entry** — every discarding door: the panel's `Discard route`
-             * while the selected line is unwritten, the fan's Discard, the toggle-off and the back key
-             * inside the acquisition, and the exit dialog's own ending while the line is not yet a track.
+             * while the selected line is unwritten, the fan's Discard, and the toggle-off and the back key
+             * while the line is not yet a track (acquiring or followed).
              * The display reads the ending at once (the panel and the line leave, the toggle reads off)
              * while the mode stays live underneath; the real disposal waits on the toast. Idempotent:
              * a second press while the window stands no-ops.
@@ -2386,7 +2420,6 @@ fun MapScreen(
                 if (!routeArmed || pendingDiscard != null) return
                 val kind = if (routeState is RouteState.Following) RouteEndKind.DISCARD_FOLLOWED
                 else RouteEndKind.DISCARD_ACQ
-                routeExitReason = null
                 val snack = ActiveSnack.RouteEnd(kind)
                 pendingDiscard = PendingRouteDiscard(snack)
                 enqueueSnack(snack)
@@ -2394,14 +2427,13 @@ fun MapScreen(
 
             /**
              * **The deferred leave's one entry** — every ending that costs nothing: the acquisition
-             * panel's written `Leave`, and the exit dialog's own `Leave` and `Save and Leave` door, the
-             * latter having written the track at the press. Nothing is thrown away, so the window's own
+             * panel's written `Leave`, and the toggle-off and the back key over a followed line that is
+             * already a track. Nothing is thrown away, so the window's own
              * disposal is the discard's (`commitPendingDiscard`), its Undo brings the mode straight back
              * with nothing recomputed, and `New...` re-arms the same ends. Idempotent, like the discard.
              */
             fun leaveRoute() {
                 if (!routeArmed || pendingDiscard != null) return
-                routeExitReason = null
                 val snack = ActiveSnack.RouteEnd(RouteEndKind.LEAVE)
                 pendingDiscard = PendingRouteDiscard(snack)
                 enqueueSnack(snack)
@@ -2496,40 +2528,27 @@ fun MapScreen(
             }
 
             /**
-             * **The one exit dialog** (R59), raised by its two doors: the toggle's off while a route is
-             * followed, and the back key.
-             */
-            fun requestRouteExit() {
-                if (!routeArmed) return
-                routeExitReason = RouteExitReason.EXIT
-            }
-
-            /**
-             * **The back key: routing confirms before tracking** (R60).
-             *
-             * While a route is followed this raises the route's own exit dialog, and only a second
-             * press — with the route gone — falls through to the shell's tracking exit. Inside the
-             * acquisition there is nothing to confirm, so the press simply ends the mode.
+             * **The toggle's off and the back key: one door, no question** (R59, R60). The press ends the
+             * mode through the deferred window, so Undo brings the exact state back: a followed line that is
+             * already a track leaves (`route_left_toast`), anything else is discarded. A press over a
+             * followed line while its write is in flight is ignored — the write reads the mode's armed ids,
+             * which an ending would clear. A further back press commits the window and the one after it
+             * reaches the shell's exit.
              */
             fun leaveRouteMode() {
-                if (routeState is RouteState.Following) requestRouteExit() else discardRoute()
-            }
-
-            /**
-             * **The toggle's own door** (R59, R60): turning the toggle off while a route is followed
-             * asks the one dialog first, so nothing a door would lose goes silently. Inside the
-             * acquisition the same press is the ending the panel's **Cancel** performs, and it asks
-             * nothing (R57).
-             */
-            fun toggleRouteOff() {
-                if (routeState is RouteState.Following) requestRouteExit() else discardRoute()
+                if (routeState is RouteState.Following) {
+                    if (routeSaveInFlight) return
+                    if (routeFollowingSaved) leaveRoute() else discardRoute()
+                } else {
+                    discardRoute()
+                }
             }
 
             /**
              * **`Select route`** (R56, R73): the selected line becomes the route, the candidates it did
              * not take are dropped, and the app returns to the **ordinary dashboard** — nothing
-             * route-specific stands once this returns, the toggle's blue face and the one exit dialog
-             * being the mode's whole presence from here on.
+             * route-specific stands once this returns, the toggle's blue face and the arrival
+             * notice being the mode's whole presence from here on.
              *
              * [selectBest] takes the ladder's **final best** instead of the seat, for the auto-pick
              * alone (R80): the one-shot promises the ranking's winner of the settled set, so it takes
@@ -2555,9 +2574,9 @@ fun MapScreen(
              * **Follow a saved route** — the track card's door: the stored line becomes the followed
              * route straight from Idle, with no engine ask. The press closes its own surface at once —
              * the list, or the card whose `preNavigationState` restore is the refocus — and the route
-             * mode takes over with no second camera move. The track id rides the state so the exit
-             * dialog reads the followed route as already written and its third door as **Stop
-             * following**. A load that yields fewer than two points leaves the mode idle and arms
+             * mode takes over with no second camera move. The track id rides the state so the
+             * followed route reads as already written (`routeFollowingSaved`), and leaving it is the
+             * deferred `Leave`. A load that yields fewer than two points leaves the mode idle and arms
              * nothing.
              */
             fun followSavedTrack(trackId: String, fromList: Boolean) {
@@ -2751,8 +2770,7 @@ fun MapScreen(
             fun saveRouteTrack(
                 plan: RoutePlan,
                 pin: Boolean,
-                name: String? = null,
-                afterWrite: () -> Unit = {}
+                name: String? = null
             ) {
                 if (plan.points.size < 2 || routeSaveInFlight) return
                 routeSaveInFlight = true
@@ -2763,9 +2781,6 @@ fun MapScreen(
                     } finally {
                         routeSaveInFlight = false
                     }
-                    // Runs only once the write has landed: the write reads the mode's armed ids, so an
-                    // ending queued here cannot clear them before the track is built.
-                    afterWrite()
                 }
             }
 
@@ -2788,8 +2803,8 @@ fun MapScreen(
              * **The menu Go's own door** — a true restart, from any state. A standing discard window is
              * settled first (its line is already gone to the user); a write still in flight is waited
              * out by ignoring the press, since the write reads the mode's armed ids; a pair too short
-             * is refused before anything ends. Only a followed line not yet written asks first, through
-             * the exit dialog under its `RESTART` reason — every other state restarts silently.
+             * is refused before anything ends. Every state then restarts silently — a followed line not
+             * yet written is dropped with no question and no Undo (R101).
              */
             fun goRoute() {
                 if (pendingDiscard != null) commitPendingDiscard()
@@ -2801,10 +2816,6 @@ fun MapScreen(
                 val ends = routeEndsAtTrigger()
                 if (!routeEndsClearMinimum(ends.start, ends.destination, AppConfig.routeMinAcquisitionLengthM)) {
                     refuseShortRoutePair()
-                    return
-                }
-                if (routeState is RouteState.Following && !routeFollowingSaved) {
-                    routeExitReason = RouteExitReason.RESTART
                     return
                 }
                 restartRoute()
@@ -3288,7 +3299,7 @@ fun MapScreen(
             // **The five actions, in that same list's order** (D5, R79): the Route child arms the
             // acquisition alone, the Follow child takes the settled or partial line, the Route (auto)
             // child arms with the auto-pick flag, the Save child mirrors the panel's save, and the
-            // Discard is the dialog's third outcome without its question.
+            // Discard is the deferred discard, asking nothing.
             val routeFanActions: List<() -> Unit> = listOf(
                 // Discard — the deferred door: the window opens, the disposal waits on the toast.
                 { discardRoute() },
@@ -3393,6 +3404,7 @@ fun MapScreen(
                 fineTilesBusy = fineTilesBusy,
                 tagRegulatedZones = tagRegulatedZones,
                 bandTagsDrawn = bandTagsDrawn,
+                temperatureViewModel = temperatureViewModel,
                 zone300 = zone300,
                 inZone300 = inZone300,
                 depthBitmap = depthRaster.effectiveDepthBitmap,
@@ -3473,6 +3485,7 @@ fun MapScreen(
                 importBanner = importBanner,
                 trackOpStatus = chrome.trackOpStatus,
                 routeNoticeToast = routeNoticeToast,
+                routeArrivalNotice = routeArrivalNotice,
                 trackSavedToast = trackSavedToast,
                 rasterProgress = depthRaster.rasterProgress,
                 autoFollowSuppressed = autoFollowSuppressed,
@@ -3488,7 +3501,7 @@ fun MapScreen(
                 routeArmed = routeDisplayArmed,
                 routeFollowing = routeState is RouteState.Following && !routeDiscarding,
                 routeSearching = routeSearching && !routeDiscarding,
-                onToggleRoute = { if (routeDisplayArmed) toggleRouteOff() else armRouteMode(forceFresh = true) },
+                onToggleRoute = { if (routeDisplayArmed) leaveRouteMode() else armRouteMode(forceFresh = true) },
                 routeFanEnabled = routeFanEnabled,
                 routeFanActions = routeFanActions,
                 routeHost = {
@@ -4564,20 +4577,6 @@ fun MapScreen(
             onBatteryOptPrompted = {
                 viewModel.updateSettings { it.copy(batteryOptimizationPrompted = true) }
             },
-            // ── The route's one exit dialog (R59, R100) — the dialog itself lives in the host ──
-            routeExitReason = routeExitReason,
-            routeState = routeState,
-            routeViewModel = routeViewModel,
-            onDismissExit = { routeExitReason = null },
-            onSaveRoute = { plan -> saveRouteTrack(plan, routePinned) },
-            // Both of the dialog's endings defer: the save door writes the track and then hands over, and
-            // the loss-free *Leave* costs nothing — each raises `route_left_toast`.
-            onLeaveRoute = { leaveRoute() },
-            onDiscardRoute = { discardRoute() },
-            onSaveAndRestartRoute = { plan ->
-                saveRouteTrack(plan, routePinned, afterWrite = { restartRoute() })
-            },
-            onRestartRoute = { restartRoute() },
             // ── Resume confirmation — its retained copy moved with the dialog ──
             resumeTarget = chrome.pendingResume,
             onClearResume = { chrome.pendingResume = null },
@@ -5096,6 +5095,8 @@ private fun MapContent(
     /** Whether that stack draws at least one tag — the band's one answer, derived by the caller beside
      *  [tagRegulatedZones] and read by every banner here instead of being re-derived per caller. */
     bandTagsDrawn: Boolean,
+    /** Heads the bottom-left stack while the temperature setting is on; null draws no tile. */
+    temperatureViewModel: TemperatureViewModel? = null,
     zone300: Zone300Data?,
     inZone300: Boolean,
     depthBitmap: Bitmap?,
@@ -5136,6 +5137,7 @@ private fun MapContent(
     importBanner: ImportBannerState? = null,
     trackOpStatus: String? = null,
     routeNoticeToast: String? = null,
+    routeArrivalNotice: String? = null,
     trackSavedToast: String? = null,
     rasterProgress: RasterProgress? = null,
     showCrosshair: Boolean = false,
@@ -5399,12 +5401,21 @@ private fun MapContent(
                             .align(Alignment.BottomStart)
                             .padding(start = TOP_TOGGLE_GUTTER)
                     ) {
-                        RegulatedZoneWarningStrip(
-                            regulatedZones = tagRegulatedZones,
-                            markerPosition = mapCenter,
-                            inZone300 = markerInZone300,
-                            modifier = Modifier.align(Alignment.Bottom)
-                        )
+                        // The temperature tile heads the zone stack: the stack's own column spacing
+                        // separates the two, and the tile alone stands where the stack would end.
+                        Column(
+                            modifier = Modifier.align(Alignment.Bottom),
+                            verticalArrangement = Arrangement.spacedBy(TOP_TOGGLE_GUTTER)
+                        ) {
+                            if (appSettings.temperatureEnabled && temperatureViewModel != null) {
+                                TemperatureTile(temperatureViewModel)
+                            }
+                            RegulatedZoneWarningStrip(
+                                regulatedZones = tagRegulatedZones,
+                                markerPosition = mapCenter,
+                                inZone300 = markerInZone300
+                            )
+                        }
                         if (appSettings.regulationInfoVisible) {
                             RegulatedZoneInfoText(
                                 regulatedZones = tagRegulatedZones,
@@ -5665,8 +5676,8 @@ private fun MapContent(
         }
 
         // ── Import feedback banner (bottom band, centred in the space the map leaves free) ──
-        importBanner?.let { banner ->
-            val message = when (banner) {
+        val importMessage = importBanner?.let { banner ->
+            when (banner) {
                 is ImportBannerState.Result ->
                     if (banner.imported == 0 && banner.ignored == 0 && banner.invalid == 0) {
                         stringResource(R.string.import_failed)
@@ -5688,38 +5699,16 @@ private fun MapContent(
                     }
                 ImportBannerState.Failed -> stringResource(R.string.import_failed)
             }
-            MapStatusBanner(
-                message = message,
-                tagsDrawn = bandTagsDrawn,
-                modifier = Modifier.align(Alignment.BottomStart)
-            )
         }
 
-        // ── Transient track-operation status banner (export/import in progress) ──
-        trackOpStatus?.let { message ->
-            MapStatusBanner(
-                message = message,
-                tagsDrawn = bandTagsDrawn,
-                modifier = Modifier.align(Alignment.BottomStart)
-            )
-        }
-        // ── Transient save toast, naming the track or route just written ──
-        trackSavedToast?.let { message ->
-            MapStatusBanner(
-                message = message,
-                tagsDrawn = bandTagsDrawn,
-                modifier = Modifier.align(Alignment.BottomStart)
-            )
-        }
-
-        // ── Transient route-acquisition refusal toast ──
-        routeNoticeToast?.let { message ->
-            MapStatusBanner(
-                message = message,
-                tagsDrawn = bandTagsDrawn,
-                modifier = Modifier.align(Alignment.BottomStart)
-            )
-        }
+        // ── The status pills, stacked: the import result, the track operation in progress, the save toast,
+        // the route toast and the arrival notice, top to bottom, so two at once no longer paint over each other. A message
+        // equal to another is drawn once. ──
+        MapStatusBannerStack(
+            messages = listOfNotNull(importMessage, trackOpStatus, trackSavedToast, routeNoticeToast, routeArrivalNotice).distinct(),
+            tagsDrawn = bandTagsDrawn,
+            modifier = Modifier.align(Alignment.BottomStart)
+        )
     }
 }
 

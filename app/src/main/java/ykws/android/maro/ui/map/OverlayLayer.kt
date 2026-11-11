@@ -299,9 +299,12 @@ internal fun OverlayLayer(
     val trackSummaries by trackViewModel.summaries.collectAsState()
     val routeSummaries by trackViewModel.routeSummaries.collectAsState()
     // The dashboard card's slow-water figure: a recording's lives on its stored summary alone, so the
-    // hand-built summaries below read it there, a route falling back to its own stored figure.
+    // hand-built summaries below read it there, a route falling back to its own stored figure. Read off
+    // the unfiltered list of both kinds — the two filtered lists above drop an item the list filter
+    // hides, and its card would lose the row.
+    val allSummaries by trackViewModel.allSummaries.collectAsState()
     val storedSummaryOf: (String) -> ykws.android.maro.data.track.TrackSummary? = { id ->
-        trackSummaries.firstOrNull { it.id == id } ?: routeSummaries.firstOrNull { it.id == id }
+        allSummaries.firstOrNull { it.id == id }
     }
 
     // ── The one list surface, resolved to a scope (S4, S11) ──────────────────
