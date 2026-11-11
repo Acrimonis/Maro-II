@@ -23,15 +23,6 @@ import ykws.android.maro.ui.components.ConfirmDialog
 import ykws.android.maro.ui.components.OptionRow
 
 /**
- * **Why the route's one exit dialog stands** (R59, R100): the ordinary leave the toggle's off and the
- * back key raise, or the **arrival cue** the followed route's own time-to-go raises when it crosses the
- * route's arrival threshold. The doors are the dialog's own in both cases — the arrival prompt changes
- * only the title. The menu's Go raises it as [RESTART] over a followed line not yet written: same
- * three doors, but the endings hand over to a fresh acquisition rather than to the deferred window.
- */
-internal enum class RouteExitReason { EXIT, ARRIVAL, RESTART }
-
-/**
  * Windowed dialogs/sheets host (extracted from MapScreen). Owns ONLY popup windows
  * (AlertDialog / ModalBottomSheet) — the screen-lock scrim lives in `MapLockLayer`,
  * called after this host so it paints above every drawer and the map.
@@ -41,11 +32,10 @@ internal enum class RouteExitReason { EXIT, ARRIVAL, RESTART }
  * Exit/stop sheet side-effect handlers (need the file-private Context.findActivity)
  * are supplied by MapScreen.
  *
- * The route's one exit dialog and the resume confirmation joined the host on
- * 2026-10-01 (code-health step 3, tier 2b): both are windowed dialogs and this is the
- * one home for them. Their state still lives in the screen — `routeExitRequested`,
- * `routePinned` and `pendingResume` arrive as read-only values, and the writes go back
- * through the callbacks below.
+ * The resume confirmation joined the host on 2026-10-01 (code-health step 3, tier 2b): it is a
+ * windowed dialog and this is its home. Its state still lives in the screen — `pendingResume`
+ * arrives as a read-only value, and the writes go back through the callbacks below. A route
+ * asks no dialog on leaving (R59, R100): its endings defer on an Undo toast instead.
  */
 @Composable
 internal fun MapDialogHost(
@@ -81,20 +71,6 @@ internal fun MapDialogHost(
     closeBatteryOptDialog: () -> Unit,
     /** Marks the prompt as answered, so it never reappears (persisted via AppSettings). */
     onBatteryOptPrompted: () -> Unit,
-    // ── The route's one exit dialog (R59, R100) ──
-    routeExitReason: RouteExitReason?,
-    routeState: RouteState,
-    routeViewModel: RouteViewModel,
-    onDismissExit: () -> Unit,
-    onSaveRoute: (RoutePlan) -> Unit,
-    /** The dialog's own Discard — the deferred, toasting ending, taken only while the press would throw the line away. */
-    onDiscardRoute: () -> Unit,
-    /** The loss-free endings — the save door once it has written, and the third door's own *Leave*: both defer on `route_left_toast`. */
-    onLeaveRoute: () -> Unit,
-    /** The restart's save door: writes the followed line, then ends the mode and arms afresh. */
-    onSaveAndRestartRoute: (RoutePlan) -> Unit,
-    /** The restart's loss door: ends the mode and arms afresh, with no deferred window. */
-    onRestartRoute: () -> Unit,
     // ── Resume confirmation (optional backup) ──
     resumeTarget: PendingTrackResume?,
     onClearResume: () -> Unit,
@@ -274,72 +250,6 @@ internal fun MapDialogHost(
                     }
                 ) { Text(stringResource(R.string.battery_opt_not_now)) }
             }
-        )
-    }
-
-    // ── The route's one exit dialog (R59, R100) — asked by the toggle, the back key and the arrival cue ───
-    // Every raiser reaches this one dialog, and its three doors are one pure decision (`routeExitDoors`,
-    // ui-component-guidelines §5.6): the forward outcome first, the neutral stay, the ending last. One axis
-    // decides them — *is this line already a track?* — read once here. While the line is unwritten the save
-    // door carries the accent, enabled, and the loss door is red; once it is a track the save door keeps its
-    // place and disables, nothing is lost, and the accent falls to the enabled forward outcome, whose word
-    // follows the cost while its act is the same either way — every ending leaves through the deferred
-    // window, on `route_discard_acq_toast` · `route_discard_followed_toast` or `route_left_toast`. The
-    // arrival cue rides the same doors under its own title alone (a title-only prompt, no message).
-    if (routeExitReason != null) {
-        val front = routeState.plan
-        val followedTrackId = (routeState as? RouteState.Following)?.followedTrackId
-        // One fact, read once: the line is already a track — a followed saved route is one, and a followed
-        // unsaved line is not until the save door writes it.
-        val written = front == null || routeViewModel.isRouteSaved(front) || followedTrackId != null
-        val doors = routeExitDoors(written)
-        val restart = routeExitReason == RouteExitReason.RESTART
-        ConfirmDialog(
-            title = stringResource(
-                when (routeExitReason) {
-                    RouteExitReason.ARRIVAL -> R.string.route_arrival_title
-                    RouteExitReason.RESTART -> R.string.route_restart_title
-                    else -> R.string.route_exit_title
-                }
-            ),
-            visible = true,
-            onDismiss = { onDismissExit() },
-            message = null,
-            options = null,
-            actions = listOf(
-                // The accent is the dialog's own outcome: it writes the route the toggle follows, and it
-                // greys once that write has nothing left to do.
-                ConfirmAction(
-                    label = stringResource(if (restart) R.string.route_restart_save else doors.save.labelRes),
-                    role = doors.save.role,
-                    enabled = doors.save.enabled
-                ) {
-                    onDismissExit()
-                    if (restart) {
-                        if (front != null) onSaveAndRestartRoute(front)
-                    } else {
-                        if (front != null) onSaveRoute(front)
-                        onLeaveRoute()
-                    }
-                },
-                ConfirmAction(
-                    label = stringResource(if (restart) R.string.route_restart_stay else doors.stay.labelRes),
-                    role = doors.stay.role,
-                    enabled = doors.stay.enabled
-                ) { onDismissExit() },
-                ConfirmAction(
-                    label = stringResource(doors.loss.labelRes),
-                    role = doors.loss.role,
-                    enabled = doors.loss.enabled
-                ) {
-                    onDismissExit()
-                    when {
-                        restart -> onRestartRoute()
-                        doors.loss.discards -> onDiscardRoute()
-                        else -> onLeaveRoute()
-                    }
-                }
-            )
         )
     }
 

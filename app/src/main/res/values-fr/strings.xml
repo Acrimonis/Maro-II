@@ -787,8 +787,8 @@
          la ligne **sélectionnée** et partage une ligne avec la sélection, et l'abandon quitte
          l'acquisition sans rien demander. Le mot de la porte suit le coût (§5.6) : tant que la ligne n'est
          pas écrite la porte lit le court `route_acq_discard` — son propre tiers de pied de panneau étant la
-         place que son mot doit tenir, pas le mot de sortie — et une fois qu'elle l'est elle passe au
-         `route_exit_leave` du dialogue, parce que plus rien n'est perdu et que le mot doit le dire. -->
+         place que son mot doit tenir — et une fois qu'elle l'est elle passe au
+         `route_exit_leave`, parce que plus rien n'est perdu et que le mot doit le dire. -->
     <string name="route_action_save_track">Enregistrer</string>
     <string name="route_action_select">Suivre</string>
     <string name="route_acq_discard">Abandonner</string>
@@ -837,31 +837,19 @@
     <string name="route_stage_pull">Trait</string>
     <string name="route_stage_snap">Coins</string>
     <string name="route_stage_fine">Affinage</string>
-    <!-- Le dialogue de sortie unique, atteint par l'extinction de la bascule comme par la touche
-         retour (R59). Un seul axe décide ses trois portes — cette ligne est-elle déjà une trace ? — donc la
-         porte d'enregistrement écrit l'itinéraire suivi dans une trace et grise quand elle en a déjà une,
-         l'accent passant alors à l'issue, et la troisième porte affiche `Abandonner la route` tant que la
-         pression jetterait la route ou `Quitter` une fois qu'elle ne le peut plus. Les deux issues quittent
-         le mode par la fenêtre différée et lèvent leur propre toast, `route_left_toast` ; la porte
-         d'enregistrement lit *Enregistrer et quitter*, l'acte qu'elle partage avec l'enfant
-         d'enregistrement-et-sortie de l'éventail, dont cette clé est aussi le nom d'accessibilité. La porte
-         du panneau d'acquisition est son propre `route_acq_discard` tant que sa ligne n'est pas écrite, et
-         le `route_exit_leave` de ce dialogue une fois qu'elle l'est — un coût, un mot. -->
-    <string name="route_exit_title">Quitter la route ?</string>
-    <string name="route_restart_title">Relancer la route ? La ligne suivie n\'est pas enregistrée.</string>
-    <string name="route_restart_save">Enregistrer et relancer</string>
-    <string name="route_restart_stay">Continuer le suivi</string>
-    <string name="route_exit_save">Enregistrer et quitter</string>
-    <string name="route_exit_continue">Continuer</string>
+    <!-- Un itinéraire ne pose aucun dialogue à la sortie (R59, R100) : l'extinction de la bascule et la
+         touche retour le terminent par la fenêtre différée et lèvent leur propre toast, qui offre Annuler.
+         `route_exit_discard` nomme l'enfant Abandonner de l'éventail ; la porte de fin du panneau
+         d'acquisition lit `route_acq_discard` tant que sa ligne n'est pas écrite et `route_exit_leave` une
+         fois qu'elle l'est — un coût, un mot. -->
     <string name="route_exit_discard">Abandonner la route</string>
     <string name="route_exit_leave">Quitter</string>
-    <!-- Le signalement d'arrivée (R100) : le même dialogue de sortie, levé quand le temps restant de
-         l'itinéraire suivi franchit le seuil d'arrivée — une invite sans message, sur les trois mêmes
-         portes. -->
-    <string name="route_arrival_title">Vous semblez être arrivé à destination</string>
+    <!-- La notice d'arrivée (R100) : une pastille d'état qui reste tant que le bateau de l'itinéraire suivi
+         est à destination, et disparaît quand il n'y est plus. -->
+    <string name="route_arrived_notice">Vous semblez être arrivé à destination</string>
     <!-- Le toast de la fin différée : la fin de l'acquisition et celle d'un itinéraire suivi, nommées
-         honnêtement, et la sortie sans perte — la porte écrite du panneau, le `Quitter` de ce dialogue et
-         sa porte d'enregistrement — chacune offrant Annuler (`action_undo`) et Nouvelle acquisition, qui
+         honnêtement, et la sortie sans perte — la porte écrite du panneau et la bascule ou la touche retour
+         sur une ligne écrite — chacune offrant Annuler (`action_undo`) et Nouvelle acquisition, qui
          réarme les mêmes extrémités. -->
     <string name="route_discard_acq_toast">Route abandonnée</string>
     <string name="route_discard_followed_toast">Route abandonnée</string>

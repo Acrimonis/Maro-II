@@ -780,8 +780,8 @@
     <!-- The acquisition's own three actions (R55, rewritten 2026-09-28): the save writes the
          **selected** line and shares one row with the selection, and the abort leaves the acquisition
          asking nothing. The ending's word follows the cost (§5.6), so an unwritten line reads the short
-         `route_acq_discard` — its own third of the footer being the room its word must fit, not the exit
-         dialog's longer loss word — and a written one hands over to that dialog's own `route_exit_leave`,
+         `route_acq_discard` — its own third of the footer being the room its word must fit — and a written
+         one hands over to `route_exit_leave`,
          because nothing is lost and the word must say so. -->
     <string name="route_action_save_track">Save</string>
     <string name="route_action_select">Follow</string>
@@ -830,28 +830,17 @@
     <string name="route_stage_pull">Pull</string>
     <string name="route_stage_snap">Snap</string>
     <string name="route_stage_fine">Refine</string>
-    <!-- The one exit dialog, reached by the toggle's off and by the back key alike (R59). One axis decides
-         its three doors — is this line already a track? — so the save door writes the followed route to a
-         track and greys while that route already has one, the accent then falling to the enabled forward
-         outcome, and the third door reads `Discard route` while the press would throw the route away or
-         `Leave` once it cannot. Both endings leave through the deferred window and raise their own toast,
-         `route_left_toast`; the save door reads *Save and Leave*, the act it shares with the fan's own
-         save-and-leave child, whose accessibility name this key is. The acquisition panel's door is its own
-         `route_acq_discard` while its line is unwritten, and this dialog's own `route_exit_leave` once it is
-         written — one cost, one word. -->
-    <string name="route_exit_title">Leave the Route mode?</string>
-    <string name="route_restart_title">Restart the route? The followed line is not saved.</string>
-    <string name="route_restart_save">Save and restart</string>
-    <string name="route_restart_stay">Keep following</string>
-    <string name="route_exit_save">Save and Leave</string>
-    <string name="route_exit_continue">Continue</string>
+    <!-- A route asks no dialog on leaving (R59, R100): the toggle's off and the back key end it through the
+         deferred window and raise their own toast, offering Undo. `route_exit_discard` names the fan's Discard
+         child; the acquisition panel's ending door reads `route_acq_discard` while its line is unwritten and
+         `route_exit_leave` once it is written — one cost, one word. -->
     <string name="route_exit_discard">Discard route</string>
     <string name="route_exit_leave">Leave</string>
-    <!-- The arrival cue (R100): the same exit dialog, raised when the followed route's own time-to-go
-         falls through the arrival threshold — a title-only prompt over the same three doors. -->
-    <string name="route_arrival_title">You seem to have reached your destination</string>
+    <!-- The arrival notice (R100): a status pill that stands while the followed route's boat is at its
+         destination, and clears when it is not. -->
+    <string name="route_arrived_notice">You seem to have reached your destination</string>
     <!-- The deferred ending's toast: the acquisition's ending and a followed route's, told apart, and the
-         loss-free leave — the panel's written door, this dialog's `Leave` and its own save door — each
+         loss-free leave — the panel's written door and the toggle or back key over a written line — each
          offering Undo (reusing `action_undo`) and New acquisition, which re-arms the same ends. -->
     <string name="route_discard_acq_toast">Route discarded</string>
     <string name="route_discard_followed_toast">Route discarded</string>

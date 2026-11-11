@@ -923,27 +923,16 @@ recording exit, resume, import conflict, GPS source-switch) and the merge / orph
   ([`ui/components/OptionRow.kt`](../app/src/main/java/ykws/android/maro/ui/components/OptionRow.kt)) —
   one checkbox and its label, the checkbox's own target inset serving as the gap, so every option row in
   every dialog reads the same distance.
-- **The route's one exit dialog carries two raisers** (R59, R100): the toggle's off and the back key raise
-  it under *Leave the Route mode?* (`route_exit_title`), and the followed route's own **arrival cue** raises
-  the **same** dialog under *You seem to have reached your destination* (`route_arrival_title`) — a
-  **title-only** prompt, no message line, over the same three doors. **One axis decides the doors** — is this
-  line already a track? — and three doors stand at every state: while the line is **unwritten**
-  `Save and Leave` (accent, enabled) · `Continue` (secondary) · `Discard route` (red); once it is
-  **written** the save door keeps its place and is **disabled** · `Continue` (secondary) · **`Leave`**
-  (the accent, and **not red**, because nothing is lost). The third door's word follows the **cost**, never
-  the raiser — `Discard route` while the press would throw the route away, `Leave` once it cannot — while
-  the **act** does not: every ending leaves through the deferred window (R92), the save door writing the
-  track first, and each raises its own toast (`route_discard_*_toast`, `route_left_toast`). The arrival cue
-  carries no vocabulary of its own and changes only its title. One surface, never two stacked: a
-  raise while it stands is that one dialog, and a reversal of the followed route closes the arrival prompt
-  as a **no action** dismissal.
+- **The route asks no exit dialog** (R59, R100): the toggle's off and the back key end the mode through the
+  deferred window (R92) and raise an Undo toast — `route_left_toast` once the line is a track,
+  `route_discard_followed_toast` while it is not — and the menu's Go restarts silently (R101). What remains
+  of the old doors is the acquisition panel's ending door, resolved by `routeAcquisitionEndingDoor` (§5.8).
+  The followed route's **arrival** is a status pill, not a prompt (§5.7's stack).
 
 **How a dialog asks its question and how its doors answer it** — one rule for every confirmation the family
-draws, the **recording exit dialog the reference** the whole family is read against and the **route exit
-dialog the two-state case above**:
+draws, the **recording exit dialog the reference** the whole family is read against:
 
-- **The title puts the decision in the user's voice** — a question for a confirmation (*Leave the Route
-  mode?*), and, where the doors are three outcomes, the situation with its question (*A track is being
+- **The title puts the decision in the user's voice** — a question for a confirmation, and, where the doors are three outcomes, the situation with its question (*A track is being
   recorded. What would you like to do?*).
 - **The doors answer that question in its own vocabulary**, so the title and the doors share their noun and
   their verb and a reader can pair each door with the question without reading the message.
@@ -1008,6 +997,9 @@ remaining call sites in `MapScreen.kt`.
   toast and the two cards, whose parent is the map's left overlay column and already ends where that
   column does (`docs/ui-drawer-guidelines.md` §1). `bannerStartInset` deliberately excludes the column
   either way.
+- **Status pills stack.** `MapStatusBannerStack` draws every standing `MapStatusBanner` message in one column,
+  top to bottom in the order the caller lists them, the last on the band's edge; an identical message is drawn
+  once and an empty list draws nothing. The column holds no timer — the caller owns how long each message stands.
 - **Placement — the band gutter, in both orientations.** The band's bottom edge is the band gutter (the
   table below), never a navigation-bar inset: the app draws edge-to-edge, so the map runs under a
   landscape navigation bar while the band's content ends on the same line the zoom stack's own
@@ -1074,7 +1066,7 @@ actions in its `footer`, so it auto-grows to its content like the other selected
 |---|---|
 | Header | the title; its trailing slot carries the **search summary** — `Landed x/n · cruising speed · preference`, the counter only while a route is still computing and `Any (12 kn)` under the `Any` pace — and the **page dots** — the shared [`PageDots`](../app/src/main/java/ykws/android/maro/ui/components/PageDots.kt) in its **current-only fill** (`fillUpToCurrent = false`), shown while more than one route stands, with **no arrows** (2026-10-06) |
 | Body | a bordered three-column table — the description (0.75 of the comparison column), the route's Dist · ETA as right-aligned value + left-aligned unit pairs, and a candidate's delta against the selected route with the forced-crossing note — hairline column separators, wrapping top-aligned rows, the selected row on the taken-choice face (`ui.select.container` fill, 1dp `ui.accent` edge, white bold text), paging laterally through the shared [`SwipePager`](../app/src/main/java/ykws/android/maro/ui/components/SwipePager.kt) — a swipe or a row tap. The row's second line is **one slot with two occupants**: the rung's own stage word in **bold italic** while it computes, its `#rank` from its landing on; the crown's check closes the first line only after the last rung. The rows reorder only when a route lands, is refused or is merged away |
-| Footer | `Save to track` · `Select route` · `Discard` in one weighted row — §5.6's `ConfirmActionButton`, SECONDARY · PRIMARY · DANGER; the third door holds a third of the row, so its word is the acquisition's own short one (`route_acq_discard`), not the exit dialog's `Discard route` — and since that word follows the cost, it hands over to the same dialog's `route_exit_leave` (*Leave*), accent instead of red, once the selected line is written and nothing is lost — §5.6's two-state ending, resolved by `routeAcquisitionEndingDoor` |
+| Footer | `Save to track` · `Select route` · `Discard` in one weighted row — §5.6's `ConfirmActionButton`, SECONDARY · PRIMARY · DANGER; the third door holds a third of the row, so its word is the acquisition's own short one (`route_acq_discard`), and since that word follows the cost, it hands over to `route_exit_leave` (*Leave*), accent instead of red, once the selected line is written and nothing is lost — §5.6's two-state ending, resolved by `routeAcquisitionEndingDoor` |
 
 **The indicator is shared; each surface keeps its own page-switch effect.** The panel's header dots are
 the shared `PageDots`, and the marker wizard ([`WizardDrawer`](../app/src/main/java/ykws/android/maro/ui/map/WizardDrawer.kt))
