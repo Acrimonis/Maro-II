@@ -22,7 +22,15 @@ Snapshot + consolidation into per-feature hydration memory.
               7. Prune the ## Focus History stack in GLOBAL_CONTEXT.md beyond cap 10.
               8. Report retirement candidates: plans still attached in the feature's ## Docs whose
                  work appears in ## Implemented. Report only — #archive does the moving.
-              9. Prompt user to clear the workspace.
+              9. Usage record: run `tools/usage-log.ps1 -Slugs`, reuse a listed slug for each
+                 process flow of the session (archive, review, device pass, harness run, a
+                 recurring command sequence — never the feature work itself) and mint one only
+                 when none fits; write the flow lines (`flow | slug | gist`, gist ≤ 12 words; Roo
+                 adds `cmd | #name` lines, having no hook; a drift fix is `alias | old | new`)
+                 to `lines.txt` in the spool dir (`<git rev-parse --git-common-dir>/maro-usage/`,
+                 untracked) and run `tools/usage-log.ps1 -Flush`, which consumes the file.
+                 The record's shape lives in docs/xtrack-templates.md; the bake never reads it.
+              10. Prompt user to clear the workspace.
               Runs only on explicit invocation — nothing triggers it implicitly.
 
   Section criteria (canonical):

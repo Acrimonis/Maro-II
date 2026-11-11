@@ -123,6 +123,10 @@ touching the device, and stating a claim about the code with no file read behind
   of truth for every value — code defaults and documentation follow it, never the reverse — and a duplicate
   that cannot be avoided is deleted rather than kept in sync.
 
+- **🧹 NO AI CREDIT: a commit message and a pull-request description never credit Claude or any AI.**
+  WHEN writing either → no `Co-Authored-By` line naming an AI and no "Generated with" footer, whatever attribution
+  text the harness supplies; this rule wins over it.
+
 - **🧹 CENTRALISE AND TRIM: docs describe, they do not restate.** A doc points at the key, the accessor or the
   code instead of repeating a number or a caller list; secondary copies are trimmed as a matter of course.
 
@@ -179,6 +183,7 @@ touching the device, and stating a claim about the code with no file read behind
 - **Focus History:** `GLOBAL_CONTEXT.md` keeps an append-only newest-first stack (cap 10) of `[timestamp] [Feature] — one-liner → FEAT_HYD_[Feature].md`. Top = current focus. `#focus` pushes; `#bake` rewrites that top entry to what the session actually shipped, so the stack never describes a plan the session has since finished, then prunes.
 - **🧹 PLAN FILE PLACEMENT: All `FEAT_PLN_*.md`, `FEAT_DOC_*.md` and feature-scoped design files MUST be created in `xTrack/[Feature]/`, named `YYMMDD_FEAT_PLN_[Feature]_[topic].md`.** Extend the existing plan while the topic continues and start a new one on a context switch; a plan is in design until its pointer appears in the feature's `## Implemented`.
 - **`xxArchive/` (retired files):** retired plans and docs live in `xTrack/[Feature]/xxArchive/` beside an `INDEX.md`; cross-cutting retirements go to `docs/xxArchive/`. Every feature-summarising command (`#bake`, `#status`, `#doctor`, `#doc list`, `#doc audit`, `#doc update`) **excludes these folders**. `#archive` is the only command that may enter one, and inside it only `INDEX.md` is read — a body needs an explicit per-file request.
+- **🧹 USAGE RECORD IS SCRIPT-READ:** `xTrack/WorkflowImprovement/usage/` (raw months, `digest.md`) is written and read only by `tools/usage-log.ps1` — the agent reads its output, never the files, and every feature-summarising command excludes the folder. Shape in `docs/xtrack-templates.md`.
 - **🧹 GLOBAL_CONTEXT.md IS STATE-ONLY:** it carries the routing map, feature index, focus history, global todos and the doc index — never rules, instructions or process specs. All rules live in this file.
 - **Feature scoping:** Route docs, key files and todos to the owning feature. Keep feature files lean — `## Docs` for references, `## Key Files` for source paths.
 - **Always-loaded (prefix-cache zone):** `AGENTS.md` rides in every request; `xTrack/GLOBAL_CONTEXT.md` is read on demand and must stay small enough for that. Keep both free of duplication — the one marked restatement is the sole exception.
@@ -203,7 +208,7 @@ Intercept `#`-prefix. All name lookups use fuzzy-resolve cascade (exact → subs
 | `#status` | Dashboard of active/named feature (reads top Focus History entry). `#status diff` for changes since last bake |
 | `#now` | Lightweight orientation: top Focus History entry (feature), CWD, Last Bake. Aliases: `#context`, `#here`, `#feat`, `#feature` |
 | `#help [cmd]` | Scan `docs/cmd_help_*.md` filenames, fuzzy-resolve `[cmd]` against stem, read match. Bare=print reference table |
-| `#doctor` | Lint xTrack (checks a–s); `#doctor fix` auto-repairs safe classes |
+| `#doctor` | Lint xTrack (checks a–s); `#doctor fix` auto-repairs safe classes; `#doctor usage` prints the workflow-usage report |
 | `#merge` | Pre-flight analysis → trivial/non-trivial classification → auto-select rebase/merge → confirm (yes for direct, `#implement` for full validation pipeline). Push + PR link. **Never touches `develop`/`main`.** |
 | `#implement` | Pipeline: Code→implement+build → Ask→review → Architect→report+## Implemented |
 | `#go` | Agree with the question currently open; re-asks if the proposal moved since it was asked. `#go impl` = agree and run the `#implement` pipeline |

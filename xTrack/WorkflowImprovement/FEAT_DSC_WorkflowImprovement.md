@@ -2,7 +2,7 @@
 name: WorkflowImprovement
 status: active
 created: 2026-06-03 00:00
-modified: 2026-10-24 07:24
+modified: 2026-11-11 17:22
 ---
 
 # Feature: WorkflowImprovement
@@ -15,6 +15,7 @@ Improving the xTrack workflow and command system (canonicalized in AGENTS.md) �
 - The rulebook gained a five-tier legend (🛑 · ⛔ · 💬 · 🧹 · 🟢), and `#rule` was rebuilt around it — bare prints the legend, a tier reloads it with a fingerprint, and `all` reports staleness.
 - `#new` cuts `feature/[branch]` with `--no-track` so the first `#push` writes its own upstream, and `#rename` carries a published rename to the origin on one question.
 - The feature summaries were split out of `GLOBAL_CONTEXT.md` into a 25-row `## Features` index plus a per-feature `## Summary` (2026-10-24).
+- Workflow use is recorded by `tools/usage-log.ps1`: a hook spool flushed at `#commit` / `#bake` into branch-keyed monthly raw blocks (`merge=union`), compounded into a counted `digest.md` and read by `#doctor usage` (2026-11-11).
 
 ## Sections
 ### gitting-it
@@ -32,6 +33,7 @@ Git command shortcuts: #new / #commit / #push / #move / #cherry·#copy / #rename
 - `xTrack/Documentation/260610_FEAT_PLN_Documentation_git-move-command.md` — #move/#cherry design
 
 ## Todos
+- [ ] **Review the usage-tracking backlog once tracking has accumulated** — the Ask hop's items not applied on 2026-11-11 (same-hash digest dedupe on read, stale `origin/develop`, report dry-run scope, flush race, unparseable and `rule` lines dropped silently, squash-merged branches holding a month, mentions counted as uses, `.claude/settings.json` against §8a, the duplicated script-read sentence, the backfill code, `$SubMap`), then the first real compound, the report's alias-candidate row and stage 2 (rules). Detail in `261111_FEAT_PLN_WorkflowImprovement_workflow-tracking.md`.
 - [ ] **Decide the rule lifecycle's remaining questions** — the trim's cut: the plan is drafted and measured, and the cut is parked at 2.4% of the file. Closed 2026-09-17: the reload's name, the registry of ids (declined), the trace's home (one sentence in `FEAT_HYD_`, carried by `#bake`), and the gate line (ships, over five classes named in `AGENTS.md`). Detail in `xxArchive/INDEX.md` §7 and `260917_FEAT_PLN_WorkflowImprovement_agents-md-trim.md`.
 - [ ] **Settle the review's residual findings** — the ⛔ two-force reading, the plan's drifted anchors and duplicate blocks, and the stale live records naming retired rules; the 2026-09-17 review pass took the anchors and the stale records, and the `#rule` walk closed the same day, so what remains here is the ⛔ two-force reading alone.
 - [ ] **Rescope `ASK, DON'T GUESS`'s first clause from *a detail* to *a fact*** — the one blocking finding against the 💬 delegation rule: at ⛔ it outranks that rule and so defeats it for exactly the unstated choice the delegation exists for. Detail in `xxArchive/INDEX.md` §2.3.
@@ -47,6 +49,7 @@ Git command shortcuts: #new / #commit / #push / #move / #cherry·#copy / #rename
 - `docs/xtrack-templates.md` — file templates (sub-truth pointed from `AGENTS.md`'s Lazy-Load Index)
 
 ## Docs
+- `xTrack/WorkflowImprovement/261111_FEAT_PLN_WorkflowImprovement_workflow-tracking.md` — workflow-usage tracking: a hook spool flushed at `#commit`/`#bake` into monthly raw files of branch-keyed blocks (`merge=union`), compounded into a counted digest once a month closes, flow lines that compound by slug reuse, a `#doctor usage` report of removal and command candidates; v1 built, Ask hop pending
 - `xTrack/WorkflowImprovement/260917_FEAT_PLN_WorkflowImprovement_agents-md-trim.md` — the rulebook trim: the measured 252-line baseline, three safe compressions, the rejected candidates and the evidence path that replaces trimming prose
 - `xTrack/WorkflowImprovement/260916_FEAT_PLN_WorkflowImprovement_walk-context-and-directive-reload.md` — the `#walk` plan: the evaluating set, the documented `Closed` semantics now shipped on the page, axes A1/A2/A4 still in design, and the cache analysis in §4
 - `docs/cmd_help.md` — derived printed view of §7b
@@ -162,6 +165,10 @@ Git command shortcuts: #new / #commit / #push / #move / #cherry·#copy / #rename
 - Resolutions: all three taken by the user's decision — a leave writes nothing and D9 with D10 stand unchanged; the one nudge stays in `#doctor` and the bake keeps a cross-reference; the INDEX gains `dropped` for a plan closed without ever shipping, which also fixes how the page's abandoned-material clause reads. Dropped: nothing — the level exhausted with every item ticked.
 
 ## Implemented
+
+- **no AI credit in commits (2026-11-11, `feature/workflow-tracking`)** — a 🧹 rule in the Core Directives: a commit message and a pull-request description never credit Claude or any AI, and it wins over harness-supplied attribution text
+
+- **workflow-usage tracking, v1 (2026-11-11, `feature/workflow-tracking`)** — `tools/usage-log.ps1` records how the workflow is used: a `UserPromptSubmit` hook spools each `#`-command (any line of a prompt, names read from the §7b table, fuzzy-resolved, sub-commands kept and free arguments never), `#commit` and `#bake` flush the spool as one new keyed block per branch into `usage/raw/YYMM.md` (`merge=union`; a line is never added to an existing block, which a rebase would misfile), a month closed for a full month is counted into `usage/digest.md` and its raw file deleted once no unmerged branch touches it, and `#doctor usage` prints the report — removal, low-use and top commands, command candidates among the flows, slug drift, the silent guards — so the agent never reads the record. The `#bake` page gained the slug-reuse step that makes flows compound, `#commit` flushes before staging, and `AGENTS.md` gained the script-read bullet. The 37 local transcripts were backfilled commands-only (264 uses; 2608–2609 had expired, so the first removal list is marked provisional). Measured on scratch repos: capture, flush, a month held by an unmerged branch, alias folding, union merges by rebase and merge. Deviations: no alias-candidate report row, rules (stage 2) deferred, no real compound yet. The Ask hop returned no blocking finding and eight should-fix items — four applied the same day (the hook path from `$CLAUDE_PROJECT_DIR`, the compound check failing closed, an ordinal month hash, the lines file's home in the spool dir with the flush after the develop/main refusal) and the rest kept in the plan for the review once tracking has accumulated (same-hash digest dedupe on read, a stale `origin/develop`, the report's dry-run scope); a second Ask hop on the four fixes found one unreproduced blocker and one fix, applied (an empty lines file is now deleted too) → [`261111_FEAT_PLN_WorkflowImprovement_workflow-tracking.md`](261111_FEAT_PLN_WorkflowImprovement_workflow-tracking.md)
 
 - **feature-summaries split out of GLOBAL_CONTEXT (2026-10-24, `feature/workflow`)** — the `## Feature Summaries` block became a 25-row `## Features` index (name · status · created · modified · link), the per-feature prose moved into each `FEAT_DSC_`'s own `## Summary`, Route's card was pruned to its current state plus the owed list, and `docs/xtrack-templates.md`, the §7a/§7b rows and the eight cmd_help pages were re-pointed; the Ask hop returned clean → [`261024_FEAT_PLN_WorkflowImprovement_global-context-summaries-split.md`](261024_FEAT_PLN_WorkflowImprovement_global-context-summaries-split.md)
 
