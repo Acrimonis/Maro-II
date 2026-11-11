@@ -95,7 +95,7 @@ now stubbed to this doc):
 ## Current task
 
 Demo-mode non-reveal validation and fix — see
-[`260908_FEAT_PLN_Navigation_auto-show-demo-mode.md`](260908_FEAT_PLN_Navigation_auto-show-demo-mode.md).
+[`xxArchive/260908_FEAT_PLN_Navigation_auto-show-demo-mode.md`](xxArchive/260908_FEAT_PLN_Navigation_auto-show-demo-mode.md).
 
 ## Provenance (no-duplication mapping)
 

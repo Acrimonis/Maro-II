@@ -8,7 +8,7 @@ import ykws.android.maro.data.model.LatLng
  * Unit tests for [dashboardPositionFor] — the single position the dashboard is computed for.
  *
  * Rule: GPS mode uses the boat; demo mode, or GPS before the first fix, uses the marker.
- * Design: `xTrack/Navigation/260916_FEAT_PLN_Navigation_dashboard-position-source.md` §4.7.
+ * Design: `xTrack/Navigation/xxArchive/260916_FEAT_PLN_Navigation_dashboard-position-source.md` §4.7.
  */
 class DashboardPositionTest {
 
