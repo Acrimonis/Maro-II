@@ -1464,7 +1464,8 @@ internal fun rungSlowWater(
     val water = LegWater.of(timed, inZone, inBand)
     val crown = slowTimeByLimit(timed, paceKn, limitAt, inZone, inBand, bandLimitKn, water, slowLegsOnly = true)
     val ramps = rampSlowSeconds(timed, paceKn, limitAt, inZone, inBand, ceilingKnAt, water)
-    val anyWater = if (inAnyZone === inZone) water else LegWater.of(timed, inAnyZone, inBand)
+    // The table's rings, over the legs' band already read above — the band is never read twice per leg.
+    val anyWater = water.withZone(timed, inAnyZone)
     val byLimit = slowTimeByLimit(timed, paceKn, limitAt, inAnyZone, inBand, bandLimitKn, anyWater)
     return RungSlowWater(
         byLimit = byLimit,

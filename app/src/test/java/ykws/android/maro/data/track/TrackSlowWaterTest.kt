@@ -1,6 +1,9 @@
 package ykws.android.maro.data.track
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -10,6 +13,9 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import ykws.android.maro.data.model.RouteSlowLimit
 import ykws.android.maro.data.model.SlowWater
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * **The slow-water figure a card's `Open water · 300M · Zones` row reads** — the walk over a stored
@@ -157,5 +163,75 @@ class TrackSlowWaterTest {
         assertEquals("a new regulation stamp re-marks the recording", 8L, rebaked.getValue("rec").slowWaterStamp)
         assertTrue(rebaked.getValue("rec").slowWater.isEmpty())
         assertEquals("never the route", TrackSlowWater.ROUTE_STAMP, rebaked.getValue("route-saved").slowWaterStamp)
+    }
+
+    private fun recording(id: String, vararg lats: Double) =
+        Track(id, id, startTimeMs = 1_000, endTimeMs = 200_000, trackPoints = moving(*lats))
+
+    /** A classifier whose first call parks until [release] — the catch-up's walk caught mid-way. */
+    private class Parked(val inner: (Double, Double) -> SlowWater?) {
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        private val armed = AtomicBoolean(true)
+
+        val classifier: (Double, Double) -> SlowWater? = { lat, lon ->
+            if (armed.compareAndSet(true, false)) {
+                entered.countDown()
+                release.await(10, TimeUnit.SECONDS)
+            }
+            inner(lat, lon)
+        }
+    }
+
+    @Test
+    fun aCheckpointIsNotHeldUpByTheCatchUpWalk() = runBlocking {
+        val repo = TrackRepository(temp.root)
+        repo.saveAll(listOf(recording("rec", 43.000, 43.001, 43.006, 43.007)))
+        val parked = Parked(classifier)
+        repo.attachSlowWaterClassifier(parked.classifier, stamp = 7L)
+
+        val listing = async(Dispatchers.Default) { repo.listTracks() }
+        assertTrue("the walk is under way", parked.entered.await(5, TimeUnit.SECONDS))
+
+        withTimeout(5_000) { repo.saveCheckpoint(recording("live", 43.000, 43.001)) }
+
+        parked.release.countDown()
+        assertEquals(7L, listing.await().single { it.id == "rec" }.slowWaterStamp)
+    }
+
+    @Test
+    fun aTrackSavedDuringTheWalkKeepsTheFigureItsSaveComputed() = runBlocking {
+        val repo = TrackRepository(temp.root)
+        repo.saveAll(listOf(recording("rec", 43.000, 43.001, 43.006, 43.007)))
+        val parked = Parked(classifier)
+        repo.attachSlowWaterClassifier(parked.classifier, stamp = 7L)
+
+        val listing = async(Dispatchers.Default) { repo.listTracks() }
+        assertTrue(parked.entered.await(5, TimeUnit.SECONDS))
+        Thread.sleep(5) // the re-save must stamp a later updatedAtEpochMs than the first
+        // The new version crosses the zone: a band figure alone is the stale walk's, a zone entry the save's.
+        repo.saveAll(listOf(recording("rec", 43.000, 43.001, 43.002, 43.006)))
+        parked.release.countDown()
+
+        val figure = listing.await().single { it.id == "rec" }.slowWater
+        assertTrue("the save's own figure stands, the stale walk not merged over it", figure.any { !it.isBand })
+    }
+
+    @Test
+    fun aReattachDuringThePassLeavesTheNextListSweepingUnderTheNewStamp() = runBlocking {
+        val repo = TrackRepository(temp.root)
+        repo.saveAll(listOf(recording("rec", 43.000, 43.001, 43.006, 43.007)))
+        val parked = Parked(classifier)
+        repo.attachSlowWaterClassifier(parked.classifier, stamp = 7L)
+
+        val listing = async(Dispatchers.Default) { repo.listTracks() }
+        assertTrue(parked.entered.await(5, TimeUnit.SECONDS))
+        repo.attachSlowWaterClassifier({ _, _ -> null }, stamp = 8L)
+        parked.release.countDown()
+        assertEquals("the pass in flight finishes under the stamp it began with", 7L,
+            listing.await().single { it.id == "rec" }.slowWaterStamp)
+
+        assertEquals("and the next list is owed and sweeps under the new one", 8L,
+            repo.listTracks().single { it.id == "rec" }.slowWaterStamp)
     }
 }
