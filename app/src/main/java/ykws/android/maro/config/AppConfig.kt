@@ -234,12 +234,19 @@ object AppConfig {
         private set
 
     /**
-     * **How close the boat must be, in time left, before the app asks whether it has arrived** (R99) —
-     * `route.follow.arrival.etaSec`, default 60, clamped 0..600. When the time-to-go falls through this
-     * as a new look-back low the mode raises its exit dialog under the *reached your destination*
-     * prompt (R100).
+     * **How close the boat must be, in time left, to count as at the destination** (R100) —
+     * `route.follow.arrival.etaSec`, default 60, clamped 0..600. While the followed route's time-to-go is
+     * under this the arrival notice stands.
      */
     var routeFollowArrivalEtaSec: Double = 60.0
+        private set
+
+    /**
+     * **How long a change of the at-the-destination reading must hold before the notice follows it**
+     * (R100) — `route.follow.arrival.settleSec`, default 1, clamped 0..60, applied both when the notice
+     * appears and when it clears.
+     */
+    var routeFollowArrivalSettleSec: Double = 1.0
         private set
 
     /** The destination pin's fill colour — `route.pin.color`. */
@@ -2555,13 +2562,15 @@ object AppConfig {
                 ?.let { routePrewarmTargetPct = it.coerceIn(ROUTE_PREWARM_TARGET_PCT_MIN, ROUTE_PREWARM_TARGET_PCT_MAX) }
             props.getProperty("route.prewarm.threads")?.toIntOrNull()
                 ?.let { routePrewarmThreads = it.coerceIn(ROUTE_PREWARM_THREADS_MIN, ROUTE_PREWARM_THREADS_MAX) }
-            // ── The followed route's loss toggle and arrival cue (R99) ──
+            // ── The followed route's loss toggle and arrival notice (R99, R100) ──
             props.getProperty("route.follow.swap.lossSec")?.toDoubleOrNull()
                 ?.let { routeFollowSwapLossSec = it.coerceIn(0.0, 600.0) }
             props.getProperty("route.follow.swap.debounceSec")?.toDoubleOrNull()
                 ?.let { routeFollowSwapDebounceSec = it.coerceIn(0.0, 600.0) }
             props.getProperty("route.follow.arrival.etaSec")?.toDoubleOrNull()
                 ?.let { routeFollowArrivalEtaSec = it.coerceIn(0.0, 600.0) }
+            props.getProperty("route.follow.arrival.settleSec")?.toDoubleOrNull()
+                ?.let { routeFollowArrivalSettleSec = it.coerceIn(0.0, 60.0) }
             // ── The avoid engine's keys (the four stage-1 values, the depth gate, stage 2's band margin,
             //    and the fine cell Change 4 will read) ──
             props.getProperty("route.avoid.obstacle.marginM")?.toDoubleOrNull()?.let {

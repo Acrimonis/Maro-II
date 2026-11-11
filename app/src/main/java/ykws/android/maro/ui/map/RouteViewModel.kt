@@ -288,8 +288,8 @@ sealed interface RouteState {
         override val plan: RoutePlan,
         /**
          * The stored track this route was followed from, or null when it came from an acquisition's
-         * `Select route`. The id settles the exit dialog in its **written** state — the save door greys
-         * and the third door reads **Leave** rather than **Discard route** — so a followed saved route is
+         * `Select route`. The id settles the followed route as **written** — the save doors grey and
+         * leaving it is the deferred **Leave** rather than a discard — so a followed saved route is
          * never written a second time.
          */
         val followedTrackId: String? = null
@@ -328,7 +328,7 @@ data class RouteEnds(
  * the pages are walked with next/previous, and the selected page is what the buttons act on.
  *
  * **Disposal.** The one disposal function is the only thing that calls `cancelLookup`, and every
- * site that drops a route — the exit dialog's discard, the fan's unasked Discard, a new arming and a
+ * site that drops a route — the back key or toggle's discard, the fan's unasked Discard, a new arming and a
  * selection — reaches it. An update for a cancelled id changes no page.
  *
  * **An engine is closed here, because this is the one seat that knows both facts.** The screen rebuilds
@@ -471,8 +471,8 @@ class RouteViewModel(
     private var mirrored = false
 
     /**
-     * **The followed route's own progression reading** (R99, R100) — the time-to-go history, the arrival
-     * cue's arming and the last flip's instant. Cleared on entering `Following` and at every flip, so the
+     * **The followed route's own progression reading** (R99) — the time-to-go history and the last flip's
+     * instant. Cleared on entering `Following` and at every flip, so the
      * samples never outlive the plan they were gathered against.
      */
     private var etaState = RouteEtaState()
@@ -972,7 +972,7 @@ class RouteViewModel(
     /**
      * **Follow a saved route** — the track card's door: the stored line becomes the followed route
      * straight from Idle, with no engine ask and no session write. The track id rides the state so
-     * the exit dialog reads the followed route as already written.
+     * the followed route reads as already written.
      */
     fun followSavedRoute(plan: RoutePlan, trackId: String) {
         if (_state.value !is RouteState.Idle) return
@@ -992,7 +992,7 @@ class RouteViewModel(
     }
 
     /**
-     * **One boat fix, fed from the map while a route is followed** (R99, R100) — purely positional: it
+     * **One boat fix, fed from the map while a route is followed** (R99) — purely positional: it
      * reads the followed plan's own time-to-go at [from] and, on a loss of `route.follow.swap.lossSec`
      * against its recent low, republishes `Following` with the plan reversed in place. Nothing re-arms
      * and nothing is asked of an engine: the drawn line and its clock are the same bytes, merely read
@@ -1003,21 +1003,20 @@ class RouteViewModel(
      * history's one-a-second bucketing and the debounce read off the map's own clock rather than an
      * invented one.
      *
-     * The answer is the two readings the screen acts on: [RouteEtaDecision.flip] says the line turned,
-     * and [RouteEtaDecision.arrivalCue] says the time-to-go has just fallen below
-     * `route.follow.arrival.etaSec` as a new low, so the arrival prompt (R100) is due.
+     * The answer says whether the line turned ([RouteEtaDecision.flip]); the screen needs no reading from
+     * it, and it is returned for the tests. The arrival notice (R100) is not fed from here — it is a state
+     * read off the plan and the position.
      */
     internal fun onBoatFix(from: RoutePoint, nowElapsedMs: Long): RouteEtaDecision {
         val following = _state.value as? RouteState.Following
-            ?: return RouteEtaDecision(state = etaState, flip = false, arrivalCue = false)
+            ?: return RouteEtaDecision(state = etaState, flip = false)
         val plan = following.plan
         val decision = routeEtaStep(
             state = etaState,
             etaSec = plan.remainingFrom(from).durationSec,
             nowMs = nowElapsedMs,
             lossSec = AppConfig.routeFollowSwapLossSec,
-            debounceSec = AppConfig.routeFollowSwapDebounceSec,
-            arrivalEtaSec = AppConfig.routeFollowArrivalEtaSec
+            debounceSec = AppConfig.routeFollowSwapDebounceSec
         )
         etaState = decision.state
         if (decision.flip) {
@@ -1109,10 +1108,10 @@ class RouteViewModel(
     fun trackFor(plan: RoutePlan): String? = session[plan] ?: session[plan.reversed()]
 
     /**
-     * **Is this route already written?** — the one predicate both saves read and the one fact the exit
-     * dialog's doors resolve from (R55, R59). A route saved while its line is mirrored answers true for
-     * **either** orientation (R99), so the mirror never resurrects the save door and the exit dialog's
-     * third door still reads *Leave*.
+     * **Is this route already written?** — the one predicate both saves read and the one fact the
+     * panel's ending door resolves from (R55, R59). A route saved while its line is mirrored answers true for
+     * **either** orientation (R99), so the mirror never resurrects the save door and the ending still
+     * reads *Leave*.
      */
     fun isRouteSaved(plan: RoutePlan): Boolean =
         (session[plan] ?: session[plan.reversed()]) != null

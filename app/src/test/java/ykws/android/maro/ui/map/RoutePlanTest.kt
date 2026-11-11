@@ -567,7 +567,7 @@ class RoutePlanTest {
         assertEquals(original.slowLimitSeconds, mirror.slowLimitSeconds)
     }
 
-    // ── The loss toggle and the arrival cue (R99, R100) ──────────────────
+    // ── The loss toggle and the arrival notice (R99, R100) ──────────────────
 
     /** A timestamped time-to-go reading, in the shape the detector gathers. */
     private fun eta(atMs: Long, sec: Double) = RouteEtaSample(etaSec = sec, atMs = atMs)
@@ -653,18 +653,18 @@ class RoutePlanTest {
     @Test
     fun aFlipClearsTheHistoryAndTheDebounceRefusesASecondToggle() {
         var state = RouteEtaState()
-        state = routeEtaStep(state, etaSec = 300.0, nowMs = 0, lossSec = 30.0, debounceSec = 15.0, arrivalEtaSec = 60.0).state
-        state = routeEtaStep(state, etaSec = 300.0, nowMs = 1_000, lossSec = 30.0, debounceSec = 15.0, arrivalEtaSec = 60.0).state
+        state = routeEtaStep(state, etaSec = 300.0, nowMs = 0, lossSec = 30.0, debounceSec = 15.0).state
+        state = routeEtaStep(state, etaSec = 300.0, nowMs = 1_000, lossSec = 30.0, debounceSec = 15.0).state
 
-        val flip = routeEtaStep(state, etaSec = 340.0, nowMs = 2_000, lossSec = 30.0, debounceSec = 15.0, arrivalEtaSec = 60.0)
+        val flip = routeEtaStep(state, etaSec = 340.0, nowMs = 2_000, lossSec = 30.0, debounceSec = 15.0)
         assertTrue("a loss against the low flips the line", flip.flip)
         assertTrue("and the history is cleared behind it", flip.state.samples.isEmpty())
 
         var after = flip.state
-        after = routeEtaStep(after, etaSec = 100.0, nowMs = 2_500, lossSec = 30.0, debounceSec = 15.0, arrivalEtaSec = 60.0).state
-        val blocked = routeEtaStep(after, etaSec = 200.0, nowMs = 4_000, lossSec = 30.0, debounceSec = 15.0, arrivalEtaSec = 60.0)
+        after = routeEtaStep(after, etaSec = 100.0, nowMs = 2_500, lossSec = 30.0, debounceSec = 15.0).state
+        val blocked = routeEtaStep(after, etaSec = 200.0, nowMs = 4_000, lossSec = 30.0, debounceSec = 15.0)
         assertFalse("a second loss inside the debounce does not flip", blocked.flip)
-        val allowed = routeEtaStep(after, etaSec = 200.0, nowMs = 20_000, lossSec = 30.0, debounceSec = 15.0, arrivalEtaSec = 60.0)
+        val allowed = routeEtaStep(after, etaSec = 200.0, nowMs = 20_000, lossSec = 30.0, debounceSec = 15.0)
         assertTrue("past the debounce the same loss flips", allowed.flip)
     }
 
@@ -679,7 +679,7 @@ class RoutePlanTest {
         var etaSec = 300.0
         var flipped = false
         repeat(60) {
-            val decision = routeEtaStep(state, etaSec, nowMs, lossSec = 30.0, debounceSec = 15.0, arrivalEtaSec = 60.0)
+            val decision = routeEtaStep(state, etaSec, nowMs, lossSec = 30.0, debounceSec = 15.0)
             state = decision.state
             if (decision.flip) flipped = true
             nowMs += 1_000
@@ -689,54 +689,62 @@ class RoutePlanTest {
     }
 
     /**
-     * **The arrival cue fires once per approach, on a new low below the threshold** (R100): a closing
-     * crossing prompts, a second low in the same approach does not, and a boat that leaves and comes
-     * back down — closing to a fresh low — legitimately re-prompts.
+     * **At the destination is a state read off the plan and the position** (R100): under the threshold
+     * the boat is there and over it is not, exactly at it is not (the test is strict), and without a plan
+     * there is nothing to be at.
      */
     @Test
-    fun theCueFiresOncePerApproachOnANewLowBelowTheThreshold() {
-        var state = RouteEtaState()
-        state = routeEtaStep(state, 300.0, 0, 30.0, 15.0, 60.0).state
-
-        val first = routeEtaStep(state, 55.0, 2_000, 30.0, 15.0, 60.0)
-        assertTrue("a new low below the threshold prompts", first.arrivalCue)
-
-        val second = routeEtaStep(first.state, 50.0, 3_000, 30.0, 15.0, 60.0)
-        assertFalse("one prompt per approach", second.arrivalCue)
-
-        val up = routeEtaStep(second.state, 70.0, 4_000, 30.0, 15.0, 60.0).state
-        val again = routeEtaStep(up, 40.0, 6_000, 30.0, 15.0, 60.0)
-        assertTrue("a fresh approach re-prompts", again.arrivalCue)
+    fun theBoatIsAtTheDestinationWhileItsTimeToGoIsUnderTheThreshold() {
+        assertTrue("on the destination the time-to-go is zero", routeAtDestination(plan(), p2, 60.0))
+        assertFalse("mid-route 240 s remain", routeAtDestination(plan(), p1, 60.0))
+        assertFalse("at the start the whole route remains", routeAtDestination(plan(), p0, 60.0))
+        assertFalse("a time-to-go equal to the threshold is not under it", routeAtDestination(plan(), p1, 240.0))
+        assertFalse("no plan is nothing to be at", routeAtDestination(null, p2, 60.0))
     }
 
     /**
-     * **A route armed inside the zone never prompts** (R100): the cue is armed by a reading above the
-     * threshold, so a pair whose whole line is under it raises nothing.
+     * **A mirrored route clears the notice with no rule of its own** (R99, R100): the loss mirror makes the
+     * old destination the start, so from the same spot the whole line now lies ahead.
      */
     @Test
-    fun aRouteArmedInsideTheZoneNeverPrompts() {
-        val first = routeEtaStep(RouteEtaState(), 45.0, 0, 30.0, 15.0, 60.0)
-        assertFalse("a route whose whole line is under the threshold raises no prompt", first.arrivalCue)
+    fun aMirroredRouteIsNotAtItsNewDestinationFromTheOldOne() {
+        assertTrue(routeAtDestination(plan(), p2, 60.0))
+        assertFalse(
+            "from the old destination the reversed line has its whole length ahead",
+            routeAtDestination(plan().reversed(), p2, 60.0)
+        )
     }
 
     /**
-     * **A flip inside the minute arms the cue for the mirrored end** (R100): the initial arming needs a
-     * reading above the threshold, but a flip arms the cue regardless, so a mirrored end whose own goal
-     * already lies inside the minute behaves exactly like the first end and asks on its own crossing —
-     * the symmetry that keeps the prompt from being one-sided.
+     * **A route shorter than the threshold is treated like any other** (R100, the user's word of
+     * 2026-11-11): its whole line is under the minute, so the boat reads as at the destination from the
+     * start — no special case suppresses it.
      */
     @Test
-    fun aFlipInsideTheMinuteArmsTheCueForTheMirroredEnd() {
-        var state = RouteEtaState()
-        state = routeEtaStep(state, 300.0, 0, 30.0, 15.0, 60.0).state
-        state = routeEtaStep(state, 300.0, 1_000, 30.0, 15.0, 60.0).state
+    fun aRouteShorterThanTheThresholdReadsAsAtTheDestinationFromItsStart() {
+        val short = RoutePlan(
+            start = p0,
+            destination = p2,
+            destinationMoved = false,
+            points = listOf(p0, p1, p2),
+            legTimesSec = listOf(20.0, 20.0),
+            distanceM = d0 + d1,
+            durationSec = 40.0,
+            computedAtMs = computedAt
+        )
+        assertTrue(routeAtDestination(short, p0, 60.0))
+    }
 
-        val flip = routeEtaStep(state, 340.0, 2_000, 30.0, 15.0, 60.0)
-        assertTrue("a loss against the low flips the line", flip.flip)
-        assertTrue("the flip arms the cue for the mirrored end", flip.state.cueArmed)
-
-        val crossing = routeEtaStep(flip.state, 45.0, 3_000, 30.0, 15.0, 60.0)
-        assertTrue("the mirrored end asks on its own new-low crossing", crossing.arrivalCue)
+    /**
+     * **The notice stands only for a displayed, followed route at the destination** (R100): a standing
+     * discard window, a mode that is not `Following` or a boat away from the destination each clear it.
+     */
+    @Test
+    fun theArrivalNoticeNeedsADisplayedFollowedRouteAtTheDestination() {
+        assertTrue(routeArrivalNoticeShown(displayArmed = true, following = true, atDestination = true))
+        assertFalse(routeArrivalNoticeShown(displayArmed = false, following = true, atDestination = true))
+        assertFalse(routeArrivalNoticeShown(displayArmed = true, following = false, atDestination = true))
+        assertFalse(routeArrivalNoticeShown(displayArmed = true, following = true, atDestination = false))
     }
 
     /**
@@ -745,10 +753,10 @@ class RoutePlanTest {
      */
     @Test
     fun aFlatReadingPastTheDestinationNeverFlips() {
-        var state = routeEtaStep(RouteEtaState(), 0.0, 0, 30.0, 15.0, 60.0).state
+        var state = routeEtaStep(RouteEtaState(), 0.0, 0, 30.0, 15.0).state
         var nowMs = 1_000L
         repeat(10) {
-            val decision = routeEtaStep(state, 0.0, nowMs, 30.0, 15.0, 60.0)
+            val decision = routeEtaStep(state, 0.0, nowMs, 30.0, 15.0)
             state = decision.state
             assertFalse("a flat zero reading never flips", decision.flip)
             nowMs += 1_000

@@ -459,3 +459,24 @@ internal fun MapStatusBanner(
         MapBannerText(text = message)
     }
 }
+
+/**
+ * The status pills' one column — every [MapStatusBanner] message that stands at once, drawn one above the
+ * other instead of each pinned to the same corner and painted over the last.
+ *
+ * [messages] arrive in top-to-bottom order, so the newest or most pressing one is last and sits on the band's
+ * bottom edge. Each pill keeps its own 6 dp bottom gap, which is also the gap between two of them. An empty
+ * list draws nothing. The caller owns which messages stand and for how long — a transient toast and a message
+ * bound to a state alike — so this column holds no timer and no state.
+ */
+@Composable
+internal fun MapStatusBannerStack(
+    messages: List<String>,
+    tagsDrawn: Boolean,
+    modifier: Modifier = Modifier
+) {
+    if (messages.isEmpty()) return
+    Column(modifier = modifier) {
+        messages.forEach { message -> MapStatusBanner(message = message, tagsDrawn = tagsDrawn) }
+    }
+}
