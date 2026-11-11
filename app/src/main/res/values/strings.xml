@@ -935,9 +935,9 @@
          one, read as "x less" or "x more". -->
     <string name="route_comparison_less">less</string>
     <string name="route_comparison_more">more</string>
-    <!-- The acquisition panel's Speed limits table: the time the route spends slowed, one short reading per
-         regulated limit — the 300 m zone labelled "300 m", a limit as its speed in knots — the ramp into and
-         out of each counted in, and each value reading as "1:05 min", rounded to the second. -->
+    <!-- The acquisition panel's Speed limits table: the time the route spends on water with a limit, one short
+         reading per regulated limit — the 300 m zone labelled "300 m", a limit as its speed in knots — a ramp
+         between two limits counted in none, and each value reading as "1:05 min", rounded to the second. -->
     <string name="route_slow_band_label">300 m</string>
     <string name="route_slow_limit_label_fmt">%1$.0f kn</string>
     <!-- One page row in the panel: which route it is, its description and its own duration. -->

@@ -124,7 +124,7 @@ internal data class RouteSlowLimitEntry(val limitKn: Double, val seconds: Int, v
 
 /**
  * **The Speed limits entries of a plan** — [RoutePlan.slowLimitSeconds] rounded to the second, a zero
- * dropped and the band kept apart. Empty when nothing slowed the route, which is what leaves the line
+ * dropped and the band kept apart. Empty when the route meets no limit, which is what leaves the line
  * off the panel.
  */
 internal fun routeSlowLimitEntries(plan: RoutePlan): List<RouteSlowLimitEntry> =
