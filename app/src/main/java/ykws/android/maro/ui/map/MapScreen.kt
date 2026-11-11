@@ -1616,14 +1616,12 @@ fun MapScreen(
     // Wire the zone-and-band test into the same repository once the zones and the coastline can both
     // answer: the recordings then get the slow-water figure their card's `Open water · 300M · Zones` row
     // reads, and a regulation bake's new stamp re-marks them.
-    val slowWaterStamp by viewModel.slowWaterStamp.collectAsState()
-    LaunchedEffect(coastlineReady, slowWaterStamp) {
-        val stamp = slowWaterStamp
-        if (!coastlineReady || stamp == null) return@LaunchedEffect
-        trackViewModel.attachSlowWaterClassifier(
-            classifier = { lat, lon -> viewModel.slowWaterAt(lat, lon) },
-            stamp = stamp
-        )
+    val slowWaterAttachment by viewModel.slowWaterAttachment.collectAsState()
+    LaunchedEffect(coastlineReady, slowWaterAttachment) {
+        val attachment = slowWaterAttachment
+        if (!coastlineReady || attachment == null) return@LaunchedEffect
+        // The test and the stamp arrive as one value, made from one zone publication.
+        trackViewModel.attachSlowWaterClassifier(attachment.classifier, attachment.stamp)
     }
 
     // ── Inspect mode's inspectable set (plan §3) ─────────────────────────

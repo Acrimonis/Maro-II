@@ -1,7 +1,7 @@
 <!-- scope: feature -->
 # Tracks — the slow-water time on a card (stops read from the stored track)
 
-**Date:** 2026-11-01 · **Status:** implemented 2026-11-01 (P0–P4; P5 not taken), Ask hop's findings open in `## Outcome` · **Order:** the user's word of 2026-11-01 —
+**Date:** 2026-11-01 · **Status:** implemented 2026-11-01 (P0–P4; P5 not taken); the Ask hop's findings triaged 2026-11-11 and their fixes shipped the same day (`## Remediation`) · **Order:** the user's word of 2026-11-01 —
 *"plan stop detection + plan card display extension (discuss how)"*, then *"g2"* and *"plan, review, update
 plan, report"*. Origin: the Route todo *"The crown's card figures"* (the slow-water minutes on a saved route's
 card), widened to recorded tracks. Owner: Tracks (the card, the store, the index); Route owns the attribution
@@ -163,3 +163,110 @@ None: the definition, the old routes, the GPX jitter, the demo tracks and the sp
   6. should-fix — three docs still state the old slow-only meaning (`RouteAvoidEngine.kt` rung note, `RouteOverlay.kt` `routeSlowLimitEntries`, `SlowTimeByLimitTest` class doc).
   7. nit — `inAnyZone` identity check fragile; `slowWaterPassDone` can mark a newer source done; a metadata edit before attach drops a valid figure; `ROUTE_STAMP` and `NO_REGULATION_STAMP` share `1L`.
   8. nit — a track's row overshoots Nav when the walk's idle differs from the recorder's (open water clamps at 0); excluded zones count on a track but not on a route; a zone in the band is keyed at the band's limit, now more visible; the dashboard's two hand-built summaries grew.
+
+## Remediation — 2026-11-11 on `feature/tracks-slow-water`
+
+**Order:** the user's word of 2026-11-11 — the triage (*fix 1, 2, 3, 5, 6 and 7's race; drop 4, the rest of 7, and 8*), then *"plan all fixes, review plan, update, report"*, then `#impl`. Implemented the same day (see `### Outcome`). Every claim below comes from a file read on this branch.
+
+### Triage — the verdicts
+
+| # | Verdict | Phase |
+|---|---|---|
+| 1 | fix — the catch-up's walks leave the write lock | R1 |
+| 2 | fix — a box-rejected containment read replaces the full point query | R2 |
+| 3 | fix — the dashboard reads the unfiltered summaries | R3 |
+| 4 | **dropped, named** — `zones.properties` ships in the APK and changes only with a rebuild; it stands beside the coastline as the second named gap (Part C) | — |
+| 5 | fix — the table's legs read the band once | R4 |
+| 6 | fix — the stale comments | R5 |
+| 7a | fix — `slowWaterPassDone` marks only the source the pass ran under | R1 |
+| 7b–d | **dropped** — the metadata-edit-before-attach loss self-heals at the next catch-up; `ROUTE_STAMP` and `NO_REGULATION_STAMP` sharing `1L` is harmless because the catch-up skips routes; the `inAnyZone` identity check is deleted by R4 | — |
+| 8 | **dropped** — the overshoot is clamped by design (`slowWaterCells`); the band key and the hand-built summaries are cosmetic; "excluded zones count on a track" stands as the plan's accepted difference between a route's corridor set and the whole zone list | — |
+
+### R1 — the catch-up off the write lock, and the pass marked for its own source (fixes 1, 7a)
+
+- **The defect.** `listTracks` holds `writeMutex` across `attributeSlowWater` ([`TrackRepository.kt:158-160`](../../app/src/main/java/ykws/android/maro/data/track/TrackRepository.kt)), which loads and walks every stale recording. `saveCheckpoint` and `deleteCheckpoint` take the same mutex (lines 251-259), so a live recording's 30 s checkpoint queues behind a first run or a post-bake run.
+- **The shape.** `listTracks` takes a new `slowWaterPassMutex` around the sequence below. It serialises concurrent list calls as `writeMutex` did, but the recorder never takes it:
+  1. under `writeMutex`: `classifyUnclassified(readIndex())`, unchanged;
+  2. when a pass is owed (`!slowWaterPassDone` and a source attached), **unlocked**: for each recording whose stamp differs from the source's, `load` (lock-free; every file is replaced atomically) and `TrackSlowWater.of`, keeping `(id, track.updatedAtEpochMs, entries)`;
+  3. under `writeMutex` again: `readIndex()` afresh and apply each result as a **compare-and-set**: only where that id's summary still carries both the `updatedAtEpochMs` and the `slowWaterStamp` the walk saw. A track saved meanwhile already took a figure from `summarize`, and a track deleted meanwhile is absent from the fresh index, so both are skipped. The index is written once if anything changed, and the merged list returned.
+- **Fix 7a, by reference rather than flag** (review blocker). `slowWaterPassDone: Boolean` becomes `@Volatile slowWaterPassDoneFor: SlowWaterSource?`. Attach writes `slowWaterSource` alone, a pass is owed when `slowWaterPassDoneFor !== slowWaterSource`, and the pass ends by setting `slowWaterPassDoneFor` to the source it captured. An attach that lands at any instant, the end of a pass included, leaves the two references different, so the refresh it queues sweeps under the newer stamp. No check-then-act window is left.
+- **Left alone, named:** `classifyUnclassified` still samples under `writeMutex`. The **rebuild path** still walks under it too: `readIndex` rebuilds a missing, corrupt or older-version index through `summarize` (`rebuildIndexLocked`, `updateIndexLocked`'s unknown files), which runs `TrackSlowWater.of` whenever a source is attached. Neither is in the findings, and a rebuild is rare, so both keep their lock.
+- **Tests** (beside `theRepositoryComputesARecordingAndProjectsARouteAsSaved` in `TrackSlowWaterTest`):
+  - a classifier that blocks on a latch: `saveCheckpoint` completes, under a timeout, while `listTracks` is parked mid-walk;
+  - a track re-saved during the pass keeps the figure its save computed, and the stale result is not merged over it;
+  - a re-attach mid-pass leaves the next `listTracks` computing under the new stamp.
+
+### R2 — a containment-only zone read for the walk (fix 2)
+
+- **The defect.** `slowWaterAt` ([`NavigationViewModel.kt:1568-1572`](../../app/src/main/java/ykws/android/maro/ui/map/NavigationViewModel.kt)) calls `SpeedZoneIndex.query`, whose `PolygonIndexBase.status` scans the cell's candidate edges for the nearest boundary. It then ray-casts **every zone's polygon with no box reject** (`zones.indices.filter { pointInsidePolygon(...) }`, [`PolygonIndexBase.kt:178`](../../app/src/main/java/ykws/android/maro/spatial/PolygonIndexBase.kt)). That runs for every point of every recording, and the walk reads only `mostRestrictiveSpeedKn`.
+- **The read that exists.** `ZoneSet.strictestDisplayLimitKnAt` ([`ZoneGeometry.kt:217`](../../app/src/main/java/ykws/android/maro/spatial/multipass/ZoneGeometry.kt)) returns the least `speedLimitKn` over the zones that contain the point. Holes are excluded, and each zone is rejected by a box computed once per set. That is the same quantity, and the route clock already reads it.
+- **The shape.** The publication at `NavigationViewModel.kt:1146-1172` builds `ZoneSet(zones)` beside `SpeedZoneIndex(zones)` from the same `SpeedZoneBuilder.build` list, and carries the set inside `IndexedZones` (line 282).
+  - `slowWaterAt` reads `_indexedZones.value?.limits?.strictestDisplayLimitKnAt(lat, lon)`, and `isRouteRestricted` follows unchanged.
+  - **The attached classifier is bound to its stamp's publication** (review nit, tightened by the code review). `NavigationViewModel.slowWaterAttachment` builds the stamp and a lambda bound to that publication's `IndexedZones.limits` in the same `combine`, and `MapScreen` attaches the pair as one value. A first design read `_indexedZones` live when the effect ran, which left a window of one dispatch where a stale stamp met a newer zone set.
+  - **Publication order** (review nit). `_indexedZones` is written before `_speedZoneIndex` (lines 1170-1171 swapped). The speed-history seed, which waits on the index (`MapScreen.kt:1664`), then never reads `isRouteRestricted` against the previous set.
+  - The dashboard's zone readouts keep `SpeedZoneIndex`.
+- **Equivalence.** Both ray casts are even–odd with the same half-open vertex rule, `(a > y) != (b > y)` ⇔ `a ≤ y < b ∨ b ≤ y < a`. They compute the crossing from opposite ends of the edge, so they can differ only on a boundary at floating-point precision.
+- **Test:** a new `SlowWaterZoneReadTest` with overlapping zones of two limits, a zone with a hole, and points inside, in the hole, outside and inside a box but outside its ring. It asserts `ZoneSet(zones).strictestDisplayLimitKnAt == SpeedZoneIndex(zones).query(...).mostRestrictiveSpeedKn` at every point.
+- **Not touched:** the band's `distanceToCoastMeters`, already read only where no zone answers (`SlowWater.of`'s lazy `inBand`).
+
+### R3 — the dashboard's figure read off the unfiltered summaries (fix 3)
+
+- **The defect.** `storedSummaryOf` ([`OverlayLayer.kt:299-305`](../../app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt)) searches `summaries` and `routeSummaries`. Both are filtered (`TrackViewModel.recomputeListViews`), so a recording hidden by the list filter loses its row on the map's card.
+- **The fix.** Collect `trackViewModel.allSummaries` (the unfiltered source, both kinds) and look the id up there alone. The comment is corrected with it.
+- **Test:** none of its own, because the lookup is one line of Compose state. The device pass covers it: a filtered-out recording opened from the map keeps its row.
+
+### R4 — the table's legs read the band once (fix 5)
+
+- **The defect.** `inZone(...)` returns a new lambda on every call ([`RoutePassPrimitives.kt:519`](../../app/src/main/java/ykws/android/maro/spatial/multipass/RoutePassPrimitives.kt)), so `inAnyZone === inZone` ([`RouteAvoidEngine.kt:1467`](../../app/src/main/java/ykws/android/maro/spatial/RouteAvoidEngine.kt)) never holds in production. The second `LegWater.of` re-reads the band at every leg's midpoint on every rung.
+- **The fix.** `LegWater` gains `withZone(timed, inZone)`, which keeps `midInBand` and re-reads only the zone predicate. `rungSlowWater` builds `anyWater = water.withZone(timed, inAnyZone)`, and the identity check is deleted. Every figure is unchanged by construction.
+- **What it saves, exactly** (review nit): one band read per leg midpoint per rung. `insideSeconds` still samples the band along each band leg in both walks (`RouteEta.kt:383-384`, `477-481`), and that stays as it is.
+- **The `LegWater` class doc** (`RouteEta.kt:91-95`, "a priced ring", "every slow leg") is corrected in the same edit: the table reads every leg under `inAnyZone`.
+- **Test** (review should-fix: a figures-only test passes before and after): one `SlowWaterSecondsTest` case on an all-open-water line counts the `inBand` calls, `legs` after the fix against `2 × legs` today. The existing 5 `rungSlowWater` cases stay green unchanged.
+
+### R5 — the stale comments (fix 6)
+
+- [`RouteOverlay.kt:125-129`](../../app/src/main/java/ykws/android/maro/ui/map/RouteOverlay.kt) — "Empty when nothing slowed the route" becomes "empty when the route meets no limit".
+- [`SlowTimeByLimitTest.kt:10-16`](../../app/src/test/java/ykws/android/maro/spatial/multipass/SlowTimeByLimitTest.kt) — the class doc speaks of "each slow leg" and of "the full seconds its own legs take". It is rewritten to every leg on limited water, slow or not, a straddling leg paying only its inside fraction, with `slowLegsOnly` named as the crown's reading.
+- [`values/strings.xml:938-940`](../../app/src/main/res/values/strings.xml) — the Speed limits comment ("the time the route spends slowed … the ramp into and out of each counted in") becomes the time on each limit's water, ramps counted in none.
+- **Correction to finding 6:** the `RouteAvoidEngine.kt` rung note it names (lines 1426-1446) already reads the new meaning. The third stale text is the `strings.xml` comment above. Comment only, so no translation moves.
+
+### Verification
+
+- The scoped suites first (`TrackSlowWaterTest`, `SlowWaterZoneReadTest`, `SlowWaterSecondsTest`, `SlowTimeByLimitTest`, `SpeedZoneIndexTest`), then the full unit suite and `apk-build.bat`.
+- The device pass is the user's: a filtered-out recording's card on the map, and a first launch after a regulation bake while recording.
+
+### Argued against
+
+- **R1 is the only fix with risk:** a lock-free walk plus a merge can lose an update. The merge rule (same `updatedAtEpochMs`, stamp still stale) is what guards it. The cheaper alternative, the lock taken per track, keeps the whole loop inside the repository's lock discipline but still holds the lock through each walk.
+- **The value is modest:** the checkpoint delay only bites on the first run or after a bake, and the dashboard row only on a filtered list.
+- **Against dropping 4** (the reviewer's objection): an APK update with edited overrides is exactly when the figures go stale, and folding an overrides hash into the stamp would close it cheaply. The drop stands as the user's call.
+
+### Review — 2026-11-11 (the `ask` hop), folded
+
+- **Blocker taken:** R1's `slowWaterPassDone = (slowWaterSource === source)` kept a check-then-act window, so an attach between the compare and the write would still be lost. It is replaced by the `slowWaterPassDoneFor` reference.
+- **Should-fix taken:** the merge is a compare-and-set on the walked `updatedAtEpochMs` and stamp; R4's test counts band reads rather than figures; the rebuild path's lock-held walks are named beside `classifyUnclassified`.
+- **Nits taken:** the classifier attached as a zone-set snapshot; `_indexedZones` published before the index; R4's saving stated exactly; the `LegWater` doc and the test doc's "full seconds" folded into R4 and R5.
+- **Confirmed:**
+  - R2's equivalence holds: the same build list, `speedLimitKn` on both sides, degenerate rings, holes and an empty set alike.
+  - R3's `allSummaries` holds both kinds unfiltered.
+  - R5's three targets are stale, and the rung note already reads the new meaning.
+  - R1 has no deadlock (`listTracks` alone takes the new mutex, from `TrackViewModel.kt:342`).
+  - The drops 7b–d and 8 hold.
+- **Noted, not taken:** an unlocked `load` can quarantine a file a save has just replaced, an edge that predates this plan. A second `listTracks` now waits on the whole pass, so a rename shows when the pass ends; a `tryLock` fallback is not taken.
+
+### Outcome — `#impl`, 2026-11-11 on `feature/tracks-slow-water`
+
+- **Shipped R1–R5; the original findings 1, 2, 3, 5, 6 and 7a are closed.** 4, 7b–d and 8 stand dropped as triaged.
+  - R1: the catch-up walks off the write lock and merges by compare-and-set; `slowWaterPassDoneFor` replaces the flag.
+  - R2: `ZoneSet.strictestDisplayLimitKnAt` replaces the full point query, with `slowWaterAttachment` pairing the stamp and the classifier.
+  - R3: the dashboard reads `allSummaries`.
+  - R4: `LegWater.withZone`.
+  - R5: three comments.
+- **Deviations.**
+  - The classifier is handed over with its stamp as one `slowWaterAttachment` value (the plan had a snapshot function beside the stamp flow); `slowWaterStamp` and `slowWaterClassifier()` are gone.
+  - The pass exits early when nothing is stale, without the lock or an index decode, and marks itself done after the index write.
+- **Verification.** `apk-build.bat` SUCCESS; full unit suite 1 770 tests, 27 skipped, 0 failures (6 new: three repository tests, the zone-read equivalence pair, the band-read count). The device pass is the user's.
+- **Ask hop's findings (one pass).** No blocker. The pairing window, the early exit and the done-after-write order were taken; open:
+  1. nit — the `updatedAtEpochMs` half of the merge's compare-and-set is unpinned: the re-save test passes on the stamp half alone, since two saves can share a millisecond on Windows.
+  2. nit — `ZoneSet(zones)` for an empty list could be `ZoneSet.EMPTY`.
+  3. noted — the zone-read equivalence test pins the reads, not the `IndexedZones` wiring.

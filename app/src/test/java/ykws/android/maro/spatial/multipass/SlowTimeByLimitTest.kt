@@ -8,11 +8,13 @@ import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Units
 
 /**
- * **The Speed limits attribution** — [slowTimeByLimit] charges each slow leg to the water standing at
- * its own midpoint and to nothing else: a leg inside a ring to that ring's limit, a leg inside the
- * 300 m band to the band's own entry, and a slow leg on open water — a bend's floor, an acceleration —
- * to **no** entry at all. There is no fold: a limit's figure is the full seconds its own legs take,
- * never a neighbour's, so the band's entry can never grow into the route's own duration.
+ * **The Speed limits attribution** — [slowTimeByLimit] charges each leg to the water standing at its own
+ * midpoint and to nothing else, whatever the pace: a leg inside a ring to that ring's limit, a leg inside
+ * the 300 m band to the band's own entry, and a leg on open water — a bend's floor, an acceleration — to
+ * **no** entry at all. A leg straddling the water's edge pays only the fraction of its time that lies
+ * inside it. There is no fold: a limit's figure is its own legs' seconds, never a neighbour's, so the
+ * band's entry can never grow into the route's own duration. `slowLegsOnly` is the crown's reading,
+ * which charges only the legs slower than the pace and so never moves with this table.
  */
 class SlowTimeByLimitTest {
 
