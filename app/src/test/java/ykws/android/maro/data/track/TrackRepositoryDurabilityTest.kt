@@ -59,6 +59,22 @@ class TrackRepositoryDurabilityTest {
     }
 
     @Test
+    fun askingWhetherARecoverableCheckpointExistsChangesNothing() = runBlocking {
+        assertFalse(repo.hasCheckpointFiles())
+        assertFalse(repo.hasRecoverableCheckpoint())
+
+        val live = track("t", listOf(0L, 10_000L))
+        repo.saveCheckpoint(live)
+        assertTrue(repo.hasCheckpointFiles())
+        assertTrue(repo.hasRecoverableCheckpoint())
+
+        // Once the finalised file covers it the checkpoint is stale: not recoverable, yet still on disk.
+        repo.save(live.copy(endTimeMs = 11_000L, lastPointTimeMs = 11_000L))
+        assertFalse(repo.hasRecoverableCheckpoint())
+        assertTrue(File(temp.root, "t_checkpoint.bin").exists())
+    }
+
+    @Test
     fun anUndecodableTrackIsQuarantinedNotDeleted() = runBlocking {
         repo.save(track("good", listOf(0L)))
         // Field 1 as a truncated length-delimited value: no protobuf reader accepts it.

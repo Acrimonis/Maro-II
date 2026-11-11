@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-24
 **Feature:** Tracks
-**Status:** design, settled 2026-10-24 — not implemented
+**Status:** shipped 2026-10-24
 
 ## Context
 
@@ -23,21 +23,25 @@ The home port should read its **departure and return times** instead.
 
 ## Implementation
 
-In [`TrackRecorder.kt`](../../app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt) and [`TrackNaming.kt`](../../app/src/main/java/ykws/android/maro/data/track/TrackNaming.kt):
+In [`TrackRecorder.kt`](../../../app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt) and [`TrackNaming.kt`](../../../app/src/main/java/ykws/android/maro/data/track/TrackNaming.kt):
 
 1. `recomputeDescription()` prepends the port line and drops home-port `IDLE` stop lines from the per-marker list.
-2. The line's shape is the pure [`TrackNaming.homePortCommentLine()`](../../app/src/main/java/ykws/android/maro/data/track/TrackNaming.kt) — `name: departure → return` from `track.startTimeMs` / `track.endTimeMs`.
+2. The line's shape is the pure [`TrackNaming.homePortCommentLine()`](../../../app/src/main/java/ykws/android/maro/data/track/TrackNaming.kt) — `name: departure → return` from `track.startTimeMs` / `track.endTimeMs`.
 3. The departure side is `Track.startedAtHomePort`, persisted on the track (a geofence exit, or a manual start inside it), so a checkpoint resume keeps it; the arrival side is a recorder `endedAtHomePort` set at finalize from the latest geofence reading.
 4. `portDisplayName()` probes the geofence origin for the departure side (auto-start records its first point after the exit) and the last point for the arrival side, falling back to `la Salis`.
 5. Non-port stops keep `formatStopLine()`; `MANUAL` markers are unchanged.
 
 ## Tests
 
-- [`TrackNamingTest`](../../app/src/test/java/ykws/android/maro/data/track/TrackNamingTest.kt) pins the line shape: round trip, live departure-only, one-way return-only, and never-touching-port (null).
+- [`TrackNamingTest`](../../../app/src/test/java/ykws/android/maro/data/track/TrackNamingTest.kt) pins the line shape: round trip, live departure-only, one-way return-only, and never-touching-port (null).
 
 ## Open
 
 - Nothing blocking. A trip that never touches the port keeps today's comment unchanged.
+
+## Outcome
+
+Shipped 2026-10-24 with one deviation: the departure side is the persisted `Track.startedAtHomePort` rather than a first-point geofence test, so a checkpoint resume keeps it. `TrackNaming.homePortCommentLine()` builds `la Salis: departure → return`; `TrackNamingTest` pins the shape. See `## Implemented` below.
 
 ## Implemented
 

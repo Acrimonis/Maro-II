@@ -7,7 +7,7 @@
 
 ## Context
 
-The home port is defined in three scattered places today: the `tracking.originLat/Lon` / `tracking.geofenceRadiusM` properties (placeholder `43.55 / 7.00`, 500 m), a name fragment `salis` in [`TrackNaming`](../../app/src/main/java/ykws/android/maro/data/track/TrackNaming.kt), and a hardcoded display name `la Salis` in [`TrackRecorder`](../../app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt). The name-based half is wrong — the device's home marker is `⭐📍 Home`, and the shipped comment line missed the port because it checks position only against a misconfigured geofence.
+The home port is defined in three scattered places today: the `tracking.originLat/Lon` / `tracking.geofenceRadiusM` properties (placeholder `43.55 / 7.00`, 500 m), a name fragment `salis` in [`TrackNaming`](../../../app/src/main/java/ykws/android/maro/data/track/TrackNaming.kt), and a hardcoded display name `la Salis` in [`TrackRecorder`](../../../app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt). The name-based half is wrong — the device's home marker is `⭐📍 Home`, and the shipped comment line missed the port because it checks position only against a misconfigured geofence.
 
 ## Decision
 
@@ -26,7 +26,7 @@ Functional role:
 ## Implementation
 
 - [x] `maro.properties`: `tracking.originLat=43.5696`, `tracking.originLon=7.1312`, `tracking.geofenceRadiusM=50`, and add `tracking.displayName=La Salis`.
-- [x] Drop [`TrackNaming.HOME_PORT_LABEL`](../../app/src/main/java/ykws/android/maro/data/track/TrackNaming.kt) and the label arm of `namesHomePort`.
+- [x] Drop [`TrackNaming.HOME_PORT_LABEL`](../../../app/src/main/java/ykws/android/maro/data/track/TrackNaming.kt) and the label arm of `namesHomePort`.
 - [x] `unlessHomePort`, `routeEndName` and `isHomePortPosition` become positional-only (geofence).
 - [x] Drop the hardcoded `HOME_PORT_DISPLAY_NAME`; the comment line reads the display name property.
 - [x] Gate the idle signal on "inside the home-port circle", reusing `idleThresholdSec` (60 s).
@@ -44,3 +44,7 @@ Functional role:
 ## Open
 
 - None.
+
+## Outcome
+
+Shipped 2026-10-24 as planned: the home port is one `maro.properties` block (later renamed `tracking.homePort.*`), position-only `namesHomePort`, the arrival prompt (idle inside the circle, checkpoint, Save / Discard / Continue, armed once per entry) and the silent 15 s auto-stop removed. Its auto-start line ("geofence exit") was later replaced by the forgotten-start rule (2026-11-10). The device pass was owed at the time.

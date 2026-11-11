@@ -271,36 +271,52 @@ open class TrackRepository(
      * be decoded is quarantined, never deleted.
      */
     suspend fun recoverOrphanedCheckpoints(): List<Track> = withContext(Dispatchers.IO) {
-        writeMutex.withLock {
-            tracksDir.listFiles()
-                ?.filter { it.name.endsWith("_checkpoint.bin") }
-                ?.mapNotNull { file ->
-                    val checkpoint = decodeTrackOrQuarantine(file) ?: return@mapNotNull null
-                    // A checkpoint naming an id that is not a file name cannot be finalised under it.
-                    if (!isSafeId(checkpoint.id)) {
-                        quarantine(file, IllegalArgumentException("unsafe track id '${checkpoint.id}'"))
-                        return@mapNotNull null
-                    }
-                    val finalFile = trackFile(checkpoint.id)
-                    if (!finalFile.exists()) return@mapNotNull checkpoint
-                    val finalized = decodeTrackOrQuarantine(finalFile)
-                    val finalLastMs = finalized?.let { f ->
-                        f.lastPointTimeMs.takeIf { it != 0L }
-                            ?: f.lastRealPointTimeMsOrNull()
-                            ?: f.endTimeMs
-                            ?: 0L
-                    } ?: 0L
-                    val checkpointLastMs = checkpoint.lastRealPointTimeMsOrNull() ?: 0L
-                    if (checkpointLastMs > finalLastMs) {
-                        checkpoint
-                    } else {
-                        file.delete()
-                        null
-                    }
-                }
-                ?: emptyList()
-        }
+        writeMutex.withLock { liveCheckpointsLocked(deleteStale = true) }
     }
+
+    /** Every file that is named as a checkpoint — a name scan, no decoding; the one place the name is read. */
+    private fun checkpointFiles(): List<File> =
+        tracksDir.listFiles()?.filter { it.name.endsWith("${CHECKPOINT_SUFFIX}.bin") }.orEmpty()
+
+    /** Whether any checkpoint-named file exists: the lightweight scan, valid or not (no protobuf I/O). */
+    fun hasCheckpointFiles(): Boolean = checkpointFiles().isNotEmpty()
+
+    /**
+     * Whether a checkpoint [recoverOrphanedCheckpoints] would offer exists — the same validity filter,
+     * but a stale one is left on disk rather than deleted. An undecodable file is still quarantined, as
+     * in recovery, and while a checkpoint exists each call decodes them all. The name scan answers the
+     * common "none" case without decoding anything.
+     */
+    suspend fun hasRecoverableCheckpoint(): Boolean = withContext(Dispatchers.IO) {
+        hasCheckpointFiles() && writeMutex.withLock { liveCheckpointsLocked(deleteStale = false).isNotEmpty() }
+    }
+
+    /** The checkpoints that are the newest generation of their track; [deleteStale] also removes the others. */
+    private fun liveCheckpointsLocked(deleteStale: Boolean): List<Track> =
+        checkpointFiles().mapNotNull { file ->
+            val checkpoint = decodeTrackOrQuarantine(file) ?: return@mapNotNull null
+            // A checkpoint naming an id that is not a file name cannot be finalised under it.
+            if (!isSafeId(checkpoint.id)) {
+                quarantine(file, IllegalArgumentException("unsafe track id '${checkpoint.id}'"))
+                return@mapNotNull null
+            }
+            val finalFile = trackFile(checkpoint.id)
+            if (!finalFile.exists()) return@mapNotNull checkpoint
+            val finalized = decodeTrackOrQuarantine(finalFile)
+            val finalLastMs = finalized?.let { f ->
+                f.lastPointTimeMs.takeIf { it != 0L }
+                    ?: f.lastRealPointTimeMsOrNull()
+                    ?: f.endTimeMs
+                    ?: 0L
+            } ?: 0L
+            val checkpointLastMs = checkpoint.lastRealPointTimeMsOrNull() ?: 0L
+            if (checkpointLastMs > finalLastMs) {
+                checkpoint
+            } else {
+                if (deleteStale) file.delete()
+                null
+            }
+        }
 
     /** Finalize an orphaned checkpoint into a complete track. */
     suspend fun finalizeOrphanedCheckpoint(track: Track): Track = withContext(Dispatchers.IO) {

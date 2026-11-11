@@ -86,7 +86,7 @@ data class Track(
      */
     @ProtoNumber(22) val demo: Boolean = false,
     /**
-     * True when the trip began at the home port — a geofence exit, or a manual start inside it —
+     * True when the trip began at the home port — a forgotten-start auto start, or a manual start inside it —
      * which is what the comment's home-port line keys its departure side on (settled 2026-10-24).
      *
      * A fresh number with a default, so an old blob reads `false` and an older build still reads a

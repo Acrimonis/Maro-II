@@ -1378,6 +1378,20 @@ object AppConfig {
         private set
 
     /**
+     * Minutes tracking must have been off before the home-circle forgotten-start rule may fire. Set via
+     * `tracking.autoStart.offMin`.
+     */
+    var trackingAutoStartOffMin: Long = 5L
+        private set
+
+    /**
+     * Minutes without movement that make the boat rested in the home circle — the rule's latch. Set via
+     * `tracking.autoStart.restMin`.
+     */
+    var trackingAutoStartRestMin: Long = 5L
+        private set
+
+    /**
      * The cap a recorded trip's marker-derived name may reach, beyond which every token is cut in
      * proportion to its own length, marked with an ellipsis (settled 2026-10-10). Set via
      * `track.name.maxLength` in maro.properties. The exported file name is capped separately, at
@@ -2124,6 +2138,12 @@ object AppConfig {
             }
             props.getProperty("tracking.standbyMinDistanceM")?.toFloatOrNull()?.let {
                 trackingStandbyMinDistanceM = it.coerceAtLeast(0f)
+            }
+            props.getProperty("tracking.autoStart.offMin")?.toLongOrNull()?.let {
+                trackingAutoStartOffMin = it.coerceAtLeast(0L)
+            }
+            props.getProperty("tracking.autoStart.restMin")?.toLongOrNull()?.let {
+                trackingAutoStartRestMin = it.coerceAtLeast(0L)
             }
             props.getProperty("track.name.maxLength")?.toIntOrNull()?.let {
                 trackNameMaxLength = it.coerceIn(8, 254)
