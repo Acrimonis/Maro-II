@@ -211,3 +211,37 @@ Scope tag is `feature`.
 ## Implemented
 [Appended once at completion: what actually shipped + deviations from plan.]
 ```
+
+---
+
+## `xTrack/WorkflowImprovement/usage/` — the workflow-usage record
+
+Written and read **only by `tools/usage-log.ps1`**; the agent reads the script's output, never these files,
+and every feature-summarising command excludes the folder. `.gitattributes` gives it `merge=union`, which
+is what lets two branches append at once with no conflict. Design: the `workflow-tracking` plan.
+
+```
+usage/raw/YYMM.md   open months - keyed blocks of lines, append-only
+usage/digest.md     closed months - one counted block per month, append-only
+```
+
+**Raw.** A block is `## YYMMDD-HHmm · [topic]` (the branch's creation time and topic, the only job of
+the key being to make blocks merge) followed by its lines, one per event:
+
+```
+YYMMDD HH:mm · cmd  · #command[ sub-command] · [Feature]
+YYMMDD HH:mm · flow · [flow-slug] · [Feature] · [gist, 12 words at most]
+YYMMDD HH:mm · alias · [old-slug] → [slug]
+```
+
+- **Every write is a new keyed block appended at end of file; a line is never added to an existing block**,
+  and nothing is edited or deleted - a rebase files a line appended into an existing block under another
+  branch's key (measured). No blank lines: the `##` key line is the only delimiter.
+- A sub-command is recorded only for a keyword the command names (`#doc list`, `#go impl`); a free
+  argument (a feature, a branch) never is. An alias is recorded as typed.
+- The month is read from the line's own stamp; the branch lives in the key only.
+
+**Digest.** A month closed for a full month is counted into `## YYMM · [hash8] · [compound stamp]` with
+one line per name - `cmd | flow · [name] · [count] · [branches] · [last YYMMDD][ · gist]` - and an
+`alias` line per drift fix; blocks with the same hash are one. Its raw file is deleted only when no
+unmerged branch holds changes to it. A `# backfill` line marks the one-off count of the local transcripts.
