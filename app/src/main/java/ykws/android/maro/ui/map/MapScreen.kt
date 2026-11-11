@@ -2082,8 +2082,27 @@ fun MapScreen(
             }
             // Whether that stack draws at all — the Boolean every banner in the band reads, derived here
             // once from the set beside it rather than re-derived by each caller around `isNotEmpty()`.
-            val bandTagsDrawn = remember(tagRegulatedZones, mapCenter, markerInZone300) {
-                regulatedZoneTags(tagRegulatedZones, mapCenter, markerInZone300).isNotEmpty()
+            // The temperature tile heads that same stack, so while it is on the stack is drawn whatever
+            // the zones say and the banners keep clear of it.
+            val bandTagsDrawn = remember(tagRegulatedZones, mapCenter, markerInZone300, appSettings.temperatureEnabled) {
+                appSettings.temperatureEnabled ||
+                    regulatedZoneTags(tagRegulatedZones, mapCenter, markerInZone300).isNotEmpty()
+            }
+
+            // ── Air/water temperature: fed by the marker position, the water test and the settings ──
+            val temperatureViewModel: TemperatureViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+            // Keyed on the coastline state: what the sample points were learned to be is forgotten when it changes.
+            LaunchedEffect(temperatureViewModel, viewModel, state) {
+                temperatureViewModel.bindWaterTest(viewModel::isWaterOrNull)
+            }
+            LaunchedEffect(temperatureViewModel, appSettings.temperatureEnabled) {
+                temperatureViewModel.configure(appSettings.temperatureEnabled)
+            }
+            // Keyed on the coastline too: the water test answers "land" until it is loaded, so the tile
+            // reads the position again the moment it can tell water.
+            val coastlineReady = state is CoastlineState.Ready
+            LaunchedEffect(temperatureViewModel, mapCenter, coastlineReady) {
+                temperatureViewModel.onPosition(mapCenter.latitude, mapCenter.longitude)
             }
 
             // ── Inspect mode: arming, disarming and the quiet openers (plan §5, §6) ──
@@ -3387,6 +3406,7 @@ fun MapScreen(
                 fineTilesBusy = fineTilesBusy,
                 tagRegulatedZones = tagRegulatedZones,
                 bandTagsDrawn = bandTagsDrawn,
+                temperatureViewModel = temperatureViewModel,
                 zone300 = zone300,
                 inZone300 = inZone300,
                 depthBitmap = depthRaster.effectiveDepthBitmap,
@@ -5077,6 +5097,8 @@ private fun MapContent(
     /** Whether that stack draws at least one tag — the band's one answer, derived by the caller beside
      *  [tagRegulatedZones] and read by every banner here instead of being re-derived per caller. */
     bandTagsDrawn: Boolean,
+    /** Heads the bottom-left stack while the temperature setting is on; null draws no tile. */
+    temperatureViewModel: TemperatureViewModel? = null,
     zone300: Zone300Data?,
     inZone300: Boolean,
     depthBitmap: Bitmap?,
@@ -5381,12 +5403,21 @@ private fun MapContent(
                             .align(Alignment.BottomStart)
                             .padding(start = TOP_TOGGLE_GUTTER)
                     ) {
-                        RegulatedZoneWarningStrip(
-                            regulatedZones = tagRegulatedZones,
-                            markerPosition = mapCenter,
-                            inZone300 = markerInZone300,
-                            modifier = Modifier.align(Alignment.Bottom)
-                        )
+                        // The temperature tile heads the zone stack: the stack's own column spacing
+                        // separates the two, and the tile alone stands where the stack would end.
+                        Column(
+                            modifier = Modifier.align(Alignment.Bottom),
+                            verticalArrangement = Arrangement.spacedBy(TOP_TOGGLE_GUTTER)
+                        ) {
+                            if (appSettings.temperatureEnabled && temperatureViewModel != null) {
+                                TemperatureTile(temperatureViewModel)
+                            }
+                            RegulatedZoneWarningStrip(
+                                regulatedZones = tagRegulatedZones,
+                                markerPosition = mapCenter,
+                                inZone300 = markerInZone300
+                            )
+                        }
                         if (appSettings.regulationInfoVisible) {
                             RegulatedZoneInfoText(
                                 regulatedZones = tagRegulatedZones,

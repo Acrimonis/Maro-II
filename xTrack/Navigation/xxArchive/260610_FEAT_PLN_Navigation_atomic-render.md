@@ -109,3 +109,6 @@ val navState by viewModel.navigationState.collectAsState()
 
 2. Would an alternative approach — combining into a single `combine()` flow in the ViewModel — be simpler? E.g., `combine(_mapBearing, _speedKnots, _demoSpeedKnots) { ... }` — this avoids changing the field storage but still gives a single atomic flow for the UI to collect.
 
+
+## Outcome
+Shipped as planned: `NavigationState` bundles bearing and speed (and the demo speed) into one `StateFlow` so Compose reads them in one snapshot. Both open questions were settled by the data class itself (demo speed folded in, no `combine()` needed). The rule is kept in `FEAT_DSC_Navigation.md` ## Rules.

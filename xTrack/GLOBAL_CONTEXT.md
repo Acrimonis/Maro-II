@@ -3,6 +3,8 @@
 > State only — routing map, feature index, focus history, global todos, doc index. Rules and instructions live in `AGENTS.md`.
 
 ## Focus History
+- [2026-11-11 16:15 UTC] Navigation — on `feature/track-dash-arriving-not-updated`, the dashboard's 300 m band state now comes from the boat's position: a landward harbour approach shows the 5 kn band instead of LIBRE (read OK on the device), and the zone look-ahead stops at land so a zone behind a headland raises no amber (1 774 tests and `apk-build` green, device pass owed); open points tracked in the new Ozers feature, then the four Navigation plans archived with their decisions promoted → xTrack/Navigation/FEAT_HYD_Navigation.md
+- [2026-11-11 16:10 UTC] Ozers — on `feature/temperature`, the air and sea-water temperature tile shipped: a tile heading the zone-icon column over a two-grid sample-point cache fed by Open-Meteo (air AROME seamless, sea marine), nearest-square rule, sticky tap view, long-press refresh that restarts the request, error and refresh toasts, atomic cache file, no fetch interval; the local commit rebased onto develop at PR #401 with the lowercase `ozers` folded into develop's `Ozers`, committed; 56 temperature tests and `assembleDebug` green, two reviews clean, the latest rounds unseen on the device → xTrack/Ozers/FEAT_HYD_Ozers.md
 - [2026-11-11 09:14 UTC] Route — on `feature/route-tweeks` (cut from `origin/develop`), the end of a followed route shipped: the exit dialog and arrival cue removed, the toggle's off and the back key ending through the deferred window with Undo, Go restarting silently, arrival a status pill held 1 s (`route.follow.arrival.settleSec`) in a new status-pill stack (`MapStatusBannerStack`); `apk-build.bat` and 1 762 tests green, the Ask hop reviewed twice and folded, the device pass read OK → xTrack/Route/FEAT_HYD_Route.md
 - [2026-11-10 17:40 UTC] Tracks — on `feature/rooouting`, step 1 of the home-circle forgotten-start plan implemented: the circle exit and its debounce replaced by the level rule (`AutoStartDetector`: rested, off 5 min, moved by the idle thresholds, on water, no recovery pending), the last stop persisted in the service prefs, the arrival prompt armed by where the start fell and a safety net for false starts; 28 + 18 new tests, `apk-build.bat` and 1 764 tests green, the Ask hop's race and stale-comment findings fixed and the rest open in the plan, read OK on the device, uncommitted → xTrack/Tracks/FEAT_HYD_Tracks.md
 - [2026-11-10 17:08 UTC] Tracks — on `feature/rooouting`, the La Salis auto-start that never fired is fixed (the 10 s debounce was reset by the second fix outside the circle; re-armed on the crossing, cleared on re-entry or any state change; the dead `tracking.homePort.enabled` flag removed; 10 new tests, `apk-build.bat` green, uncommitted, device pass owed); then planned, not built: a home-circle forgotten-start rule replacing the circle exit (step 1, one review folded) and flagged-marker auto-start parked as step 2 → xTrack/Tracks/FEAT_HYD_Tracks.md
@@ -11,8 +13,6 @@
 - [2026-10-29 08:28 UTC] Route — on `feature/roouttinggg`, the any-angle search went from a prototype behind `route.search.anyAngle` to its own algorithm: P6b gave the fine crossing re-solve its key (`false`), P6c kept the 32-cell reach, and P6a read on the phone found the 43° bend a 24 kn one, the re-solve no part of it, the walk curing it at +2–9 % warm; D3 taken as Evolutive + (`evolutive_plus`) in Settings, the switch deleted, read on the device; 1 688 tests and `apk-build.bat` green → xTrack/Route/FEAT_HYD_Route.md
 - [2026-10-27 23:28 UTC] Route — on `feature/roouttinggg` (cut from `develop` at PR #397, lone-turns P1 merged): the device pass of 2026-10-29 read P1 (two lone slides took) and a 43° bend between the 10 kn zone's collar and Pointe du Bacon no one-point slide reaches; the patch series ended and the any-angle coarse search was designed — a Lazy Theta\* over the existing walk, its chord priced on the walk's own cells, the gate read per cell and never whole-waived, behind `route.search.anyAngle` — reviewed once (three blockers folded), its decisions taken and every post-search stage's fate assessed; nothing implemented, ready for `#implement` from P0; the slack probe kept → xTrack/Route/FEAT_HYD_Route.md
 - [2026-10-27 20:44 UTC] Route — on `feature/roooouuutttiiinnngggg`, wave F's F0–F2 of the search-speed plan shipped exact and its device reading put 89–91 % of the approach pass's pricing on the zone reads; a merge may no longer delete a land turn (bare-bends P1, read on the device: "Closest" keeps the island's tip); then "Balanced"'s turn at sea — one point standing for two features — is split in two by the approach pass (P3), the split now cut from the slide's own answer after the first build lost on the device, floored by the corner pass's span; reviewed three times, 1 654 tests green, its device run owed → xTrack/Route/FEAT_HYD_Route.md
-- [2026-10-27 16:28 UTC] Route — on `feature/roooouuutttiiinnngggg`, the search-speed remediation shipped (a tile cache keyed on a tile's own water and a coastline content stamp, read across launches; one mark memo per pass; a shared crossing raster; a fused clock; a set-backed corner pass; read counters and the tail's clocks), then the approach pass the device found at 56–72 % of a long rung was instrumented and reordered to price before it proves: the pass −39–45 %, the 15 km search 29.9 → 22.2 s, every line identical, its review's findings closed (a six-water equivalence test asserting every path, disjoint log counts), 1 647 tests green → xTrack/Route/FEAT_HYD_Route.md
-- [2026-10-24 12:51 UTC] Tracks — on `feature/list-filters`, the track list gained a Source filter (All · GPS · Demo) that calls a track GPS when any point carries an accuracy and demo when none does, routes and the live recording always passing, and the route lists dropped the Source and On water / On land axes; the scoped suites and `apk-build.bat` green, the device pass owed → xTrack/Tracks/FEAT_HYD_Tracks.md
 ## Routing Map
 | Keyword | Feature File |
 |---|---|
@@ -44,6 +44,7 @@
 | tracks-import, tracksimport, gpx import cleanup, map track visibility, selection policy, visibleonmap | xTrack/TracksImport/FEAT_DSC_TracksImport.md |
 | tasker, water state, intent broadcast, query receiver, automation | xTrack/Tasker/FEAT_DSC_Tasker.md |
 | route, routing, destination, waypoint, cruise speed, fastest path, straight line, route placeholder, route dummy | xTrack/Route/FEAT_DSC_Route.md |
+| ozers, temp, temperature, map temperature, sea temperature, air temperature, water temperature, temperature tile, open-meteo | xTrack/Ozers/FEAT_DSC_Ozers.md |
 
 ## Features
 
@@ -58,7 +59,7 @@
 | Ui_Settings | active | 2026-06-09 15:28 | 2026-10-20 19:40 | [FEAT_DSC_Ui_Settings.md](Ui_Settings/FEAT_DSC_Ui_Settings.md) |
 | UI_Map | active | 2026-06-07 00:00 | 2026-10-23 16:20 | [FEAT_DSC_UI_Map.md](UI_Map/FEAT_DSC_UI_Map.md) |
 | WorkflowImprovement | active | 2026-06-03 00:00 | 2026-10-24 07:24 | [FEAT_DSC_WorkflowImprovement.md](WorkflowImprovement/FEAT_DSC_WorkflowImprovement.md) |
-| Navigation | active | 2026-06-10 08:40 | 2026-09-16 17:10 | [FEAT_DSC_Navigation.md](Navigation/FEAT_DSC_Navigation.md) |
+| Navigation | active | 2026-06-10 08:40 | 2026-11-11 16:17 | [FEAT_DSC_Navigation.md](Navigation/FEAT_DSC_Navigation.md) |
 | RegulatedZones | active | 2026-06-11 18:00 | 2026-10-14 10:35 | [FEAT_DSC_RegulatedZones.md](RegulatedZones/FEAT_DSC_RegulatedZones.md) |
 | ColorManagement | active | 2026-06-16 14:05 | 2026-09-16 15:00 | [FEAT_DSC_ColorManagement.md](ColorManagement/FEAT_DSC_ColorManagement.md) |
 | ZoneTile | active | 2026-06-17 09:45 | 2026-09-16 06:31 | [FEAT_DSC_ZoneTile.md](ZoneTile/FEAT_DSC_ZoneTile.md) |
@@ -74,6 +75,7 @@
 | Coastline | active | 2026-06-05 00:00 | 2026-06-23 07:08 | [FEAT_DSC_Coastline.md](Coastline/FEAT_DSC_Coastline.md) |
 | CheckDev | active | 2026-06-20 11:42 | 2026-06-20 11:42 | [FEAT_DSC_CheckDev.md](CheckDev/FEAT_DSC_CheckDev.md) |
 | Health | active | 2026-06-20 11:42 | 2026-06-20 11:42 | [FEAT_DSC_Health.md](Health/FEAT_DSC_Health.md) |
+| Ozers | active | 2026-11-11 15:48 | 2026-11-11 16:29 | [FEAT_DSC_Ozers.md](Ozers/FEAT_DSC_Ozers.md) |
 
 ## Global Todos
 

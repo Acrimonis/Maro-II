@@ -248,6 +248,8 @@ data class AppSettings(
     val regulatedZonesVisible: Boolean = BuildConfig.LAYER_REGULATED_ZONES_DEFAULT,
     /** Show zone info text panel beside the icon stack. */
     val regulationInfoVisible: Boolean = false,
+    /** Whether the air/water temperature tile is shown and fetches. Off stops all fetching. */
+    val temperatureEnabled: Boolean = true,
     /** Boat length in metres — used to filter out zones with vessel size exemptions. */
     val boatSizeM: Double = BuildConfig.REGULATED_ZONES_DEFAULT_VESSEL_LENGTH_M,
     /** Per-category visibility toggles for the regulated zone warning strip. */
@@ -763,6 +765,7 @@ class SettingsManager(
         depthLayerVisible = prefs.getBoolean(KEY_DEPTH_LAYER_VISIBLE, true),
         regulatedZonesVisible = prefs.getBoolean(KEY_REGULATED_ZONES_VISIBLE, BuildConfig.LAYER_REGULATED_ZONES_DEFAULT),
         regulationInfoVisible = prefs.getBoolean(KEY_REGULATION_INFO_VISIBLE, false),
+        temperatureEnabled = prefs.getBoolean(KEY_TEMPERATURE_ENABLED, true),
         boatSizeM = prefs.getFloat(KEY_BOAT_SIZE_M, BuildConfig.REGULATED_ZONES_DEFAULT_VESSEL_LENGTH_M.toFloat()).toDouble(),
         showCategoryNoAnchor = prefs.getBoolean(KEY_SHOW_CATEGORY_NO_ANCHOR, true),
         showCategoryMooring = prefs.getBoolean(KEY_SHOW_CATEGORY_MOORING, false),
@@ -1035,6 +1038,7 @@ class SettingsManager(
             .putBoolean(KEY_SHOW_CATEGORY_ENVIRONMENTAL, updated.showCategoryEnvironmental)
             .putBoolean(KEY_SHOW_CATEGORY_INFORMATION, updated.showCategoryInformation)
             .putBoolean(KEY_REGULATION_INFO_VISIBLE, updated.regulationInfoVisible)
+            .putBoolean(KEY_TEMPERATURE_ENABLED, updated.temperatureEnabled)
             .putBoolean(KEY_DEMO_HEADING_UP, updated.demoHeadingUp)
             .putFloat(KEY_GPS_IDLE_MIN_DISTANCE_M, updated.gpsIdleMinDistanceM)
             // The home port lives in maro.properties alone now: drop whatever an older build wrote here,
@@ -1244,6 +1248,7 @@ class SettingsManager(
         private const val KEY_SHOW_CATEGORY_ENVIRONMENTAL = "show_category_environmental"
         private const val KEY_SHOW_CATEGORY_INFORMATION = "show_category_information"
         private const val KEY_REGULATION_INFO_VISIBLE = "regulation_info_visible"
+        private const val KEY_TEMPERATURE_ENABLED = "temperature_enabled"
         private const val KEY_DEMO_HEADING_UP = "demo_heading_up"
         private const val KEY_GPS_IDLE_MIN_DISTANCE_M = "gps_idle_min_distance_m"
         private const val KEY_TRACK_ENABLED = "track_enabled"

@@ -1,20 +1,20 @@
-# Hydration: Navigation
+# Context Hydration — Navigation — 2026-11-11
 
-**Baked:** 2026-09-16 17:10 UTC
-**Last Bake:** 2026-09-16 17:10 UTC
-**Status:** active
+**Last Bake:** 2026-11-11 16:17 UTC
+
+**Directive trace:** none of the five covered action classes stopped this session; the work ran on `#new`, `#impl` and `#track` orders, no dependency was added, no data file was opened, and the device was touched only by the user.
 
 ## State
 
-The dashboard's position source is mode-aware: `dashboardPositionFor(marker, boat, gpsMode)` in `DashboardPosition.kt` returns the boat in GPS mode and the marker in demo, and the `dashboardPosition` flow feeds the shore pipeline in place of `_mapCenter`, so a dragged map can no longer move the water flag, the distance, the band state, the speed-zone query or the zone situation. `syncCenterFromBoat` gates both boat-driven centre writes behind `autoFollowSuppressed` — the user owns the centre until the recenter button or the resume timer hands it back, and both now restore it in-frame. The tag stack and the auto-reveal narrowing keep the marker by decision, so the screen answers two questions on purpose. Plan `260916_FEAT_PLN_Navigation_dashboard-position-source.md` is implemented: `DashboardPositionTest` green, `apk-build.bat` SUCCESS, device pass open.
+On `feature/track-dash-arriving-not-updated`. Inside the 300 m band the dashboard's `currentZone` is now the band, decided by position: with no exit along the heading it is `bandZoneExitUnknown` (infinite exit, `BeyondType.UNKNOWN`), so the speed-limit card and speed colouring show 5 kn on a landward harbour approach — read OK on the device. The look-ahead to a SHOM zone then stops at land (`landCrossedBefore`, 10 m step, `isWaterOrNull`), so a zone behind a headland raises no amber; 1 774 tests and `apk-build` green, its device pass owed and tracked in the `Ozers` feature. The bottom-left tag follows the map centre by design and was not changed. The four Navigation plans were archived (`xxArchive/`, with `INDEX.md`); the position-source decisions live in `FEAT_DOC_Navigation_decisions.md` and the dashboard-position device pass is still open.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/ui/map/DashboardPosition.kt` — the pure predicate
-- `app/src/main/java/ykws/android/maro/ui/map/NavigationViewModel.kt` — `dashboardPosition`, `syncCenterFromBoat`, `recenterNow`, `startTimer`
-- `app/src/test/java/ykws/android/maro/ui/map/DashboardPositionTest.kt` — the three cases
-- `xTrack/Navigation/260916_FEAT_PLN_Navigation_dashboard-position-source.md` — the plan and its review V1–V8
+- `app/src/main/java/ykws/android/maro/ui/map/NavigationViewModel.kt` — shore pipeline, `zonesAhead`, `bandZoneExitUnknown`, `landCrossedBefore`
+- `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt` — distance and speed-limit cards
+- `app/src/test/java/ykws/android/maro/ui/map/BandZoneExitUnknownTest.kt`, `LandCrossedBeforeTest.kt` — the two new suites
+- `xTrack/Navigation/FEAT_DOC_Navigation_decisions.md` — which position feeds which surface
 
 ## Next Step
 
-Device pass: the band card and the distance stay on the boat while the map is dragged in GPS mode, the same values follow the marker in demo, an approach reveal still fires at the configured distance, and the recenter button and the timer each restore the centre at once.
+Device pass of the land stop: a harbour approach with a lower-limit zone behind a headland shows no amber, and a zone on open water ahead still does.

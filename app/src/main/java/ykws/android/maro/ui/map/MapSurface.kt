@@ -1,8 +1,10 @@
 package ykws.android.maro.ui.map
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,6 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import ykws.android.maro.config.AppConfig
 
@@ -108,6 +111,7 @@ internal fun TopToggleFace.toSurfaceFace(): MapSurfaceFace =
  * clickable (what the row squares that pass a tap alone already are). A caller that wants its square
  * announced passes both.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun MapSurface(
     face: MapSurfaceFace,
@@ -115,15 +119,24 @@ internal fun MapSurface(
     onClick: (() -> Unit)? = null,
     contentDescription: String? = null,
     contentAlignment: Alignment = Alignment.Center,
+    /** A press-and-hold beside the tap, inside the same clip; ignored when there is no tap. */
+    onLongClick: (() -> Unit)? = null,
+    /** The left padding; the surface's own unless a square needs more room across (a wide reading). */
+    paddingStart: Dp = AppConfig.uiMapSurfacePadding.dp,
+    /** The right padding, as [paddingStart]. */
+    paddingEnd: Dp = AppConfig.uiMapSurfacePadding.dp,
     content: @Composable BoxScope.() -> Unit
 ) {
     val shape = RoundedCornerShape(AppConfig.uiMapSurfaceCornerRadius.dp)
-    val interaction = when {
+    val tap = when {
         onClick == null -> Modifier
-        contentDescription == null -> Modifier.clickable(onClick = onClick)
-        else -> Modifier
-            .clickable(onClick = onClick)
-            .semantics { this.contentDescription = contentDescription }
+        onLongClick == null -> Modifier.clickable(onClick = onClick)
+        else -> Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick)
+    }
+    val interaction = if (onClick != null && contentDescription != null) {
+        tap.semantics { this.contentDescription = contentDescription }
+    } else {
+        tap
     }
     Box(
         modifier = modifier
@@ -132,7 +145,12 @@ internal fun MapSurface(
             .background(face.fill)
             .border(AppConfig.uiMapSurfaceBorderWidth.dp, Color(AppConfig.uiMapSurfaceBorderColor), shape)
             .then(interaction)
-            .padding(AppConfig.uiMapSurfacePadding.dp),
+            .padding(
+                start = paddingStart,
+                top = AppConfig.uiMapSurfacePadding.dp,
+                end = paddingEnd,
+                bottom = AppConfig.uiMapSurfacePadding.dp
+            ),
         contentAlignment = contentAlignment
     ) {
         Box(
@@ -172,6 +190,9 @@ internal fun MapToggleSquare(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
     contentDescription: String? = null,
+    onLongClick: (() -> Unit)? = null,
+    paddingStart: Dp = AppConfig.uiMapSurfacePadding.dp,
+    paddingEnd: Dp = AppConfig.uiMapSurfacePadding.dp,
     content: @Composable BoxScope.() -> Unit
 ) {
     Box(modifier = modifier.size(TOP_TOGGLE_SQUARE)) {
@@ -179,7 +200,10 @@ internal fun MapToggleSquare(
             face = face,
             modifier = Modifier.fillMaxSize(),
             onClick = onClick,
-            contentDescription = contentDescription
+            contentDescription = contentDescription,
+            onLongClick = onLongClick,
+            paddingStart = paddingStart,
+            paddingEnd = paddingEnd
         ) {
             Box(
                 modifier = Modifier.fillMaxSize(),

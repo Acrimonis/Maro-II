@@ -1193,6 +1193,22 @@ private fun LayersSettings(
             }
             Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
         }
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
+
+        // ── Air/Water Temperature ───────────────────────────────────────
+        SectionHeader(title = stringResource(R.string.settings_section_temperature))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
+        CardArea {
+            CardDescription(stringResource(R.string.settings_temperature_desc))
+            ToggleRow(
+                label = stringResource(R.string.settings_temperature_enabled_label),
+                description = stringResource(R.string.settings_temperature_enabled_desc),
+                checked = settings.temperatureEnabled,
+                onCheckedChange = { v -> onUpdateSettings { it.copy(temperatureEnabled = v) } }
+            )
+            SectionDivider()
+            CardDescription(stringResource(R.string.settings_temperature_credit))
+        }
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingCardGap.dp))
     }
 }

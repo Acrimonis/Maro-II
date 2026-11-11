@@ -947,6 +947,64 @@ object AppConfig {
     var uiMapPulseDotMs: Int = 666
         private set
 
+    // ── Air and water temperature tile ────────────────────────────────────────
+
+    /** Side (m) of one air cell. Default 1000. Set via `temperature.air.cell.sideM`. */
+    var temperatureAirCellSideM: Double = 1_000.0
+        private set
+
+    /** Side (m) of one water cell. Default 8000. Set via `temperature.water.cell.sideM`. */
+    var temperatureWaterCellSideM: Double = 8_000.0
+        private set
+
+    /** How long (min) a fetched air value stays fresh. Default 60. Set via `temperature.air.expiry.min`. */
+    var temperatureAirExpiryMin: Long = 60L
+        private set
+
+    /** How long (min) a water value, or an empty water answer, stays fresh. Default 720. Set via `temperature.water.expiry.min`. */
+    var temperatureWaterExpiryMin: Long = 720L
+        private set
+
+    /** Waits (s) after consecutive failed fetches; the last step repeats. Default 60, 120, 300. Set via `temperature.backoffS`. */
+    var temperatureBackoffS: List<Int> = listOf(60, 120, 300)
+        private set
+
+    /** How long (ms) the marker stands still before the tile asks for a value. Default 750. Set via `temperature.settleMs`. */
+    var temperatureSettleMs: Long = 750L
+        private set
+
+    /** Opacity (0-1) of the temperature tile's background, in place of the shared square weight. Default 0.85. Set via `temperature.tile.alpha`. */
+    var temperatureTileAlpha: Float = 0.85f
+        private set
+
+    /** Font size (sp) of the temperature reading, close to the speed-limit tile's 26. Default 24. Set via `temperature.tile.fontSp`. */
+    var temperatureTileFontSp: Float = 24f
+        private set
+
+    /** Left padding (dp) of the temperature tile, narrower than the surface's so a wider reading fits. Default 4. Set via `temperature.tile.paddingStart`. */
+    var temperatureTilePaddingStartDp: Float = 4f
+        private set
+
+    /** Right padding (dp) of the temperature tile. Default 1. Set via `temperature.tile.paddingEnd`. */
+    var temperatureTilePaddingEndDp: Float = 1f
+        private set
+
+    /** Seconds between re-checks of a stationary marker, so an expiry refreshes with no movement. Default 30. Set via `temperature.recheckS`. */
+    var temperatureRecheckS: Int = 30
+        private set
+
+    /** The water lookup first looks at this many times `temperatureWaterMaxTries` sample points. Default 4. Set via `temperature.water.window.factor`. */
+    var temperatureWaterWindowFactor: Int = 4
+        private set
+
+    /** The water lookup widens, while land keeps the on-water count short, to this many times `temperatureWaterMaxTries`. Default 16. Set via `temperature.water.window.maxFactor`. */
+    var temperatureWaterWindowMaxFactor: Int = 16
+        private set
+
+    /** Most water cell centres one lookup tries. Default 10. Set via `temperature.water.maxTries`. */
+    var temperatureWaterMaxTries: Int = 10
+        private set
+
     /**
      * Ring width (dp) of the shared pulsing mark — the full-strength rim stroked inside the disc in the
      * mark's own colour. Default 1. Set via `ui.map.pulse.dot.ring.width`.
@@ -1620,6 +1678,9 @@ object AppConfig {
         private set
     /** EarthWater icon land-state colour. Default from semantic.danger = #CCB71C1C (the hazard red; the square is a reading and wears no dot). Set via `status.earthWater.land` in colors.properties. */
     var statusEarthWaterLand: Int = 0xCCB71C1C.toInt()
+        private set
+    /** Temperature tile air-view colour. Default from semantic.compliant = #CC4CAF50 (green); the water view wears `statusEarthWaterWater`. Set via `status.temperature.air` in colors.properties. */
+    var statusTemperatureAir: Int = 0xCC4CAF50.toInt()
         private set
 
     /** Screen-lock icon ON (locked) background colour. Default from semantic.info = #FF1565C0 (blue). Set via `status.lock.on` in colors.properties. */
@@ -2342,6 +2403,51 @@ object AppConfig {
             props.getProperty("map.inspect.switchMarginPct")?.toIntOrNull()?.let {
                 uiMapInspectSwitchMarginPct = it.coerceIn(0, 90)
             }
+            // ── Air and water temperature tile ───────────────────────────────
+            props.getProperty("temperature.air.cell.sideM")?.toDoubleOrNull()?.let {
+                temperatureAirCellSideM = it.coerceIn(100.0, 50_000.0)
+            }
+            props.getProperty("temperature.water.cell.sideM")?.toDoubleOrNull()?.let {
+                temperatureWaterCellSideM = it.coerceIn(100.0, 100_000.0)
+            }
+            props.getProperty("temperature.air.expiry.min")?.toLongOrNull()?.let {
+                temperatureAirExpiryMin = it.coerceIn(1L, 1_440L)
+            }
+            props.getProperty("temperature.water.expiry.min")?.toLongOrNull()?.let {
+                temperatureWaterExpiryMin = it.coerceIn(1L, 2_880L)
+            }
+            props.getProperty("temperature.backoffS")?.let { raw ->
+                raw.split(',').mapNotNull { it.trim().toIntOrNull()?.coerceIn(10, 3_600) }
+                    .takeIf { it.isNotEmpty() }
+                    ?.let { temperatureBackoffS = it }
+            }
+            props.getProperty("temperature.settleMs")?.toLongOrNull()?.let {
+                temperatureSettleMs = it.coerceIn(0L, 10_000L)
+            }
+            props.getProperty("temperature.tile.alpha")?.toFloatOrNull()?.let {
+                temperatureTileAlpha = it.coerceIn(0f, 1f)
+            }
+            props.getProperty("temperature.tile.fontSp")?.toFloatOrNull()?.let {
+                temperatureTileFontSp = it.coerceIn(10f, 40f)
+            }
+            props.getProperty("temperature.tile.paddingStart")?.toFloatOrNull()?.let {
+                temperatureTilePaddingStartDp = it.coerceIn(0f, 12f)
+            }
+            props.getProperty("temperature.tile.paddingEnd")?.toFloatOrNull()?.let {
+                temperatureTilePaddingEndDp = it.coerceIn(0f, 12f)
+            }
+            props.getProperty("temperature.recheckS")?.toIntOrNull()?.let {
+                temperatureRecheckS = it.coerceIn(5, 600)
+            }
+            props.getProperty("temperature.water.window.factor")?.toIntOrNull()?.let {
+                temperatureWaterWindowFactor = it.coerceIn(1, 16)
+            }
+            props.getProperty("temperature.water.window.maxFactor")?.toIntOrNull()?.let {
+                temperatureWaterWindowMaxFactor = it.coerceIn(1, 64)
+            }
+            props.getProperty("temperature.water.maxTries")?.toIntOrNull()?.let {
+                temperatureWaterMaxTries = it.coerceIn(1, 50)
+            }
             // ── List title sort ──────────────────────────────────────────────
             // A key present but blank assigns the empty list, which ignores nothing; only an absent key
             // leaves the default standing.
@@ -2452,6 +2558,7 @@ object AppConfig {
 
             props.getProperty("status.earthWater.water")?.let { parseColorOrNull(it) }?.let { statusEarthWaterWater = it }
             props.getProperty("status.earthWater.land")?.let { parseColorOrNull(it) }?.let { statusEarthWaterLand = it }
+            props.getProperty("status.temperature.air")?.let { parseColorOrNull(it) }?.let { statusTemperatureAir = it }
 
             props.getProperty("status.lock.on")?.let { parseColorOrNull(it) }?.let { statusLockOn = it }
 

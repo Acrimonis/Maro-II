@@ -695,7 +695,7 @@ class NavigationViewModel(
     /**
      * Dashboard position: the boat in GPS mode, the marker in demo mode — the single source the
      * shore pipeline reads, so the dashboard never describes the spot the user dragged to.
-     * Design: `xTrack/Navigation/260916_FEAT_PLN_Navigation_dashboard-position-source.md` §4.7.
+     * Design: `xTrack/Navigation/xxArchive/260916_FEAT_PLN_Navigation_dashboard-position-source.md` §4.7.
      */
     private val dashboardPosition: Flow<LatLng> =
         combine(_mapCenter, _gpsPosition, settings) { marker, boat, s ->
@@ -794,27 +794,13 @@ class NavigationViewModel(
                             )
                         } else null
                     } else if (inZone) {
-                        // Inside the 300m band (no SHOM zone) — compute exit via ray-march.
+                        // Inside the 300m band (no SHOM zone). Membership is the position's own answer;
+                        // the exit ray-march only adds the exit detail, and finds none when the heading
+                        // runs landward (a harbour approach) — the band still stands, exit unknown.
                         infoToZoneExitAlongHeading(
                             center.latitude, center.longitude,
                             headingDegH, distance, sogKnH, szIdx, maxSearchM
-                        ) ?: run {
-                            // Fallback: exit not found along heading — create from query data.
-                            val q = szQuery
-                            if (q.insideAnyZone && q.mostRestrictiveSpeedKn != null) {
-                                val z = q.allInsideZones.firstOrNull()
-                                if (z != null) {
-                                    val d = abs(q.distanceToBoundaryM ?: 0.0)
-                                    ZoneBoundaryInfo(
-                                        distanceM = d, zoneName = z.name,
-                                        speedLimitKn = q.mostRestrictiveSpeedKn!!,
-                                        currentSpeedKnots = sogKnH,
-                                        isCompliant = sogKnH == null || sogKnH < q.mostRestrictiveSpeedKn!!.toFloat(),
-                                        beyondType = BeyondType.OPEN_SEA,
-                                    )
-                                } else null
-                            } else null
-                        }
+                        ) ?: bandZoneExitUnknown(sogKnH, AppConfig.zoneRegulatorySpeedKn.toDouble())
                     } else null
 
                     val zones = zonesAhead(
@@ -1692,7 +1678,15 @@ class NavigationViewModel(
 
         // 2. Direct heading ray for SHOM zones
         val szHit = speedZoneIndex?.firstSpeedZoneAhead(lat, lon, headingDeg, radiusM)
-        if (szHit != null && szHit.second > 0.0 && szHit.second <= radiusM && szHit.first.name != excludeZoneName) {
+        // The ray ignores land, so a zone on the far side of a headland is no zone ahead: the look-ahead
+        // stops at the first land sample on the way to it, and only a zone that was found pays for the walk.
+        if (szHit != null && szHit.second > 0.0 && szHit.second <= radiusM && szHit.first.name != excludeZoneName &&
+            !landCrossedBefore(szHit.second, LAND_CHECK_STEP_M) { d ->
+                val p = SpatialOperations.pointAlongBearing(lat, lon, headingDeg, d)
+                // Containment alone: no 6 NM gate, and "cannot answer" (null) keeps the zone.
+                repository.isWaterOrNull(p.latitude, p.longitude) == false
+            }
+        ) {
             val (zone, dist) = szHit
             val pt = SpatialOperations.pointAlongBearing(lat, lon, headingDeg, dist)
             val bearing = SpatialOperations.initialBearing(pos, pt)
@@ -1736,11 +1730,12 @@ class NavigationViewModel(
     }
 
     /**
-     * Unified exit query: distance + ETA to exit the current zone along heading.
-     * Returns null when exit can't be determined.
+     * Exit query for the 300m band: distance + ETA to leave it along heading. Returns null when no
+     * exit is found — the caller then keeps the band as the current zone with its exit unknown.
      *
-     * For the 300m band: inverts the ray-march — searches forward until coastDist > ZONE_DISTANCE_M.
-     * For SHOM zones: queries the spatial index for the nearest boundary.
+     * Inverts the ray-march — searches forward until coastDist > ZONE_DISTANCE_M. The only caller
+     * stands outside every SHOM zone, so a SHOM boundary ahead is an entry, not an exit, and never
+     * stands in for the band here (it reaches the dashboard through [zonesAhead]).
      */
     private fun infoToZoneExitAlongHeading(
         lat: Double, lon: Double,
@@ -1750,28 +1745,10 @@ class NavigationViewModel(
         speedZoneIndex: SpeedZoneIndex?,
         maxSearchM: Double = 500.0
     ): ZoneBoundaryInfo? {
-        // 300m band exit: inverted ray-march
-        val bandExit = if (currentDistToCoast <= CoastlineRepository.ZONE_DISTANCE_M) {
-            findBandExitAlongHeading(lat, lon, headingDeg, currentDistToCoast, maxSearchM)
-        } else null
-
-        // SHOM zone exit: directional boundary along heading (laser)
-        val szExit = speedZoneIndex?.boundaryInCone(lat, lon, headingDeg, 0.0, maxSearchM)
-            ?.let { hit ->
-                Triple(hit.zone.name, hit.zone.speedLimitKn ?: AppConfig.zoneRegulatorySpeedKn.toDouble(), hit.distanceM)
-            }
-
-        // Pick closest exit
-        val bandKn = AppConfig.zoneRegulatorySpeedKn.toDouble()
-        val bestExit = when {
-            bandExit != null && szExit != null ->
-                if (bandExit <= szExit.third) Triple("BANDE 300M", bandKn, bandExit) else szExit
-            bandExit != null -> Triple("BANDE 300M", bandKn, bandExit)
-            szExit != null -> szExit
-            else -> return null
-        }
-
-        val (zoneName, limitKn, exitDistM) = bestExit
+        val exitDistM = findBandExitAlongHeading(lat, lon, headingDeg, currentDistToCoast, maxSearchM)
+            ?: return null
+        val zoneName = "BANDE 300M"
+        val limitKn = AppConfig.zoneRegulatorySpeedKn.toDouble()
         val etaSeconds = if (currentSpeedKnots != null && currentSpeedKnots > 0f) {
             (exitDistM / (currentSpeedKnots * Units.MPS_PER_KNOT)).coerceAtLeast(0.0)
         } else null
@@ -1916,6 +1893,9 @@ class NavigationViewModel(
 
         /** Scale factor for sqrt-compressed demo speed: knots = sqrt(rawMps × this). */
         private const val DEMO_SPEED_SCALE = 0.2
+        /** Step (m) of the land check along the look-ahead to a zone — a spit narrower than this can slip through. */
+        private const val LAND_CHECK_STEP_M = 10.0
+
         /** Cone half-angle (degrees) — zones within ±this of heading get priority and show as "ahead". */
         private const val CONE_HALF_ANGLE = 15.0
         /** Maximum demo speed in knots — prevents extreme swipes from going off-scale. */
@@ -1965,20 +1945,21 @@ class NavigationViewModel(
     }
 }
 
-/** What's beyond a zone boundary along the current heading. */
-enum class BeyondType { LAND, ZONE, OPEN_SEA }
+/** What's beyond a zone boundary along the current heading; [UNKNOWN] when no boundary was found. */
+enum class BeyondType { LAND, ZONE, OPEN_SEA, UNKNOWN }
 
 /**
  * Unified result for both entry (approaching) and exit (inside) zone boundary info.
  *
- * @property distanceM        Distance (m) to the zone boundary along heading.
- * @property etaSeconds       ETA to the boundary at current SOG, or null if speed unknown.
+ * @property distanceM        Distance (m) to the zone boundary along heading; [Double.POSITIVE_INFINITY]
+ *                            when the boat is inside the zone but no exit lies along the heading.
+ * @property etaSeconds      ETA to the boundary at current SOG, or null if speed unknown.
  * @property directionArrow   Unicode arrow: ↑ ahead, → starboard, ← port, ↓ behind.
  * @property zoneName         Name of the zone (e.g. "BANDE 300M" or SHOM zone).
  * @property speedLimitKn     Speed limit in the zone.
  * @property currentSpeedKnots Boat's current SOG (for caller to compare vs limit).
  * @property isCompliant      true when currentSpeedKnots <= speedLimitKn.
- * @property beyondType       What's past the boundary — LAND, ZONE, or OPEN_SEA.
+ * @property beyondType       What's past the boundary — LAND, ZONE, OPEN_SEA, or UNKNOWN (no exit found).
  * @property beyondName       Zone name if beyondType==ZONE, null otherwise.
  * @property boundaryPosition Geographic intersection point on the zone boundary.
  */
@@ -2133,6 +2114,33 @@ internal fun zoneAutoShowDecision(
             autoRevealed = if (hide) false else autoRevealed
         )
     }
+}
+
+/**
+ * The 300 m band as the zone the boat is in, when its exit along the heading is unknown: the limit
+ * and the compliance read stand, the exit distance is infinite, the ETA and what lies beyond unknown.
+ */
+internal fun bandZoneExitUnknown(sogKn: Float?, limitKn: Double): ZoneBoundaryInfo = ZoneBoundaryInfo(
+    distanceM = Double.POSITIVE_INFINITY,
+    zoneName = "BANDE 300M",
+    speedLimitKn = limitKn,
+    currentSpeedKnots = sogKn,
+    isCompliant = sogKn == null || sogKn < limitKn.toFloat(),
+    beyondType = BeyondType.UNKNOWN,
+)
+
+/**
+ * Whether land lies on the way to a point [distM] ahead: [isLandAt] is asked for each distance
+ * [stepM], 2·[stepM]… strictly short of [distM] (the point itself is the boundary being asked about),
+ * and the walk stops at the first land answer.
+ */
+internal fun landCrossedBefore(distM: Double, stepM: Double, isLandAt: (Double) -> Boolean): Boolean {
+    var d = stepM
+    while (d < distM) {
+        if (isLandAt(d)) return true
+        d += stepM
+    }
+    return false
 }
 
 /**

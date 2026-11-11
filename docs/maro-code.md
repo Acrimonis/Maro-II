@@ -19,6 +19,7 @@
 | `data/route/` | Route drawer's own models — one end's persisted selection, the pace a route's trip figure plans at, and the learned speed history behind it | `RouteEndSelection.kt`, `RoutePace.kt`, `PacePlateau.kt`, `SpeedHistory.kt`, `SpeedHistorySeeder.kt`, `SpeedHistoryProfile.kt` |
 | `data/markers/` | User markers CRUD (Pin, Circle, Corridor), automatic marker creation, and the GPX transfer — the payload codec plus its writer and reader | `UserMarkerRepository.kt`, `AutoMarkerManager.kt`, `MarkerPayload.kt`, `MarkerGpxExporter.kt`, `MarkerGpxImporter.kt` |
 | `data/location/` | GPS source, compass, adaptive policy | `GpsLocationSource.kt`, `CompassSource.kt`, `AdaptiveGpsPolicy.kt` |
+| `data/temperature/` | Air and sea-water temperature: two-grid sample-point cache, Open-Meteo client, the refresh engine (pure Kotlin, no Android) | `TemperatureGrid.kt`, `TemperatureCache.kt`, `OpenMeteoClient.kt`, `TemperatureEngine.kt` |
 | `data/settings/` | SharedPreferences wrapper | `SettingsManager.kt` |
 | `data/power/` | Power management: framework-free screen-hold policy + its Android keeper | `PowerPolicy.kt`, `PowerKeeper.kt`, `BatteryExemption.kt`, `SpeedFreshness.kt` |
 | `spatial/` | Spatial indexing and queries — the computational core | `CoastlineSpatialIndex.kt`, `MarkerMatcher.kt`, `SpeedZoneIndex.kt`, `NonSpeedZoneIndex.kt`, `PolygonIndexBase.kt`, `SpatialOperations.kt`, `Zone300Builder.kt`, `ZonePrimitives.kt`, `LandRingOrientation.kt`, `WhereAmIDebugger.kt`, `Units.kt`, `RouteEngine.kt`, `RouteEngineChoice.kt`, `RouteDummyEngine.kt`, `RouteAvoidEngine.kt`, `RouteEvolutiveEngine.kt`, `RouteTrace.kt` |
@@ -44,6 +45,7 @@
 | **Performance** | `data/power/`, `data/location/`, `data/settings/SettingsManager.kt`, `config/AppConfig.kt` |
 | **DepthSafety** | `ui/map/DepthViewModel.kt` (danger depth), `ui/map/LowDepthWarningBitmap.kt` |
 | **ArcLayout** | `ui/map/FanLayout.kt`, `ui/map/FanConfig.kt`, `ui/map/FanIconComponents.kt` |
+| **Temperature** | `data/temperature/`, `ui/map/TemperatureViewModel.kt`, `ui/map/TemperatureTile.kt`, the `temperature.*` keys of `maro.properties` |
 | **ZoneTile** | `ui/map/MapOverlayRenderer.kt` (zone tile rendering), `ui/map/RegulatedZoneComponents.kt` |
 | **Ui_Settings** | `data/settings/SettingsManager.kt`, `config/AppConfig.kt` |
 | **Ui_Menu** | `ui/map/MenuDrawerOverlay.kt`, `ui/map/DrawerSlot.kt` |
