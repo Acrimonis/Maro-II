@@ -550,26 +550,13 @@ private fun DistanceFace(
     val currentZone = zoneSituation?.currentZone
     val nearestAhead = zoneSituation?.zonesAhead?.firstOrNull()
 
-    // Fix 1: Inside 300m band heading towards shore — exit ray-march fails
-    // (heading landward, coastDist never exceeds ZONE_DISTANCE_M).
-    // Treat as LAND exclusion before zonesAround can hijack the boundary.
-    if (currentZone == null && isWater && distanceToShore != null && distanceToShore <= 300.0) {
-        DashboardCard(
-            title = stringResource(R.string.dash_distance_title),
-            value = distanceText(distanceToShore),
-            subtitle = stringResource(R.string.dash_distance_from_shore),
-            cardColor = DashboardColors.cardBg,
-            border = border,
-            onClick = onClick,
-            modifier = modifier
-        )
-        return
-    }
+    // Inside the 300m band the zone is always present — even heading landward, where no exit is
+    // found and its distance is infinite, so the gate below shows the plain shore reading.
 
     // Compute exit's effective next-limit (what's beyond the exit boundary)
     val exitNextLimit: Double? = if (currentZone != null) {
         when (currentZone.beyondType) {
-            BeyondType.OPEN_SEA -> Double.MAX_VALUE
+            BeyondType.OPEN_SEA, BeyondType.UNKNOWN -> Double.MAX_VALUE
             BeyondType.ZONE -> {
                 zoneSituation?.zonesAhead
                     ?.firstOrNull { it.zoneName == currentZone.beyondName }
@@ -669,6 +656,7 @@ private fun DistanceFace(
             BeyondType.OPEN_SEA -> stringResource(R.string.dash_beyond_open_water)
             BeyondType.ZONE -> currentZone.beyondName ?: currentZone.zoneName
             BeyondType.LAND -> stringResource(R.string.dash_beyond_land) // unreachable due to exclusion above
+            BeyondType.UNKNOWN -> currentZone.zoneName // unreachable: an unknown exit is infinitely far, the gate above returned
         }
     } else {
         // Entering zone ahead — but if it's the 300 m zone and we're already
@@ -836,7 +824,7 @@ private fun SpeedLimitCard(
             when (current.beyondType) {
                 BeyondType.OPEN_SEA -> stringResource(R.string.dash_beyond_open_water)
                 BeyondType.ZONE -> "\u2192 ${current.beyondName ?: current.zoneName}"
-                BeyondType.LAND -> ""  // land exit → no subtitle
+                BeyondType.LAND, BeyondType.UNKNOWN -> ""  // land exit or no exit found → no subtitle
             }
         } else {
             ""  // Far from exit → no subtitle

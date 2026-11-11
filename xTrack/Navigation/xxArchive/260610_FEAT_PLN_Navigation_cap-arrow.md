@@ -80,3 +80,6 @@ drawLine(
 
 The `cameraUpdates` flow in `CoastlineViewModel.kt:238` already emits `CameraTarget(position, bearingDeg)` at up to 25 fps. The `speedKnots` state is also available (line 146 of MapScreen.kt). Both update at the same rate — the arrow direction and length will be smooth.
 
+
+## Outcome
+Shipped as a cap arrow, but its numbers were superseded: the design planned an 8–80 dp length from a 5 s prediction, while the arrow that shipped is speed × 2.17 dp clamped to [1, 65] dp, scaled with zoom by `map.marker.size.zoomExponent`, hidden below 2.5 kn. The current rules live in `FEAT_DSC_Navigation.md` ## Rules (cap).

@@ -112,3 +112,6 @@ flowchart LR
 - `app/src/main/java/ykws/android/maro/ui/map/NavigationViewModel.kt`
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` (render OR gate, if needed)
 - `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` (only if a default is wrong)
+
+## Outcome
+Investigated on `feature/auto-show-zones` with an instrumented build and logcat (tag `AutoShow`): no code defect. The drawer "Auto-show zones" master override was OFF, so the global gate was false in both modes; demo SOG, cone and data were healthy. Stale demo-heading comments were corrected. Knowledge consolidated in `FEAT_DOC_Navigation_auto-show.md`.
