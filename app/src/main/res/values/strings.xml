@@ -524,6 +524,23 @@
     <string name="settings_reg_alert_demo_label">Regulated zone alert (Demo)</string>
     <string name="settings_reg_alert_demo_desc">Auto-show regulated zones when panning toward a speed-enforced zone</string>
     <string name="settings_section_regenerate_layers">Regenerate Layers</string>
+    <string name="settings_section_temperature">Air/Water Temperature</string>
+    <string name="settings_temperature_desc">Air and sea temperature at the map marker, shown in a tile above the zone icons.</string>
+    <string name="settings_temperature_enabled_label">Temperature tile</string>
+    <string name="settings_temperature_enabled_desc">Shows the tile and fetches temperatures. Off stops all fetching.</string>
+    <string name="settings_temperature_credit">Weather data by Open-Meteo.com</string>
+    <string name="temperature_tile_value_fmt">%1$d°</string>
+    <string name="temperature_tile_none">–</string>
+    <string name="temperature_refresh_toast">Refreshing temperatures…</string>
+    <string name="temperature_source_air">Air</string>
+    <string name="temperature_source_water">Water</string>
+    <string name="temperature_problem_toast">Temperature – %1$s: %2$s</string>
+    <string name="temperature_problem_no_answer">no answer</string>
+    <string name="temperature_problem_empty">no temperature in the answer</string>
+    <string name="temperature_problem_http">HTTP %1$d</string>
+    <string name="temperature_problem_offline_toast">No connection: temperatures cannot be refreshed</string>
+    <string name="temperature_tile_air_cd">Air temperature</string>
+    <string name="temperature_tile_water_cd">Water temperature</string>
 
     <!-- Content descriptions (accessibility) -->
     <string name="cd_cancel">Cancel</string>

@@ -523,6 +523,23 @@
     <string name="settings_reg_alert_demo_label">Alerte zone réglementée (Démo)</string>
     <string name="settings_reg_alert_demo_desc">Afficher les zones réglementées en naviguant vers une zone</string>
     <string name="settings_section_regenerate_layers">Régénérer les couches</string>
+    <string name="settings_section_temperature">Température air/eau</string>
+    <string name="settings_temperature_desc">Température de l\'air et de la mer au repère de la carte, affichée dans une tuile au-dessus des icônes de zone.</string>
+    <string name="settings_temperature_enabled_label">Tuile de température</string>
+    <string name="settings_temperature_enabled_desc">Affiche la tuile et récupère les températures. Désactivée, plus aucune requête n\'est envoyée.</string>
+    <string name="settings_temperature_credit">Données météo par Open-Meteo.com</string>
+    <string name="temperature_tile_value_fmt">%1$d°</string>
+    <string name="temperature_tile_none">–</string>
+    <string name="temperature_refresh_toast">Actualisation des températures…</string>
+    <string name="temperature_source_air">Air</string>
+    <string name="temperature_source_water">Eau</string>
+    <string name="temperature_problem_toast">Température – %1$s : %2$s</string>
+    <string name="temperature_problem_no_answer">pas de réponse</string>
+    <string name="temperature_problem_empty">pas de température dans la réponse</string>
+    <string name="temperature_problem_http">HTTP %1$d</string>
+    <string name="temperature_problem_offline_toast">Pas de connexion : les températures ne peuvent pas être actualisées</string>
+    <string name="temperature_tile_air_cd">Température de l\'air</string>
+    <string name="temperature_tile_water_cd">Température de l\'eau</string>
 
     <!-- Content descriptions (accessibility) -->
     <string name="cd_cancel">Annuler</string>

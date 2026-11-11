@@ -94,6 +94,13 @@ internal fun earthWaterFace(isWater: Boolean): TopToggleFace =
         dot = null
     )
 
+/**
+ * Temperature tile colour — a reading like the land/water square, never off: the water view wears the
+ * water blue, the air view its own green (the land red would read as a hazard).
+ */
+internal fun temperatureTint(isWaterView: Boolean): Int =
+    if (isWaterView) AppConfig.statusEarthWaterWater else AppConfig.statusTemperatureAir
+
 /** Inspect — off, or armed: the app accent with the complete-data green mark. */
 internal fun inspectFace(armed: Boolean): TopToggleFace =
     if (armed) TopToggleFace(AppConfig.uiAccent, AppConfig.semanticCompliant)
