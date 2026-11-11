@@ -5,7 +5,7 @@
 [`261110_FEAT_PLN_Tracks_home-circle-forgotten-start.md`](261110_FEAT_PLN_Tracks_home-circle-forgotten-start.md),
 which carries its own copy of the shared rules; on resuming, take the home-circle decisions from there and the
 marker ones (D2, D3 exit posture, D5, D7, D8, the wizard, the marker feed) from here. Revision 5, three reviews folded · **Created:** 2026-11-10 · **Owner:** Tracks (the wizard row is Markers' surface)
-**Builds on:** [`261110_FEAT_PLN_Tracks_auto-start-exit-debounce.md`](261110_FEAT_PLN_Tracks_auto-start-exit-debounce.md) — its circle-exit fix is **retired** by D1.
+**Builds on:** [`261110_FEAT_PLN_Tracks_auto-start-exit-debounce.md`](xxArchive/261110_FEAT_PLN_Tracks_auto-start-exit-debounce.md) — its circle-exit fix is **retired** by D1.
 **Supersedes:** `FEAT_DOC_Tracks_decisions.md` §3.1 / §3.2 ("no speed-based auto-start … even when geofence is disabled").
 
 ## Request

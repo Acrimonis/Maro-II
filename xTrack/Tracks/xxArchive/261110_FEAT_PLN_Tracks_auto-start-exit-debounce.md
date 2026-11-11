@@ -1,7 +1,7 @@
 <!-- scope: feature -->
 # Auto-start on leaving the home port — the exit debounce
 
-**Status:** in design · **Created:** 2026-11-10 · **Owner:** Tracks
+**Status:** implemented 2026-11-10, exit trigger superseded by the forgotten-start rule · **Created:** 2026-11-10 · **Owner:** Tracks
 
 ## Problem
 
@@ -151,7 +151,7 @@ Implemented 2026-11-10. `TrackRecorderAutoStartTest` (10 tests), the `data.track
 suites and `apk-build.bat` are green; the device pass is owed.
 
 **Superseded in part (2026-11-10):** the circle-exit trigger and its debounce were removed by
-[`261110_FEAT_PLN_Tracks_home-circle-forgotten-start.md`](261110_FEAT_PLN_Tracks_home-circle-forgotten-start.md);
+[`261110_FEAT_PLN_Tracks_home-circle-forgotten-start.md`](../261110_FEAT_PLN_Tracks_home-circle-forgotten-start.md);
 the dead-flag cleanup stands.
 
 - The OFF branch arms on the crossing, holds the arm while outside, clears it on re-entry and starts

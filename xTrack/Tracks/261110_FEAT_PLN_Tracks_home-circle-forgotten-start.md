@@ -3,7 +3,7 @@
 
 **Status:** implemented 2026-11-10 (revision 2, one review folded) · **Created:** 2026-11-10 · **Owner:** Tracks
 **Step 2 (parked):** [`261110_FEAT_PLN_Tracks_marker-auto-start.md`](261110_FEAT_PLN_Tracks_marker-auto-start.md) — flagged markers, the wizard checkbox, the exit and ring triggers.
-**Retires:** the circle-exit trigger of [`261110_FEAT_PLN_Tracks_auto-start-exit-debounce.md`](261110_FEAT_PLN_Tracks_auto-start-exit-debounce.md).
+**Retires:** the circle-exit trigger of [`261110_FEAT_PLN_Tracks_auto-start-exit-debounce.md`](xxArchive/261110_FEAT_PLN_Tracks_auto-start-exit-debounce.md).
 **Supersedes:** `FEAT_DOC_Tracks_decisions.md` §2.2, §2.6 (demo "speed > 2.5 kn for 10 s") and §3.1 / §3.2 ("no speed-based auto-start … even when geofence is disabled").
 
 ## Request
