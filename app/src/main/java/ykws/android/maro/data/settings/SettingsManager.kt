@@ -269,15 +269,13 @@ data class AppSettings(
     /** Demo mode: rotate map heading-up (pan-direction-derived bearing) instead of north-up. */
     val demoHeadingUp: Boolean = false,
     val gpsIdleMinDistanceM: Float = 0f,
-    /** Enable track recording. */
-    val trackEnabled: Boolean = BuildConfig.TRACK_ENABLED_DEFAULT,
-    /** Geofence origin latitude for auto start/stop (Port Salis). */
+    /** Home-circle origin latitude (Port Salis). */
     val trackOriginLat: Double = BuildConfig.TRACK_ORIGIN_LAT,
-    /** Geofence origin longitude for auto start/stop (Port Salis). */
+    /** Home-circle origin longitude (Port Salis). */
     val trackOriginLon: Double = BuildConfig.TRACK_ORIGIN_LON,
-    /** Geofence radius in metres for auto start/stop. */
+    /** Home-circle radius in metres. */
     val trackGeofenceRadiusM: Double = BuildConfig.TRACK_GEOFENCE_RADIUS_M,
-    /** When false, recording starts on movement alone (no geofence check). */
+    /** When false, the home circle plays no part: no forgotten-start rule, no arrival prompt. */
     val trackGeofenceEnabled: Boolean = true,
     /** Maximum GPS self-reported accuracy (m) for a fix to be recorded. Fixes with worse accuracy are rejected. */
     val maxRecordingAccuracyM: Float = 30f,
@@ -777,7 +775,6 @@ class SettingsManager(
         showCategoryInformation = prefs.getBoolean(KEY_SHOW_CATEGORY_INFORMATION, false),
         demoHeadingUp = prefs.getBoolean(KEY_DEMO_HEADING_UP, false),
         gpsIdleMinDistanceM = prefs.getFloat(KEY_GPS_IDLE_MIN_DISTANCE_M, 0f),
-        trackEnabled = prefs.getBoolean(KEY_TRACK_ENABLED, BuildConfig.TRACK_ENABLED_DEFAULT),
         // The home port is `maro.properties` alone — never a stored setting — so the file is the
         // one source of truth and no persisted value can shadow it.
         trackOriginLat = BuildConfig.TRACK_ORIGIN_LAT,
@@ -1040,8 +1037,9 @@ class SettingsManager(
             .putBoolean(KEY_REGULATION_INFO_VISIBLE, updated.regulationInfoVisible)
             .putBoolean(KEY_DEMO_HEADING_UP, updated.demoHeadingUp)
             .putFloat(KEY_GPS_IDLE_MIN_DISTANCE_M, updated.gpsIdleMinDistanceM)
-            .putBoolean(KEY_TRACK_ENABLED, updated.trackEnabled)
-            // The home port lives in maro.properties alone now: drop whatever an older build wrote here.
+            // The home port lives in maro.properties alone now: drop whatever an older build wrote here,
+            // the unused enable flag included.
+            .remove(KEY_TRACK_ENABLED)
             .remove(KEY_TRACK_ORIGIN_LAT)
             .remove(KEY_TRACK_ORIGIN_LON)
             .remove(KEY_TRACK_GEOFENCE_RADIUS_M)

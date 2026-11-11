@@ -22,6 +22,19 @@ class AdaptiveGpsPolicy {
     companion object {
         /** Accuracy (metres) above which displacement thresholds are widened to match. */
         const val ACCURACY_FLOOR_THRESHOLD_M = 20.0
+
+        /**
+         * The displacement that counts as movement for one fix: [thresholdM], widened to the fix's own
+         * [accuracyM] once that exceeds [ACCURACY_FLOOR_THRESHOLD_M] — a displacement within the error is
+         * noise. The one reading both this policy and the home-circle auto-start apply, so the two
+         * agree on what "moved" means.
+         */
+        fun effectiveThresholdM(thresholdM: Double, accuracyM: Float?): Double =
+            if (accuracyM != null && accuracyM > ACCURACY_FLOOR_THRESHOLD_M) {
+                maxOf(thresholdM, accuracyM.toDouble())
+            } else {
+                thresholdM
+            }
     }
 
     /** Position where the current "quiet" period began, and when. Null until the first fix. */
@@ -51,12 +64,7 @@ class AdaptiveGpsPolicy {
         speedMps: Float? = null,
         accuracyM: Float? = null
     ): AcquisitionMode {
-        // Widen threshold when accuracy is poor — displacement within error margin is noise.
-        val effectiveThresholdM = if (accuracyM != null && accuracyM > ACCURACY_FLOOR_THRESHOLD_M) {
-            maxOf(thresholdM, accuracyM.toDouble())
-        } else {
-            thresholdM
-        }
+        val effectiveThresholdM = effectiveThresholdM(thresholdM, accuracyM)
 
         // First fix? Anchor here, assume active.
         if (anchorPos == null) {

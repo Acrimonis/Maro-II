@@ -94,7 +94,6 @@ android {
         buildConfigField("double", "TRACK_ORIGIN_LAT", propDouble("tracking.homePort.originLat", 43.5696).toString())
         buildConfigField("double", "TRACK_ORIGIN_LON", propDouble("tracking.homePort.originLon", 7.1313).toString())
         buildConfigField("double", "TRACK_GEOFENCE_RADIUS_M", propDouble("tracking.homePort.geofenceRadiusM", 100.0).toString())
-        buildConfigField("boolean", "TRACK_ENABLED_DEFAULT", propBool("tracking.homePort.enabled", false).toString())
         buildConfigField("String", "TRACK_DISPLAY_NAME", "\"${propString("tracking.homePort.displayName", "La Salis")}\"")
 
         // ── The path family is read at RUNTIME (D6) ────────────────────────

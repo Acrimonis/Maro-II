@@ -51,7 +51,7 @@
 
 ### 2.2 Geofence Auto-Detection (Port Salis)
 - **Decision:** Configurable geofence origin + radius from `maro.properties` (`tack.originLat`, `tack.originLon`, `tack.geofenceRadiusM`). Haversine distance used for inside/outside check.
-- **Rationale:** Auto-start on leaving Port Salis, auto-stop on return. Default origin: 43.55°N, 7.00°E with 500m radius.
+- **Rationale:** The circle is the home port: the arrival prompt, the trip naming exclusion and the forgotten-start rule (2026-11-10: a rested boat moving off on water starts a recording; the circle-exit trigger is gone) read it. Arrival idles into a prompt rather than an auto-stop. Origin and radius now live in `tracking.homePort.*`.
 - **Filed:** [`TrackGeofenceChecker.kt`](app/src/main/java/ykws/android/maro/data/track/TrackGeofenceChecker.kt)
 
 ### 2.3 Speed Gate: 2.5 kn Minimum
@@ -74,8 +74,8 @@
 - **Filed:** [`TrackViewModel.kt`](app/src/main/java/ykws/android/maro/data/track/TrackViewModel.kt:132)
 
 ### 2.6 Demo Mode: Geofence Bypass
-- **Decision:** In demo mode, recording triggers on speed > 2.5 kn for 10s (no geofence check).
-- **Rationale:** Demo mode has no real GPS position, so geofence would never fire. Speed-based trigger enables testing.
+- **Decision:** Demo mode has no special case (2026-11-10): its map-centre samples (`hasLock = false`, `isDemo = true`) count as accepted fixes and take the forgotten-start rule like a GPS fix.
+- **Rationale:** One path serves both; the speed-based trigger for demo is retired.
 - **Filed:** [`TrackRecorder.kt`](app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt:161)
 
 ### 2.7 Index.json Fallback
@@ -93,13 +93,13 @@
 ## 3. Tracking Triggers & State Decisions
 
 ### 3.1 Manual-Only Start/Stop (Primary)
-- **Decision:** Primary trigger is manual (Start/Stop in TrackDrawer). Geofence exit is secondary auto-trigger.
-- **Rationale:** Users should have full control. Auto-start on movement alone is NOT used — even when geofence is disabled.
+- **Decision:** Primary trigger is manual (Start/Stop in TrackDrawer). The forgotten-start rule at the home circle is the secondary auto-trigger (2026-11-10; it replaced the circle exit).
+- **Rationale:** Users should have full control. Auto-start on movement alone is NOT used outside the home circle — with the geofence disabled the rule is off and the user starts manually.
 - **Filed:** [`TrackRecorder.kt`](app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt:105)
 
 ### 3.2 No Auto-Start on Movement
-- **Decision:** Even when geofence is disabled, the user must start manually. No speed-based auto-start.
-- **Rationale:** Prevents accidental recordings. The 10s debounce only applies to the geofence-triggered start.
+- **Decision:** Even when geofence is disabled, the user must start manually. No speed-based auto-start outside the home circle.
+- **Rationale:** Prevents accidental recordings. Inside the circle the rule needs rest, an off time, movement by the idle thresholds and water together (2026-11-10); the 10 s debounce is gone.
 - **Filed:** [`TrackRecorder.kt`](app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt:105)
 
 ### 3.3 RECORDING Persists Through Stationary Periods

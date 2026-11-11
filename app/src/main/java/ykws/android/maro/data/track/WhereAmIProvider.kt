@@ -20,5 +20,12 @@ object WhereAmIProvider {
     @Volatile
     var idleCapture: (suspend (LatLng) -> IdleCaptureResult)? = null
 
+    /**
+     * The coastline's water answer for a position — `true` water, `false` land, `null` when it cannot
+     * say (no index loaded, or this bridge unregistered). The forgotten-start rule starts only on `true`.
+     */
+    @Volatile
+    var isWaterAt: ((LatLng) -> Boolean?)? = null
+
     val markerChanges = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 }

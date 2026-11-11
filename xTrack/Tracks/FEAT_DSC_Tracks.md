@@ -2,7 +2,7 @@
 name: Tracks
 status: active
 created: 2026-06-15 21:43
-modified: 2026-11-01 18:53
+modified: 2026-11-11 07:35
 ---
 
 # Feature: Tracks
@@ -21,6 +21,7 @@ Track the boat's movement (position, speed) during active navigation. One record
 - The two render axes per kind run on a global → kind → class `enabled` leaf, one painter serves both kinds over the `path.*` family, and the render count runs 0–30 plus an **All** value.
 - A trip's GPX carries the markers that own it, re-pointed at the landed track id on import.
 - The track list's **Source** filter (All · GPS · Demo) reads `TrackSummary.gpsSourced` — any point with an accuracy makes a track GPS, none makes it demo — not the sticky `Track.demo` flag; routes and the live recording always pass, and the route lists carry neither Source nor the On water / On land axis. `GpxImporter` never reads `<accuracy>`, so a foreign or re-imported GPX reads as demo.
+- A recording starts on its own by the **forgotten-start rule** (`AutoStartDetector`): the boat rested in the home circle (no movement for `tracking.autoStart.restMin`), tracking has been off `tracking.autoStart.offMin`, it has moved by the idle detection thresholds, it is on water by position and no recovery is pending — a level test per fix, so leaving La Salis starts one about 30 m out and arriving never does (read on the device 2026-11-11); demo mode takes the same path. An auto-started trip that never leaves the circle asks Save / Discard / Continue once after idling inside for `offMin`. The circle-exit trigger and its 10 s debounce are gone; flagged-marker auto-start is parked → [`261110_FEAT_PLN_Tracks_home-circle-forgotten-start.md`](261110_FEAT_PLN_Tracks_home-circle-forgotten-start.md)
 - Track and route cards carry a third stats row, `Open water · 300M · Zones`: time on water with a limit, the zone over the band, open water the remainder of Nav (a track) or Total (est.) (a route). A recording's figure is its moving seconds per limit, stops removed by the stored idle test, kept on `TrackSummary` alone behind the screen's attached classifier and re-marked by a regulation bake's stamp; a route's is the plan's own, written at save on a settled search, so drafts and routes saved before 2026-11-01 hide the row. The Ask hop's findings stand open in the plan's Outcome → [`261101_FEAT_PLN_Tracks_stops-and-slow-water.md`](261101_FEAT_PLN_Tracks_stops-and-slow-water.md)
 
 ## Sections
@@ -74,6 +75,22 @@ Recorder-owned `AutoMarkerManager` for deterministic 🕐 IDLE_AUTO lifecycle; m
 #### Docs
 - `xTrack/Tracks/260831_FEAT_PLN_Tracks_auto-marker-cleanup.md` — cleanup hardening plan
 
+### auto-start
+
+The recorder's auto-start. Step 1 shipped 2026-11-10: the circle-exit trigger gave way to the **forgotten-start** level rule for the home circle — inside, rested there (no movement for `restMin`), tracking off for `offMin` (5 min), moved by the idle detection thresholds, on water by position, no recovery pending — and arrivals never start a recording. Flagged-marker auto-start (wizard checkbox, exit and ring triggers) is parked as step 2, maybe later.
+
+#### Todos
+- [ ] Step 2 (parked, maybe later): flagged-marker auto-start — resume from its plan, taking the home-circle decisions from step 1's
+
+#### Rules
+- The home circle is the only auto-start zone until step 2; arriving in it never starts a recording.
+- "Moved" reads the user's idle detection settings, never a second distance or time of its own.
+
+#### Docs
+- `xTrack/Tracks/261110_FEAT_PLN_Tracks_home-circle-forgotten-start.md` — step 1, shipped 2026-11-10
+- `xTrack/Tracks/261110_FEAT_PLN_Tracks_marker-auto-start.md` — step 2, parked (revision 5, three reviews folded)
+- `xTrack/Tracks/261110_FEAT_PLN_Tracks_auto-start-exit-debounce.md` — the circle-exit fix, its exit trigger retired by step 1
+
 ### marker-track-nav
 
 Deferred — cross-navigation between track detail and marker detail via `>` links, with a minimal `OverlayBackStack`.
@@ -83,7 +100,7 @@ Deferred — cross-navigation between track detail and marker detail via `>` lin
 
 ## Rules
 - Feature-scoped plans go in `xTrack/[Feature]/YYMMDD_FEAT_PLN_[Feature]_[topic].md`.
-- Track points only recorded while speed > 2.5 kn; OFF→ON via geofence exit (10s debounce) or manual Start.
+- Track points only recorded while speed > 2.5 kn; OFF→ON via the forgotten-start rule (home circle) or manual Start.
 - Internal storage: Protobuf binary (kotlinx-serialization-protobuf), not JSON. Export: GPX 1.1.
 - Recording lifecycle: ON state persists through stationary; only point capture suspends via `isStill()`.
 - 30s periodic checkpoint save; stats accumulated in-memory, written at finalize.
@@ -95,6 +112,9 @@ Deferred — cross-navigation between track detail and marker detail via `>` lin
 - A route's name joins its two ends with `<->` and prints a single named end alone, never `From` or `To`; a recorded trip's name keeps the language's own `to` / `à` ([`TrackNaming.compose`](../../app/src/main/java/ykws/android/maro/data/track/TrackNaming.kt) takes the connector, the route's save in [`MapScreen.kt`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt) passing `ROUTE_CONNECTOR`).
 
 ## Docs
+- `xTrack/Tracks/261110_FEAT_PLN_Tracks_home-circle-forgotten-start.md` — **auto-start step 1**: the home circle's forgotten-start rule replacing the circle exit, with the latch, the idle-threshold movement check, the strict position-based water gate and the persisted last stop (shipped 2026-11-10, device read OK 2026-11-11; the Ask pass's leftovers stand open in its Outcome)
+- `xTrack/Tracks/261110_FEAT_PLN_Tracks_marker-auto-start.md` — **auto-start step 2, parked**: the "Auto-start tracking" marker flag, its wizard section, the exit and ring triggers (maybe later)
+- `xTrack/Tracks/261110_FEAT_PLN_Tracks_auto-start-exit-debounce.md` — the circle-exit debounce fix and the dead `tracking.homePort.enabled` flag removal (shipped 2026-11-10; its exit trigger is retired by step 1, which shipped the same day)
 - `xTrack/Tracks/261101_FEAT_PLN_Tracks_stops-and-slow-water.md` — **the slow-water time on a card**: a third stats row `Open water · 300M · Zones` on track and route cards, stops read from the stored track's own idle test, the figure on the summary behind a classifier seam, the route's attribution aligned (implemented 2026-11-01, review findings open)
 - `xTrack/Tracks/261011_FEAT_PLN_Tracks_export-auto-markers.md` — a trip's GPX carries its markers: the payloads in a track's extensions and their `wpt` companions, the `trackId` remap on import, the transient filter and the skip-consistency rule (shipped 2026-10-11)
 - `xTrack/Tracks/261010_FEAT_PLN_Tracks_marker-zone-naming.md` — the marker-zone naming design: the timed fusion, the name shape, and the origin-led chain with the Port Salis home port excluded (settled 2026-10-11)
@@ -345,6 +365,8 @@ Deferred — cross-navigation between track detail and marker detail via `>` lin
 
 ## Implemented
 
+- **The forgotten-start rule (2026-11-10, `feature/rooouting`)** — leaving La Salis starts a recording by a level rule instead of the circle exit: [`AutoStartDetector`](../../app/src/main/java/ykws/android/maro/data/track/AutoStartDetector.kt) tests every accepted fix while off for inside (at the completing fix or any fix of the movement window), rested (the latch: no movement for `restMin`, kept current by the recording's own fixes), off `offMin` since the last stop (persisted in the service's prefs so a discard and a restart count), moved by the idle thresholds through the one `AdaptiveGpsPolicy.effectiveThresholdM`, on water by position (`WhereAmIProvider.isWaterAt`) and no recoverable checkpoint (`TrackRepository.hasRecoverableCheckpoint`); an auto start already outside arms the arrival prompt, one inside leaves it to the exit re-arm, and a safety net prompts once after `offMin` idle inside a trip that never left. `tracking.autoStart.offMin` / `restMin` added; the debounce is deleted. `apk-build.bat` and 1 764 tests green, one Ask pass folded with its leftovers open in the plan, read on the device 2026-11-11 → [`261110_FEAT_PLN_Tracks_home-circle-forgotten-start.md`](261110_FEAT_PLN_Tracks_home-circle-forgotten-start.md)
+- Auto-start on leaving the home port now works: the 10 s debounce was wiped by the second fix outside the circle, so a steady exit never started a recording; the crossing now arms it, the arm holds while outside and clears on re-entry or any recording start/stop, and demo mode (map-centre samples) takes the same path; the dead `tracking.homePort.enabled` flag removed end to end (shipped 2026-11-10, 10 new tests, `apk-build.bat` green, device pass owed) → [`261110_FEAT_PLN_Tracks_auto-start-exit-debounce.md`](261110_FEAT_PLN_Tracks_auto-start-exit-debounce.md)
 - **The slow-water row (2026-11-01, `feature/rooouting`)** — track and route cards gain `Open water · 300M · Zones`, both meaning time on water with a limit (the zone over the band); a recording's figure lives on its summary behind the attached classifier and the regulation stamp, a route's is the plan's own written at save; the route table now counts every second on limited water, the crown unmoved; `apk-build.bat` and 1 717 tests green, the Ask hop's findings open, the device pass owed → [`261101_FEAT_PLN_Tracks_stops-and-slow-water.md`](261101_FEAT_PLN_Tracks_stops-and-slow-water.md)
 
 - A route's auto name drops the direction: both ends read `A <-> B`, one named end reads alone, and the `route_name_from_fmt` / `route_name_to_fmt` strings are gone from both locales; a recorded trip keeps `A to B` and the home-port radius widened to 150 m after the device log put a route's destination 106–113 m from the port, outside the old circle, so the port's marker still named it (shipped 2026-10-25 on `feature/route-mono`, `compileDebugKotlin` green, device pass owed)

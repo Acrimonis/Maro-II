@@ -92,6 +92,7 @@ internal fun MapMarkerEffects(
     LaunchedEffect(Unit) {
         WhereAmIProvider.whereAmI = markersViewModel::whereAmISync
         WhereAmIProvider.idleCapture = { pos -> idleCallback.onIdleThresholdReached(pos) }
+        WhereAmIProvider.isWaterAt = { pos -> viewModel.isWaterOrNull(pos.latitude, pos.longitude) }
         markerChangeFlow.collect { WhereAmIProvider.markerChanges.tryEmit(Unit) }
     }
     // The bridge is process-scoped and the ViewModel is not: when this composition leaves, the
@@ -101,6 +102,7 @@ internal fun MapMarkerEffects(
         onDispose {
             WhereAmIProvider.whereAmI = null
             WhereAmIProvider.idleCapture = null
+            WhereAmIProvider.isWaterAt = null
         }
     }
 }

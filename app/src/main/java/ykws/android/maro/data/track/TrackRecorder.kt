@@ -46,9 +46,6 @@ import kotlin.math.abs
 
 private const val TAG = "MaroII_Track"
 
-/** Duration (ms) speed must be above threshold before auto-start. */
-private const val DEBOUNCE_MS = 10_000L
-
 /** Interval (ms) between checkpoint saves during recording. */
 private const val CHECKPOINT_INTERVAL_MS = 30_000L
 /** Timeout (ms) after last accepted fix before spike rejection resets — prevents lock-in on sharp turns and silent GPS recovery. */
@@ -139,7 +136,7 @@ data class TrackRecorderConfig(
     val geofenceOriginLon: Double = 7.00,
     /** Geofence radius in metres. */
     val geofenceRadiusM: Double = 500.0,
-    /** When false, recording starts on movement alone. */
+    /** When false, the circle plays no part: no forgotten-start rule, no arrival prompt. */
     val geofenceEnabled: Boolean = true,
     /** GPS mode arms the spike-rejection gates; demo mode bypasses them. */
     val gpsMode: Boolean = true,
@@ -153,7 +150,15 @@ data class TrackRecorderConfig(
     val simplifySpeedDeltaKn: Double = 3.0,
     val idleThresholdSec: Long = 60,
     val autoMarkerMinDurationSec: Long = AppConfig.boatMarkerAutoMarkerMinDurationSec,
-    val autoMarkerDedupRadiusM: Double = AppConfig.boatMarkerAutoMarkerDedupRadiusM
+    val autoMarkerDedupRadiusM: Double = AppConfig.boatMarkerAutoMarkerDedupRadiusM,
+    /** Minutes since the last stop before the forgotten-start rule may fire, in ms (`tracking.autoStart.offMin`). */
+    val autoStartOffMs: Long = AppConfig.trackingAutoStartOffMin * 60_000L,
+    /** Time without movement that makes the boat rested in the circle, in ms (`tracking.autoStart.restMin`). */
+    val autoStartRestMs: Long = AppConfig.trackingAutoStartRestMin * 60_000L,
+    /** The idle detection's time setting (s) — the forgotten-start rule's movement window. */
+    val stopDetectionTimeSec: Int = 45,
+    /** The idle detection's distance setting (m) — how far the boat must move for the rule. */
+    val stopDetectionDistanceM: Int = 15
 ) {
     companion object {
         /** The snapshot a settings value maps to — the one place the two shapes meet. */
@@ -169,7 +174,9 @@ data class TrackRecorderConfig(
             simplifySpeedDeltaKn = s.trackSimplifySpeedDeltaKn,
             idleThresholdSec = s.boatMarkerIdleThresholdSec,
             autoMarkerMinDurationSec = s.boatMarkerAutoMarkerMinDurationSec,
-            autoMarkerDedupRadiusM = s.boatMarkerAutoMarkerDedupRadiusM
+            autoMarkerDedupRadiusM = s.boatMarkerAutoMarkerDedupRadiusM,
+            stopDetectionTimeSec = s.stopDetectionTimeSec,
+            stopDetectionDistanceM = s.stopDetectionDistanceM
         )
     }
 }
@@ -181,7 +188,8 @@ data class TrackRecorderConfig(
  * is gated by [isStopped] — when the boat is stationary,
  * GPS fixes are received but not saved to the track.
  *
- * Auto-start on geofence exit (Port Salis) with 10s movement debounce.
+ * Auto-start by the forgotten-start rule ([AutoStartDetector]): a boat that rested in the home circle,
+ * was off for a while, and moves on water starts a recording. Arriving never starts one.
  * Arrival at the home port idles into a three-door prompt rather than a silent auto-stop.
  *
  * **Threading.** Every mutation of the recorder's state runs on one serial dispatcher
@@ -205,7 +213,7 @@ class TrackRecorder(
     val isStopped: StateFlow<Boolean> = MutableStateFlow(false),
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
     /**
-     * The clock every *interval* is measured on — debounces, the stale-fix timeout, the dedup window,
+     * The clock every *interval* is measured on — the forgotten-start rule's times, the stale-fix timeout, the dedup window,
      * idle durations, the elapsed ticker. Monotonic, so a wall-clock step (a GPS or network time
      * resync at sea) cannot stretch or collapse a decision; the wall clock is kept for the timestamps
      * a track stores. Injectable so a test can drive it.
@@ -220,7 +228,18 @@ class TrackRecorder(
     private val nameMaxLength: Int = AppConfig.trackNameMaxLength,
     private val gapDistanceThresholdM: Double = 200.0,
     private val gapTimeThresholdSec: Long = 120L,
-    private val autoMarkerManager: AutoMarkerManager? = null
+    private val autoMarkerManager: AutoMarkerManager? = null,
+    /** Water at a position — `true` water, `false` land, `null` cannot say; the forgotten-start rule starts only on `true`. */
+    private val waterAt: (LatLng) -> Boolean? = { null },
+    /** Whether a recoverable checkpoint awaits; the rule never starts over one. */
+    private val orphansPending: suspend () -> Boolean = { false },
+    /** Wall time of the last stop persisted by the previous recorder, converted once to the monotonic clock. */
+    lastStopWallMs: Long? = null,
+    /**
+     * Called synchronously, on the lane, with the wall time of every stop as the recorder leaves ON —
+     * before OFF is published, so a caller that waits for OFF and then exits cannot lose it.
+     */
+    private val onStopped: (wallMs: Long) -> Unit = {}
 ) {
     /** The live tunables — an immutable snapshot swapped whole, so a reader never sees a half-applied change. */
     @Volatile
@@ -292,8 +311,19 @@ class TrackRecorder(
     private var lastValidPointTimeMs: Long = 0L
     private var speedSumMps: Float = 0f
     private var speedCount: Int = 0
-    private var debounceStartTime: Long? = null
-    /** Tracks whether the previous fix was inside the geofence, for exit detection. */
+    /** The forgotten-start rule; its latch outlives every recording, so it is never reset by a transition. */
+    private val autoStart = AutoStartDetector(startedAtMonoMs = monotonicNowMs())
+    /** Monotonic time of the last stop, or null when none is recorded; a persisted wall time is converted once. */
+    private var lastStopMono: Long? = lastStopWallMs?.let {
+        monotonicNowMs() - (System.currentTimeMillis() - it).coerceAtLeast(0L)
+    }
+    /**
+     * True for an auto-started trip that has not yet left the circle: the safety net's flag. The latch can
+     * leave a false start (a long pause on arrival, a walk on the pontoon), and this ends it with one prompt.
+     */
+    private var autoStartNeverLeft: Boolean = false
+    private var safetyNetJob: Job? = null
+    /** Tracks whether the previous fix was inside the geofence, for the exit re-arm of the arrival prompt. */
     private var wasInsideGeofence: Boolean = false
     /** The boat's latest inside-geofence reading, across both recorder states (home-port line). */
     private var lastInsideGeofence: Boolean = false
@@ -512,6 +542,7 @@ class TrackRecorder(
         wasStopped = false
         endedAtHomePort = false
         arrivalPromptArmed = true
+        autoStartNeverLeft = false
         cancelIdleTimer()
         activeSession = null
         isResuming = lastPoint != null
@@ -647,7 +678,7 @@ class TrackRecorder(
                     return@withLock
                 }
                 Log.d(TAG, "startManual: → beginRecording")
-                beginRecording(isManual = true)
+                beginRecording(isManual = true, startedAtHomePort = lastInsideGeofence)
             }
         }
     }
@@ -670,25 +701,27 @@ class TrackRecorder(
         )
         lastInsideGeofence = insideGeofence
 
+        val fix = autoStartFix(sample)
+        val params = autoStartParams()
+        val home = autoStartHome()
         when (state) {
             TrackRecorderState.OFF -> {
-                // Auto-start only on geofence exit (inside→outside transition).
-                // Manual toggle is the other start trigger (via startManual()).
-                if (geofenceEnabled && wasInsideGeofence && !insideGeofence) {
-                    val now = monotonicNowMs()
-                    if (debounceStartTime == null) {
-                        debounceStartTime = now
-                    } else if (now - debounceStartTime!! >= DEBOUNCE_MS) {
-                        debounceStartTime = null
-                        beginRecording(isManual = false, startSample = sample)
-                    }
-                } else {
-                    debounceStartTime = null
+                // The forgotten-start rule decides on this fix alone, a level with no timer: a miss is
+                // retried on the next fix. Manual toggle is the other start trigger (via startManual()).
+                val decision = autoStart.onSample(fix, params, home, lastStopMono, orphansPending, waterAt)
+                if (decision != null) {
+                    beginRecording(
+                        isManual = false,
+                        startedAtHomePort = decision.fromHome,
+                        startSample = sample
+                    )
                 }
             }
 
             TrackRecorderState.ON -> {
                 Log.v(TAG, "processSample(ON): speed=${sample.speedMps} pos=(${sample.position.latitude},${sample.position.longitude})")
+                // A recording's fixes keep the latch current: a stop at the berth is a rest as well.
+                autoStart.observe(fix, params, home)
                 markDemoIfSimulated(sample)
                 addPoint(sample)
 
@@ -696,17 +729,42 @@ class TrackRecorder(
                 if (wasInsideGeofence && !insideGeofence) {
                     arrivalPromptArmed = true
                 }
+                if (!insideGeofence) autoStartNeverLeft = false
             }
         }
         wasInsideGeofence = insideGeofence
     }
+
+    /** The sample as the rule reads it, stamped on the recorder's one clock — never the sample's wall time. */
+    private fun autoStartFix(sample: TrackSample) = AutoStartDetector.Fix(
+        position = sample.position,
+        monoMs = monotonicNowMs(),
+        accuracyM = sample.accuracyM,
+        speedMps = sample.speedMps,
+        hasLock = sample.hasLock,
+        isDemo = sample.isDemo
+    )
+
+    private fun autoStartParams() = AutoStartDetector.Params(
+        offMs = config.autoStartOffMs,
+        restMs = config.autoStartRestMs,
+        idleTimeMs = config.stopDetectionTimeSec * 1_000L,
+        idleDistanceM = config.stopDetectionDistanceM.toDouble(),
+        standbyIntervalMs = AppConfig.trackingStandbyIntervalMs
+    )
+
+    /** The home circle, or null when the geofence is off — which switches the rule off with it. */
+    private fun autoStartHome(): AutoStartDetector.Home? =
+        if (geofenceEnabled) {
+            AutoStartDetector.Home(LatLng(geofenceOriginLat, geofenceOriginLon), geofenceRadiusM)
+        } else null
 
     /** A trip that ever takes a simulated sample is a demo trip, for good: a pure GPS trip never is. */
     private fun markDemoIfSimulated(sample: TrackSample) {
         currentTrack = currentTrack?.markedFor(sample)
     }
 
-    private fun beginRecording(isManual: Boolean, startSample: TrackSample? = null) {
+    private fun beginRecording(isManual: Boolean, startedAtHomePort: Boolean, startSample: TrackSample? = null) {
         val now = System.currentTimeMillis()
         val id = UUID.randomUUID().toString()
         val name = formatTimestamp(now)
@@ -716,7 +774,7 @@ class TrackRecorder(
             name = name,
             startTimeMs = now,
             trackPoints = recordingPoints.snapshot(),
-            startedAtHomePort = if (isManual) lastInsideGeofence else true
+            startedAtHomePort = startedAtHomePort
         )
         recordingStartTimeMs = now
         sessionStartMonoMs = monotonicNowMs()
@@ -756,7 +814,11 @@ class TrackRecorder(
         checkpointFileDeleted = false
         isFinalizing = false
         endedAtHomePort = false
-        arrivalPromptArmed = true
+        // A manual start asks on the first arrival. An auto start already outside arms the prompt for
+        // this trip's return; one inside leaves it to the exit re-arm, so a fuel-dock stop does not ask
+        // Save / Discard seconds after leaving — the safety net covers the false start instead.
+        arrivalPromptArmed = isManual || !lastInsideGeofence
+        autoStartNeverLeft = !isManual && lastInsideGeofence
         transitionTo(TrackRecorderState.ON)
         _uiState.update {
             TrackRecorderUiState(
@@ -875,6 +937,7 @@ class TrackRecorder(
             }
             _events.tryEmit(IdlePeriodStarted(entryLat = lat, entryLon = lon, startTimeMs = now))
             startIdleTimer(lat, lon, now)
+            startSafetyNetTimer()
         } else if (!stopped && wasStopped) {
             // Transition: idle → moving
             cancelIdleTimer()
@@ -1190,6 +1253,12 @@ class TrackRecorder(
     }
 
     private fun transitionTo(newState: TrackRecorderState) {
+        // Every way to OFF is a stop, discard included: the rule's "off for a while" counts from here.
+        // The detector's latch is deliberately left alone — rest outlives a recording.
+        if (newState == TrackRecorderState.OFF) {
+            lastStopMono = monotonicNowMs()
+            onStopped(System.currentTimeMillis())
+        }
         state = newState
         _uiState.update { it.copy(state = newState) }
     }
@@ -1515,9 +1584,30 @@ class TrackRecorder(
         }
     }
 
+    /**
+     * The forgotten-start rule's safety net: an auto-started trip that never left the circle raises the
+     * arrival prompt once after idling inside for the rule's off time. It ends the false starts the latch
+     * leaves over — a long pause on arrival, a walk on the pontoon. Armed by the same idle transition as
+     * the idle timer and cancelled with it, so any movement withdraws it.
+     */
+    private fun startSafetyNetTimer() {
+        safetyNetJob?.cancel()
+        if (!autoStartNeverLeft) return
+        safetyNetJob = scope.launch {
+            delay(config.autoStartOffMs)
+            if (autoStartNeverLeft && lastInsideGeofence) {
+                autoStartNeverLeft = false
+                checkpointQuietly()
+                _events.tryEmit(HomePortArrivalPrompt)
+            }
+        }
+    }
+
     private fun cancelIdleTimer() {
         idleTimerJob?.cancel()
         idleTimerJob = null
+        safetyNetJob?.cancel()
+        safetyNetJob = null
     }
 
     /** Close the open BoatMarker (set endTimeMs) for the current idle session. */

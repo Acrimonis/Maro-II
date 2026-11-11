@@ -1,20 +1,21 @@
-# Context Hydration — Tracks — 2026-11-01
+# Context Hydration — Tracks — 2026-11-11
 
-**Last Bake:** 2026-11-01 18:53 UTC — written by `#bake` on `feature/rooouting`.
+**Last Bake:** 2026-11-11 07:35 UTC — written by `#bake` on `feature/rooouting`.
 
-**Directive trace:** the code moved on the user's `#impl` with this feature's card plan picked; no dependency was added, no machine-shaped data file was opened, the device was not touched, and every claim about the code came from a file read; none of the covered action classes stopped.
+**Directive trace:** the code moved on the user's `#implement` for step 1; no dependency was added, no machine-shaped data file was opened, the device was touched only by the user (their pass read OK), and every claim about the code came from a file read; none of the covered action classes stopped.
 
 ## State
 
-The slow-water card plan shipped P0–P4: track and route cards show `Open water · 300M · Zones` (`SlowWaterRow`, `slowWaterCells`), a recording's figure computed by `TrackSlowWater.of` on its stored points (stops removed by the shared `isIdleStretch`) and kept on `TrackSummary` fields 24/25 behind `attachSlowWaterClassifier`, gated on `NavigationViewModel.slowWaterStamp` and re-marked by a regulation stamp; a route's figure is the plan's own, written at save on a settled search. The map's dashboard card reads the stored summary too. `apk-build.bat` green, 1 717 tests green; the Ask hop returned no blocker and six should-fix findings, open in the plan's `## Outcome`; P5 not taken; the device pass is owed. The 2026-09-15 walk level is still open.
+Step 1 of the auto-start plan is shipped and read OK on the device: the circle exit and its debounce are replaced by the forgotten-start level rule (`AutoStartDetector` — rested by the latch, off `offMin` since the last stop, moved by the idle thresholds, on water by position, no recovery pending), the last stop persisted through the recorder's `onStopped` hook, the arrival prompt armed by where the start fell, and a safety net prompting once after `offMin` idle inside a trip that never left. `apk-build.bat` and 1 764 tests green; everything is uncommitted. One Ask pass was folded; its leftovers (recorder-level `observe` and discard-clock tests, three detector boundaries, the standby interval read from `AppConfig`, `Decision.fromHome` always true, a speed-less first fix, the safety-net ordering, real-time sleeps in the recorder tests) stand open in the plan's Outcome. Flagged-marker auto-start is parked as step 2, maybe later. The 2026-09-15 walk level is still open.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/data/track/TrackRepository.kt` — the catch-up under `writeMutex` (finding 1), the pass flag (nit)
-- `app/src/main/java/ykws/android/maro/ui/map/NavigationViewModel.kt` — `slowWaterAt`'s full zone query per point (finding 2), the stamp missing `zones.properties` (finding 4)
-- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt` — the stored-summary lookup reads the filtered lists (finding 3)
-- `xTrack/Tracks/261101_FEAT_PLN_Tracks_stops-and-slow-water.md` — the Outcome and its findings
+- `xTrack/Tracks/261110_FEAT_PLN_Tracks_home-circle-forgotten-start.md` — step 1, shipped; its Outcome holds the deviations and the open review leftovers
+- `xTrack/Tracks/261110_FEAT_PLN_Tracks_marker-auto-start.md` — step 2, parked
+- `app/src/main/java/ykws/android/maro/data/track/AutoStartDetector.kt` — the rule and the latch
+- `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt` — OFF/ON detector calls, `beginRecording`, the safety net, `onStopped`
+- `app/src/main/java/ykws/android/maro/data/track/TrackRecordingService.kt` — the persisted last stop, water and recovery wiring
 
 ## Next Step
 
-The device pass: a dive trip's card summing to Nav and a freshly saved route's card summing to Total.
+None owed on step 1. Open choices: close the review leftovers, resume step 2 from its plan, or commit when the user decides.
