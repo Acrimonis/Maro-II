@@ -1,6 +1,6 @@
 # Route — the end of a followed route
 
-**Status:** implemented (2026-11-11, `feature/route-tweeks`); the design review and the implementation review are folded (§6); `apk-build.bat` green, 1 762 tests, 0 failures; the device pass is owed.
+**Status:** implemented (2026-11-11, `feature/route-tweeks`); the design review and the implementation review are folded (§6); `apk-build.bat` green, 1 762 tests, 0 failures; the device pass ran OK (2026-11-11, the user's word) and the plan is closed.
 Decisions D1–D5 and D7 are the user's word of 2026-11-11; D6 (the stack) is built and moot as a decision.
 
 **One line:** a followed route asks a question at three doors — the toggle's off and the back key (R59), the arrival

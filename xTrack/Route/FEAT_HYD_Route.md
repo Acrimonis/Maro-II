@@ -17,4 +17,4 @@
 
 ## Next Step
 
-The end-of-life device pass (the user's own); the any-angle plan's P3 after it.
+The any-angle plan's P3.
