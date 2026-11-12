@@ -414,8 +414,6 @@ internal data class PendingTrackResume(
 /** Which transfer a result banner speaks for — a track's counts or a marker's. */
 internal enum class TransferKind { TRACK, MARKER }
 
-/** The notice keys the screen's own pills post under — one slot each, so a repeat replaces. */
-
 /** Transient import feedback: result counts or a hard failure. */
 internal sealed interface ImportBannerState {
     data class Result(

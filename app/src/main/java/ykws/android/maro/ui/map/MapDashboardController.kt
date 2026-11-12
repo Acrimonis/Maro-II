@@ -32,11 +32,19 @@ internal class MapDashboardController(
     /** Removes a snack and refills its slot from the queue — the whole removal in one place. */
     fun remove(snack: ActiveSnack) = publish(lane.remove(snack, maxVisible))
 
+    /**
+     * Makes [activeSnacks] equal to [next]'s visible rows by the smallest change — a vanished row removed, an
+     * arrival or a moved row inserted at its place — so the rows that did not change are never touched.
+     */
     private fun publish(next: ActionLane<ActiveSnack>) {
         lane = next
-        if (activeSnacks.toList() != next.visible) {
-            activeSnacks.clear()
-            activeSnacks.addAll(next.visible)
+        val target = next.visible
+        activeSnacks.removeAll { it !in target }
+        target.forEachIndexed { index, snack ->
+            if (activeSnacks.getOrNull(index) !== snack) {
+                activeSnacks.remove(snack)
+                activeSnacks.add(index, snack)
+            }
         }
     }
 }

@@ -24,6 +24,7 @@ class NoticeCenterTest {
 
     @Test
     fun setStatusPostsAStatusAndANullClearsIt() {
+        center.hostAttached()
         center.setStatus("op", "Exporting 3 / 10")
         center.setStatus("op", "Exporting 4 / 10")
 
@@ -49,7 +50,7 @@ class NoticeCenterTest {
     }
 
     @Test
-    fun aLaterHostAttachChangesNothing() {
+    fun aNoticePostedWhileAHostIsAttachedIsNotRestampedByAnotherAttach() {
         center.hostAttached()
         center.post(Notice(key = "c", text = NoticeText.Resolved("Saved"), cls = NoticeClass.CONFIRM, dwellMs = 2_000L))
 
@@ -57,6 +58,25 @@ class NoticeCenterTest {
         center.hostAttached()
 
         assertEquals(0L, center.board.value.visible.single().shownAtMs)
+    }
+
+    @Test
+    fun aNoticePostedBetweenTwoHostsIsRestampedByTheSecond() {
+        center.hostAttached()
+        center.hostDetached()
+        center.post(Notice(key = "boot", text = NoticeText.Resolved("Again"), cls = NoticeClass.ERROR, dwellMs = 6_000L))
+
+        now = 3_000L
+        center.hostAttached()
+
+        assertEquals(3_000L, center.board.value.visible.single().shownAtMs)
+    }
+
+    @Test
+    fun aStatusSetWithNoHostAttachedIsDroppedSoNothingIsLeftStanding() {
+        center.setStatus("op", "Exporting 3 / 10")
+
+        assertTrue(center.board.value.visible.isEmpty())
     }
 
     @Test

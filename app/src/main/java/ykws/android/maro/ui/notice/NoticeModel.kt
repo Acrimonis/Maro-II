@@ -95,8 +95,8 @@ internal data class Notice(
 /** A notice on screen, with the instant its dwell began. */
 internal data class ShownNotice(val notice: Notice, val shownAtMs: Long)
 
-/** A notice waiting for a slot, with the instant it began to wait. */
-internal data class QueuedNotice(val notice: Notice, val postedAtMs: Long)
+/** A notice waiting for a slot; its dwell starts when it is shown. */
+internal data class QueuedNotice(val notice: Notice)
 
 /** The whole of the arbiter's state: [visible] in draw order (the newest last, on the band's edge) and the queue. */
 internal data class NoticeBoard(

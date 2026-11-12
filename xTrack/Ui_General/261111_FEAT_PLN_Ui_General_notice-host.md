@@ -1,7 +1,7 @@
 <!-- scope: feature -->
 # Notice host — one queue and priority for every transient map message
 
-**Status:** implemented (steps 0–5, 2026-11-12, `feature/notices-toasts`); preliminary device pass read OK by the user. See `## Implemented`.
+**Status:** implemented and device-validated (steps 0–5 and the code-review fixes, 2026-11-12, `feature/notices-toasts`); the final-build device pass read OK by the user. See `## Implemented` and `## Outcome`.
 **Goal (decided, option C):** one notice host with a queue and priority, replacing the ad-hoc single-slot pills.
 
 ## 1. State of the code (re-read 2026-11-11)
@@ -59,7 +59,7 @@ One point at a time, each with a recommendation; a decision is written here when
 - **`EXIT` pre-empts and never queues:** it takes a slot at once, pushing the lowest-class pill back to the queue (§3.5).
 - **`STATUS` is posted and cleared, never timed;** it holds its slot while it stands (`trackOpStatus`, arrival — §3.3–3.4).
 - **Full lane:** a new notice queues behind its class (FIFO within a class); a higher class displaces the lowest visible one back to the queue's head.
-- **Stale confirmations drop:** a `CONFIRM` that waited longer than its own dwell is discarded; `ERROR` and `RESULT` wait.
+- **Waiting notices are shown late, never dropped** (revised 2026-11-12 after the code review: a lock or save confirmation that lapsed behind standing statuses left the user without feedback). A queued notice shows for its full dwell when a slot frees.
 - **Max visible pills:** `notice.maxVisible=3`.
 - Objection: displacement can make a pill flicker out and back; acceptable at three slots and the rarity of five simultaneous notices.
 
@@ -74,7 +74,7 @@ One point at a time, each with a recommendation; a decision is written here when
 | `EXIT` | the back window | `map.exit.backWindowMs` |
 | Action row | 4 s | `notice.row.timeoutMs` |
 
-- **The dwell clock starts when the pill shows** — a queued notice's wait is not its dwell (a stale `CONFIRM` drops, D3).
+- **The dwell clock starts when the pill shows** — a queued notice's wait is not its dwell (a waiting notice is shown late, D3).
 - Objection: 6 s errors may still be short for a startup diagnostic listing many keys; the key is tunable.
 
 ### D5 — Visibility and system Toasts (decided by the user 2026-11-11: above the panel)
@@ -218,6 +218,12 @@ Ranked by damage × likelihood; §3 holds the full guard list.
 - **Deviation from D5:** the plan said the center "holds [startup notices] until the map composes". It holds them for one dwell at most: the dwell runs from the post, so a startup error lapses unseen if the first frame comes later than 6 s or a system dialog covers it.
 - **Open (Ask, not folded):** startup dwell clock (above) — re-stamping `shownAtMs` on the host's first attach would fix it; the lock line is a `CONFIRM`, so with three pills standing it queues and can be dropped as stale; an exit pill left on the center after a relaunch inside 2 s reads "press back again" with `lastBackAt` at 0 (a `clear(NoticeKeys.EXIT)` on the second back would close it); nothing asserts `Notice.exit(...).dwellMs == exitBackWindowMs`; `MapLockLayer` has three `if (screenLocked)` checks, two redundant; `MapDashboardController.promote()` has no caller; `MainActivity` KDocs at ~83 and ~146 still say "toast" for the notification fallback; `RIGHT_CONTROL_COLUMN_INSET` and `trackOpStatus`'s setter side effect stand as before.
 
+**Code-review fixes (2026-11-12, after the commit of steps 0–5), uncommitted.** `assembleDebug` green and 1 882 unit tests green (7 new). A waiting notice is now shown for its full dwell when a slot frees, never dropped — D3 revised, the stale-confirmation rule and `QueuedNotice.postedAtMs` removed; a post under a queued key is ranked afresh by its new class; `NoticeHost` resolves each pill's text once per notice (`remember`) and keys pills by notice key; `MapBanner` builds its corner shape once; `MapDashboardController.publish` applies the smallest change to the visible list; `NoticeCenter` counts attached hosts — a post made while none is attached has its dwell restarted by the next `hostAttached()` (per attach, replacing the once-per-process flag, so a recreated activity is covered) and a status set while none is attached is dropped; the orphan KDoc above `ImportBannerState` is gone. Not folded: the host still reads the band height in composition (a recomposition per animation frame, now cheap).
+
 **Finalize (2026-11-12).** The Ask findings of steps 3–5 are folded: `NoticeCenter.hostAttached()` (called by the first `NoticeHost`) restarts the dwell of anything posted before a host existed, once per process, so a startup error stands its full time — this makes D5's "held until the map composes" true; the second back press clears the exit pill; `Notice.exit`'s dwell is pinned to the double-back window by `NoticeModelTest`; `MapLockLayer`'s redundant `if (screenLocked)` checks are merged; `MapDashboardController.promote()` (no caller) is deleted; the stale "toast" KDocs in `MainActivity` are corrected. Still open: the lock line is a `CONFIRM` and queues behind three standing pills (D3 by design); `trackOpStatus` stays a property whose setter posts (≈20 call sites, no defect); the startup pill can still be covered by a system permission dialog for its dwell.
 
 - **Open (Ask, not folded, steps 0–2 — superseded where the finalize paragraph above says otherwise):** `trackOpStatus` is a setter with a side effect on a state holder (a `setTrackOpStatus` call would be cleaner); the notice keys are spread over `MapScreen` and `ImportNotice`; the arbiter tests lack the oldest-victim tiebreak, displaced-confirm and displaced-status cases; the exit pill and `LockBanner` still sit outside the host and can overlap a standing pill until step 3; the transfer progress callbacks were not traced for off-main posts.
+
+## Outcome
+
+Shipped 2026-11-12 on `feature/notices-toasts`: every transient map message is a pill on one `NoticeHost`, ranked and coalesced by the pure `NoticeArbiter` behind the process-scoped `NoticeCenter`, with the undo rows' queue rules in the pure `ActionLane` and no `android.widget.Toast` left. The post-build code review's seven findings were folded before the final device pass; `assembleDebug` green with 1 882 unit tests, 0 failures. The user's device pass on the final build read OK. Known limits kept: a system permission dialog can still cover a startup pill for its dwell, and the lock pill, as a confirmation, can queue behind other pills (shown late, never dropped).

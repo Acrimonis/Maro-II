@@ -5,14 +5,15 @@ package ykws.android.maro.ui.notice
  * no Compose, no Android, so every rule is a unit test.
  *
  * - **A key coalesces.** A post under a key already showing replaces it in place and restarts its dwell; under
- *   a key waiting, it replaces the waiting one in place.
+ *   a key waiting, it replaces the waiting one and is ranked afresh by its new class, as any new post is.
  * - **A free slot shows at once**, appended on the band's edge.
  * - **A full lane ranks.** A notice that outranks the lowest standing one displaces it to the queue's head
  *   (so [NoticeClass.EXIT], the top class, always finds room unless only EXITs stand); otherwise it waits,
  *   first-come within its class and behind every higher class.
  * - **A status never times out.** It stands until [clear]; a displaced status waits, still posted.
- * - **A waiting confirmation goes stale.** One that has waited longer than its own dwell is dropped on promotion
- *   rather than shown late; errors and results wait as long as it takes.
+ * - **A waiting notice is shown when its turn comes, for its full dwell** — a confirmation too, late rather
+ *   than never: the lock line is the user's only lock feedback, and a save confirmation that lapsed unseen
+ *   leaves them unsure it happened.
  *
  * The action rows are a separate lane and never reach here: a pill can neither delay nor displace a row.
  */
@@ -25,14 +26,11 @@ internal object NoticeArbiter {
                 visible = board.visible.toMutableList().also { it[showing] = ShownNotice(notice, nowMs) }
             )
         }
-        val waiting = board.queued.indexOfFirst { it.notice.key == notice.key }
-        if (waiting >= 0) {
-            return board.copy(
-                queued = board.queued.toMutableList().also { it[waiting] = QueuedNotice(notice, nowMs) }
-            )
-        }
+        // A waiting entry under the key is dropped and the post ranked as a new one, so a replacement of
+        // another class lands where its class belongs rather than where the old notice stood.
+        val queued = board.queued.filterNot { it.notice.key == notice.key }
         if (board.visible.size < maxVisible) {
-            return board.copy(visible = board.visible + ShownNotice(notice, nowMs))
+            return NoticeBoard(board.visible + ShownNotice(notice, nowMs), queued)
         }
         val victim = board.visible
             .filter { it.notice.cls.ordinal > notice.cls.ordinal }
@@ -40,13 +38,14 @@ internal object NoticeArbiter {
         if (victim != null) {
             return NoticeBoard(
                 visible = board.visible - victim + ShownNotice(notice, nowMs),
-                queued = listOf(QueuedNotice(victim.notice, nowMs)) + board.queued
+                queued = listOf(QueuedNotice(victim.notice)) + queued
             )
         }
-        val at = board.queued.indexOfFirst { it.notice.cls.ordinal > notice.cls.ordinal }
-            .let { if (it < 0) board.queued.size else it }
-        return board.copy(
-            queued = board.queued.toMutableList().also { it.add(at, QueuedNotice(notice, nowMs)) }
+        val at = queued.indexOfFirst { it.notice.cls.ordinal > notice.cls.ordinal }
+            .let { if (it < 0) queued.size else it }
+        return NoticeBoard(
+            visible = board.visible,
+            queued = queued.toMutableList().also { it.add(at, QueuedNotice(notice)) }
         )
     }
 
@@ -70,13 +69,13 @@ internal object NoticeArbiter {
         )
 
     /**
-     * Restarts every dwell at [nowMs]: a notice posted before any host existed (a startup diagnostic) must
-     * stand for its full dwell once there is a host to draw it, not run it down unseen.
+     * Restarts the dwell, at [nowMs], of the standing notices under [keys]: ones posted before any host
+     * existed (a startup diagnostic) must stand for their full dwell once there is a host to draw them,
+     * not run it down unseen. Waiting notices have no dwell running and are left as they are.
      */
-    fun restamp(board: NoticeBoard, nowMs: Long): NoticeBoard =
-        NoticeBoard(
-            visible = board.visible.map { it.copy(shownAtMs = nowMs) },
-            queued = board.queued.map { it.copy(postedAtMs = nowMs) }
+    fun restamp(board: NoticeBoard, keys: Set<String>, nowMs: Long): NoticeBoard =
+        board.copy(
+            visible = board.visible.map { if (it.notice.key in keys) it.copy(shownAtMs = nowMs) else it }
         )
 
     /** The instant the earliest standing dwell runs out, or null while only statuses (or nothing) stand. */
@@ -87,14 +86,9 @@ internal object NoticeArbiter {
         notice.dwellMs?.let { nowMs - shownAtMs >= it } ?: false
 
     private fun promote(board: NoticeBoard, nowMs: Long, maxVisible: Int): NoticeBoard {
-        var visible = board.visible
-        val waiting = board.queued.toMutableList()
-        while (visible.size < maxVisible && waiting.isNotEmpty()) {
-            val next = waiting.removeAt(0)
-            val stale = next.notice.cls == NoticeClass.CONFIRM &&
-                next.notice.dwellMs?.let { nowMs - next.postedAtMs > it } == true
-            if (!stale) visible = visible + ShownNotice(next.notice, nowMs)
-        }
-        return NoticeBoard(visible, waiting)
+        val free = (maxVisible - board.visible.size).coerceAtLeast(0)
+        if (free == 0 || board.queued.isEmpty()) return board
+        val next = board.queued.take(free).map { ShownNotice(it.notice, nowMs) }
+        return NoticeBoard(board.visible + next, board.queued.drop(free))
     }
 }

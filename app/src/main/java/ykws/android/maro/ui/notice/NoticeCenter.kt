@@ -5,7 +5,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 import ykws.android.maro.config.AppConfig
 
 /**
@@ -14,6 +15,10 @@ import ykws.android.maro.config.AppConfig
  *
  * The clock and the slot count are injected so the class is testable without Android; [shared] is the
  * process-scoped instance every caller uses, so a notice can be posted before any screen or ViewModel exists.
+ *
+ * It also knows whether a host is drawing it: a notice posted while none is (a startup diagnostic, raised in
+ * `onCreate`) has its dwell restarted when the next host attaches, and a status posted while none is — a late
+ * progress callback after the screen went — is dropped, since nothing would ever clear it.
  */
 internal class NoticeCenter(
     private val clock: () -> Long,
@@ -21,17 +26,25 @@ internal class NoticeCenter(
 ) {
     private val state = MutableStateFlow(NoticeBoard())
 
+    /** Hosts currently attached; the screen's one `NoticeHost` while it is composed. */
+    private val hosts = AtomicInteger(0)
+
+    /** Keys posted while no host was attached, whose dwell restarts when one is. */
+    private val awaitingHost: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
     /** What the host draws. */
     val board: StateFlow<NoticeBoard> = state.asStateFlow()
 
     /** Raises [notice]; one under the same key replaces it. */
     fun post(notice: Notice) {
+        if (hosts.get() == 0) awaitingHost.add(notice.key)
         val now = clock()
         state.update { NoticeArbiter.post(it, notice, now, maxVisible()) }
     }
 
     /** Takes down the notice under [key], showing or waiting. */
     fun clear(key: String) {
+        awaitingHost.remove(key)
         val now = clock()
         state.update { NoticeArbiter.clear(it, key, now, maxVisible()) }
     }
@@ -42,25 +55,35 @@ internal class NoticeCenter(
         state.update { NoticeArbiter.expire(it, now, maxVisible()) }
     }
 
-    private val hostSeen = AtomicBoolean(false)
-
     /**
-     * The notice host calls this as it first composes: notices posted before it existed (the startup
-     * diagnostics, raised before the first frame) have their dwell restarted, once per process, so they
-     * stand for their full time instead of lapsing unseen. Later attaches (a rotation) change nothing.
+     * A host started drawing: whatever was posted while none was has its dwell restarted, so it stands for its
+     * full time instead of lapsing unseen. A notice posted while a host was already attached is untouched, so
+     * a rotation changes nothing.
      */
     fun hostAttached() {
-        if (!hostSeen.compareAndSet(false, true)) return
+        hosts.incrementAndGet()
+        val waiting = awaitingHost.toSet()
+        if (waiting.isEmpty()) return
+        awaitingHost.removeAll(waiting)
         val now = clock()
-        state.update { NoticeArbiter.restamp(it, now) }
+        state.update { NoticeArbiter.restamp(it, waiting, now) }
+    }
+
+    /** The host stopped drawing (the screen left). */
+    fun hostDetached() {
+        hosts.updateAndGet { (it - 1).coerceAtLeast(0) }
     }
 
     /** The current instant on the clock the dwells are measured against. */
     fun now(): Long = clock()
 
-    /** Sets or, for a null [text], clears the [NoticeClass.STATUS] notice under [key]. */
+    /**
+     * Sets or, for a null [text], clears the [NoticeClass.STATUS] notice under [key]. A status is owned by a
+     * screen that clears it, so one set while no host is attached is dropped rather than left standing.
+     */
     fun setStatus(key: String, text: String?) {
-        if (text == null) clear(key) else post(Notice.status(key, NoticeText.Resolved(text)))
+        if (text == null) clear(key)
+        else if (hosts.get() > 0) post(Notice.status(key, NoticeText.Resolved(text)))
     }
 
     companion object {

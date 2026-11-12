@@ -1008,8 +1008,9 @@ remaining call sites in `MapScreen.kt`.
   `NoticeHost`, one above the other, the newest on the band's edge, stacked over the action rows. The exit pill
   stands exactly as long as the double-back window (`map.exit.backWindowMs`, one key for both). The action
   rows' queue rules are the pure `ActionLane`. `NoticeArbiter` owns what stands and for how long: a key replaces
-  itself, a full lane ranks by class (exit, error, status, result, confirmation), a status stands until cleared
-  and a confirmation that waited past its dwell is dropped. Dwells, the pill count and the row figures are the
+  itself (a replacement is ranked afresh by its new class), a full lane ranks by class (exit, error, status,
+  result, confirmation), a status stands until cleared and a waiting notice — a confirmation included — is shown
+  for its full dwell when its turn comes, late rather than never. Dwells, the pill count and the row figures are the
   `notice.*` keys. The host paints **above the drawer ladder**; the action rows stay under it.
 - **Placement — the band gutter, in both orientations.** The band's bottom edge is the band gutter (the
   table below), never a navigation-bar inset: the app draws edge-to-edge, so the map runs under a

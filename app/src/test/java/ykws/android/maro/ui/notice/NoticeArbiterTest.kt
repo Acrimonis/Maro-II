@@ -114,13 +114,31 @@ class NoticeArbiterTest {
     }
 
     @Test
-    fun aConfirmationThatWaitedPastItsDwellIsDroppedNotShownLate() {
+    fun aConfirmationThatWaitedIsShownLateForItsFullDwellNotDropped() {
         val board = NoticeBoard().post(result("a"), 0).post(result("b"), 0).post(confirm("c"), 100)
 
         val after = NoticeArbiter.expire(board, 6_000, 2)
 
-        assertTrue("a stale confirmation is not shown", "c" !in after.keys())
-        assertTrue("and does not keep waiting", after.waiting().isEmpty())
+        assertEquals(listOf("c"), after.keys())
+        assertEquals(6_000L, after.visible.single().shownAtMs)
+        assertTrue(after.waiting().isEmpty())
+    }
+
+    @Test
+    fun aQueuedKeyReplacedByAHigherClassIsRankedAfreshAheadOfLowerOnes() {
+        val full = NoticeBoard().post(error("e1"), 0).post(error("e2"), 0)
+        val board = full.post(confirm("x"), 1).post(confirm("t"), 2).post(result("t"), 3)
+
+        assertEquals(listOf("t", "x"), board.waiting())
+        assertEquals(NoticeClass.RESULT, board.queued.first().notice.cls)
+    }
+
+    @Test
+    fun aQueuedKeyReplacedByALowerClassMovesBehindTheHigherOnes() {
+        val full = NoticeBoard().post(error("e1"), 0).post(error("e2"), 0)
+        val board = full.post(result("r"), 1).post(confirm("c"), 2).post(confirm("r"), 3)
+
+        assertEquals(listOf("c", "r"), board.waiting())
     }
 
     @Test

@@ -7,10 +7,13 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color as ComposeColor
@@ -45,8 +48,12 @@ internal fun NoticeHost(
     /** The action rows' column height in px, 0 while none stands; read here so only this host recomposes. */
     rowsHeightPx: () -> Int
 ) {
-    // The first host of the process restarts the dwell of anything posted before it composed.
-    LaunchedEffect(center) { center.hostAttached() }
+    // Attaching restarts the dwell of anything posted while no host was drawing (a startup diagnostic);
+    // detaching tells the center a status set from now on has no screen to clear it.
+    DisposableEffect(center) {
+        center.hostAttached()
+        onDispose { center.hostDetached() }
+    }
     val board by center.board.collectAsState()
     val expiry = NoticeArbiter.nextExpiry(board)
     LaunchedEffect(expiry) {
@@ -79,11 +86,12 @@ internal fun NoticeHost(
                 .padding(bottom = if (rowsHeight > 0.dp) rowsHeight + AppConfig.uiMapToggleGutter.dp else 0.dp)
         ) {
             standing.forEach { shown ->
-                NoticePill(
-                    message = shown.notice.text.resolve(resources),
-                    tagsDrawn = tagsDrawn,
-                    danger = shown.notice.danger
-                )
+                key(shown.notice.key) {
+                    // The text changes only with the notice, not with each frame of the band's animation
+                    // that recomposes this host.
+                    val message = remember(shown.notice.text, resources) { shown.notice.text.resolve(resources) }
+                    NoticePill(message = message, tagsDrawn = tagsDrawn, danger = shown.notice.danger)
+                }
             }
         }
     }

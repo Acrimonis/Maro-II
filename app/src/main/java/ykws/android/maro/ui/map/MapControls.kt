@@ -22,6 +22,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -361,6 +362,8 @@ internal fun MapBanner(
     reservesControlColumn: Boolean = false,
     content: @Composable () -> Unit
 ) {
+    // One shape per banner, not one per read: the corner is configurable but fixed once the file is loaded.
+    val shape = remember { BANNER_CORNER }
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -371,10 +374,10 @@ internal fun MapBanner(
         contentAlignment = Alignment.Center
     ) {
         Surface(
-            shape = BANNER_CORNER,
+            shape = shape,
             color = ComposeColor(AppConfig.buttonActionBgColor),
             shadowElevation = BANNER_SHADOW_ELEVATION,
-            modifier = Modifier.border(BANNER_BORDER_WIDTH, borderColor, BANNER_CORNER)
+            modifier = Modifier.border(BANNER_BORDER_WIDTH, borderColor, shape)
         ) {
             Box(modifier = Modifier.background(ComposeColor(AppConfig.uiCardBackground))) {
                 content()
