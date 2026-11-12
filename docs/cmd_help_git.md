@@ -32,7 +32,8 @@ A git `#`-command **is** its own go-ahead: the invocation authorises the operati
                       force-create checkout carries the modifications across, measured 2026-09-19 on
                       the flagless form and again 2026-09-21 on the `--no-track -B` form.
   #commit             git add -A && git commit. Offers a bake first when the active feature's
-                      state moved since its last bake. Confirms the staged set and the message
+                      state moved since its last bake. Past the develop/main refusal, runs
+                      `tools/usage-log.ps1 -Flush` before staging, so the usage block rides in the commit. Confirms the staged set and the message
                       — a scope gate, never a permission one. 🚫 refuses on develop/main.
   #push               git push -u origin [current-branch] — the `-u` is what writes the upstream to
                       the branch's own name, and the refusal a bare push meets is stated under `#new`.

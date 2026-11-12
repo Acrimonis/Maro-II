@@ -27,6 +27,11 @@ Lint the xTrack stack and the rulebook for structural drift.
               Nudge (report-only): a plan still attached in a feature's ## Docs whose work already
               appears in that feature's ## Implemented — a retirement candidate for #archive.
 
+  usage       Workflow-usage report: runs `tools/usage-log.ps1 -Report` and relays its table —
+              removal and low-use commands, command candidates among the recorded flows, slug
+              drift, the silent guards, compounding state. Report-only; not part of the a-s run.
+              Checks (j) and (o) skip `xTrack/WorkflowImprovement/usage/`, as they skip archives.
+
   fix         Auto-repair safe classes: dedupe routing rows, normalize dates,
               strip active_subfeature/#sub remnants, sync `## Features` ↔ FEAT_DSC_ front-matter.
               Everything from shape, ownership, registry integrity, doc drift, archive and legend

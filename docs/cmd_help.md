@@ -20,7 +20,7 @@ Docs:     #doc                 feature docs (scope-aware)
           #doc detach [name]   unlink doc (bare = prompt)
           #doc update          refresh feature docs to implementation (decisions doc, ## Implemented rewrite, prune completed todos, bump dates, #bake)
           #doc audit           check docs for missing scope tags, orphans, invalid scopes
-Session:  #bake                snapshot + consolidation (checkmarks, section fold/trim/split/merge, the feature's ## Summary, FEAT_HYD_, the top Focus History entry rewritten to what shipped, prune Focus History > 10)
+Session:  #bake                snapshot + consolidation (checkmarks, section fold/trim/split/merge, the feature's ## Summary, FEAT_HYD_, the top Focus History entry rewritten to what shipped, prune Focus History > 10, the usage flow lines flushed)
           #help                this list
           #archive             retire a feature-scoped plan or doc into xxArchive/ (explicit invocation only)
           #review              review the cascade-resolved target — walk item → plan in design → last #implement run → live proposal (challenge); also sweeps the five covered action classes that ran without a verdict line
@@ -30,7 +30,7 @@ Pipeline: #implement           full pipeline: Code → build → Ask review → 
           #go                  agree with the open question (re-asks if the proposal moved); #go impl = agree + run the pipeline
 Git:      🛑 Rules single-sourced in `AGENTS.md` §7b; [`docs/GIT_WORKFLOW.md`](GIT_WORKFLOW.md) holds the branch model.
            #new [branch]        create `feature/[branch]` from origin/develop with --no-track, so nothing tracks the base until the first #push writes its own name; if that branch exists locally, report it and offer recreate / another name / abort, the recreate clearing any upstream it carried
-           #commit              stage + commit; offers a bake first when the feature moved since its last bake. Confirms the staged set and the message. 🚫 refuses on develop/main.
+           #commit              stage + commit; flushes the usage spool first; offers a bake first when the feature moved since its last bake. Confirms the staged set and the message. 🚫 refuses on develop/main.
            #push                push the current branch, setting its upstream to that name (`git push -u origin <branch>` — the flag is what writes it). User-invoked only — never proposed or reminded. Confirms the branch and the remote. 🚫 refuses on develop/main.
            #move [branch]       stash → switch → pop (existing)
            #move new [branch]   stash → create feature/[branch] from develop with --no-track → pop
@@ -40,3 +40,4 @@ Git:      🛑 Rules single-sourced in `AGENTS.md` §7b; [`docs/GIT_WORKFLOW.md`
            #merge               pre-flight → trivial/non-trivial → auto-select rebase/merge → confirm (yes=direct, #implement=pipeline). 🚫 refuses on develop/main.
 Health:   #doctor              lint xTrack and the rulebook for drift (checks a–s; flags active_subfeature/#sub remnants, registry divergence, retired-file drift, a rule bullet without a tier glyph)
           #doctor fix          auto-repair
+          #doctor usage        workflow-usage report: removal / low-use commands, command candidates among recorded flows, slug drift (report-only)
