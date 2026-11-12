@@ -170,8 +170,8 @@ A square's size and gutter are geometry rather than surface, so they stay in the
 
 | Token | Value | Usage |
 |---|---|---|
-| `ui.map.toggle.square` | `44` dp | Side of one square — also the row height, the legend's width and the locked-mirror offset |
-| `ui.map.toggle.gutter` | `6` dp | Gutter between two squares — the row's own start inset too |
+| `ui.map.toggle.square` | `44` dp | *(in `maro.properties`)* Side of one square — also the row height, the legend's width and the locked-mirror offset |
+| `ui.map.toggle.gutter` | `6` dp | *(in `maro.properties`)* Gutter between two squares — the row's own start inset too |
 | `ui.map.toggle.icon.size` | `22` sp | Emoji glyph size inside a square |
 
 The overlay cards keep their text tokens; the surface never dims their content:
@@ -182,7 +182,7 @@ The overlay cards keep their text tokens; the surface never dims their content:
 | `ui.map.overlay.text.weight` | `700` | Text weight on the shared surface (100–900, mapped with `FontWeight(…)`) |
 | `ui.map.overlay.text.size` | `10` sp | Text size on the shared surface |
 | `ui.map.overlay.text.line.height` | `14` sp | Line height of the zone-info line's text |
-| `ui.map.overlay.gap` | `${ui.map.toggle.gutter}` → `6` dp | Gap between an overlay card's parts |
+| `ui.map.overlay.gap` | `${ui.map.toggle.gutter}` → `6` dp | *(in `maro.properties`)* Gap between an overlay card's parts |
 | `ui.map.overlay.line.spacing` | `2` dp | Gap between two rows of the zone-info line |
 
 ### The toggle squares — five colours, two channels, two classes

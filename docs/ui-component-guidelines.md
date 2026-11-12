@@ -837,7 +837,7 @@ setting-driven conditional slot — the Layers tab's "Show Land/Water Icon" (`sh
 default on) hides the square, and the row's `Arrangement.spacedBy` closes the gap;
 `lockMirrorStartOffset()` reads the same flag, because the row's order is what the duplicate's offset
 depends on. When locked, the overlay recreates the same controls above the input-blocking scrim
-(duplicate unlock button, `ZoomControls`, `LockBanner`); those duplicates must live inside a `Box`
+(duplicate unlock button, `ZoomControls`); those duplicates must live inside a `Box`
 padded exactly like `MapContent`'s dashboard padding (portrait: bottom = `dashboardBaseHeight`;
 landscape: start = `landscapeDashboardWidth`) so they align over the originals in both orientations.
 The locked zoom controls accept a double-tap only (single splash taps are ignored).
@@ -959,14 +959,14 @@ draws, the **recording exit dialog the reference** the whole family is read agai
 
 ### 5.7 Bottom-Band Banners — `MapBanner`
 
-The map's bottom band carries six banner instances — the exit toast (`Press back again to exit` /
-`Appuyez à nouveau pour quitter`), `LockBanner`, `MapStatusBanner`, `LoadingOverlay`, `ErrorOverlay`
-and the action and undo rows of the snackbar stack (`SnackRow`, painted by `MapSnackbarHost`) — and all
-six paint one skin through one control. This entry is the family's **only** home, and every instance
+The map's bottom band carries four banner faces — the notice host's pills (the exit line `Press back
+again to exit` / `Appuyez à nouveau pour quitter` and the lock line among them), `LoadingOverlay`,
+`ErrorOverlay` and the action and undo rows of the snackbar stack (`SnackRow`, painted by
+`MapSnackbarHost`) — and all four paint one skin through one control. This entry is the family's **only** home, and every instance
 reads these rules — none is exempt.
 
 Source: [`MapControls.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapControls.kt) (`MapBanner`,
-`bannerLineStyle`, `MapBannerText`, `bannerStartInset`, `LockBanner`, `MapStatusBanner`),
+`bannerLineStyle`, `MapBannerText`, `bannerStartInset`), [`NoticeHost.kt`](../app/src/main/java/ykws/android/maro/ui/map/NoticeHost.kt) (the pills) and `ui/notice/` (the arbiter),
 [`CoastlineMapView.kt`](../app/src/main/java/ykws/android/maro/ui/map/CoastlineMapView.kt)
 (`LoadingOverlay`, `ErrorOverlay`),
 [`MapSnackbarHost.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapSnackbarHost.kt) and
@@ -980,11 +980,12 @@ remaining call sites in `MapScreen.kt`.
   instance's content arrives as the slot — the pill passes one `MapBannerText`, while `LoadingOverlay`
   and `ErrorOverlay` pass their own column and keep their own interiors (spinner, title, phase,
   percentage; title, message, Retry) and roles.
-- **Skin — one definition, six users.** 14 dp corner, a 2 dp border in `borderColor` over
-  `ui.card.background`, `ui.button.background` as the fill and an 8 dp shadow. No face carries a copy.
-- **Border colour is the caller's**: `ui.dashboard.zone.danger` while recording and
-  `ui.dashboard.background` otherwise, for the exit toast; `ui.dashboard.background` for `LockBanner`,
-  `MapStatusBanner` and the action and undo rows; `ui.dashboard.zone.danger` for `ErrorOverlay`;
+- **Skin — one definition, four users.** Corner, border width and shadow are the `notice.skin.*` keys of
+  `maro.properties`, drawn over `ui.card.background` with `ui.button.background` as the fill; the line is
+  `notice.text.sizeSp`, the pill's padding `notice.pill.pad*Dp`. No face carries a copy, and this entry holds no figure.
+- **Border colour is the caller's**: `ui.dashboard.background` for the notice host's pills and the action
+  and undo rows, except the exit pill while a recording would be stopped, which wears
+  `ui.dashboard.zone.danger` (`Notice.danger`); `ui.dashboard.zone.danger` for `ErrorOverlay`;
   `ui.dashboard.background` for `LoadingOverlay`.
 - **Clearance, every instance.** A banner starts at `bannerStartInset(tagsDrawn)` and ends clear of the
   right control column (82 dp, `RIGHT_CONTROL_COLUMN_INSET`). `tagsDrawn` is the bottom-left tag
@@ -992,14 +993,25 @@ remaining call sites in `MapScreen.kt`.
   the stack paints: with a tag drawn the inset adds the tag column, empty it adds nothing.
 - **The control owns the column reserve, not the caller.** `reservesControlColumn` carries the one fact
   the control cannot read from its own box — is the banner's parent full width — and `MapBanner` turns
-  it into the `end` padding. True for `LockBanner`, `MapStatusBanner` and the action and undo rows,
-  whose parent is the whole map area and which therefore genuinely need the reserve; false for the exit
-  toast and the two cards, whose parent is the map's left overlay column and already ends where that
-  column does (`docs/ui-drawer-guidelines.md` §1). `bannerStartInset` deliberately excludes the column
+  it into the `end` padding. True for the notice host's pills and the action and undo rows, whose parent
+  is the whole map area and which therefore genuinely need the reserve; false for the two cards, whose
+  parent is the map's left overlay column and already ends where that column does (`docs/ui-drawer-guidelines.md` §1). `bannerStartInset` deliberately excludes the column
   either way.
-- **Status pills stack.** `MapStatusBannerStack` draws every standing `MapStatusBanner` message in one column,
-  top to bottom in the order the caller lists them, the last on the band's edge; an identical message is drawn
-  once and an empty list draws nothing. The column holds no timer — the caller owns how long each message stands.
+- **Which vehicle when.** A **pill**, posted to `NoticeCenter`, for a transient read-only message; an
+  **action row** when the message carries a command; `ConfirmDialog` for a decision; the control's own inline
+  state for state its surface owns; a **notification** when the app may be off-screen; and **never an
+  `android.widget.Toast`**. A notice key lives in `NoticeKeys`, and `toast` in an existing string or token
+  name means the pill.
+- **Pills are notices.** The import result, the save and route confirmations, the transfer in progress, the
+  route arrival, the lock and unlock line, the "press back again" line, the temperature tile's refresh and
+  problem lines, the speed-history result and the startup diagnostics are posted to `NoticeCenter` and drawn by
+  `NoticeHost`, one above the other, the newest on the band's edge, stacked over the action rows. The exit pill
+  stands exactly as long as the double-back window (`map.exit.backWindowMs`, one key for both). The action
+  rows' queue rules are the pure `ActionLane`. `NoticeArbiter` owns what stands and for how long: a key replaces
+  itself (a replacement is ranked afresh by its new class), a full lane ranks by class (exit, error, status,
+  result, confirmation), a status stands until cleared and a waiting notice — a confirmation included — is shown
+  for its full dwell when its turn comes, late rather than never. Dwells, the pill count and the row figures are the
+  `notice.*` keys. The host paints **above the drawer ladder**; the action rows stay under it.
 - **Placement — the band gutter, in both orientations.** The band's bottom edge is the band gutter (the
   table below), never a navigation-bar inset: the app draws edge-to-edge, so the map runs under a
   landscape navigation bar while the band's content ends on the same line the zoom stack's own
@@ -1011,8 +1023,8 @@ remaining call sites in `MapScreen.kt`.
 - **Wrap-content, centred in the band's free space.** The pill hugs its message and is centred in the
   region the band leaves free, so a short message is a small centred pill and a long one fills the
   region and wraps. No `fillMaxWidth` stretch, and `tagsDrawn` moves the centre by half the tag slot
-  (25 dp at defaults) — adaptive rather than stable, decided 2026-09-21.
-- **Text:** 16 sp Medium in `ui.toast.text`, **centred** (`MapBannerText`), on 16/10 padding — so a
+  (half the tag slot) — adaptive rather than stable, decided 2026-09-21.
+- **Text:** Medium in `ui.toast.text` at `notice.text.sizeSp`, **centred** (`MapBannerText`), on the `notice.pill.pad*Dp` padding — so a
   wrapped message reads centred inside its centred pill. The style itself is written once, in
   `bannerLineStyle`, which both this line and the action row's message read.
 - **The wrap is uncapped:** no `maxLines`, no `ellipsis`. Both exit strings carry their instruction

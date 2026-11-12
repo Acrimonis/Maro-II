@@ -20,20 +20,18 @@ import org.osmdroid.views.MapView
 import ykws.android.maro.data.settings.AppSettings
 
 /**
- * The screen-lock layer: the full-screen input scrim, the mirrored lock/zoom controls and the lock
- * banner. It is called *last* in `MapScreen`'s ladder, after `OverlayLayer`, and that position is its
- * contract rather than a formatting choice — the scrim must paint above every drawer and the map.
+ * The screen-lock layer: the full-screen input scrim and the mirrored lock/zoom controls. It is called
+ * *last* in `MapScreen`'s ladder, after `OverlayLayer`, and that position is its contract rather than a
+ * formatting choice — the scrim must paint above every drawer and the map. The lock and unlock line is
+ * not drawn here: it is a pill on the notice host, which paints above the ladder too.
  *
- * The caller owns the state it paints and the writes it fires: `lockBanner` arrives read-only, and
- * the intercepted tap that raises it crosses as [onInterceptedTap], whose body still lives in
- * `MapScreen` where `lockBannerAt` does (code-health step 3, tier 2c). Nothing moves out of the
- * screen's own state.
+ * The caller owns the state it paints and the writes it fires: the intercepted tap crosses as
+ * [onInterceptedTap], whose body still lives in `MapScreen` (code-health step 3, tier 2c). Nothing moves
+ * out of the screen's own state.
  */
 @Composable
 internal fun MapLockLayer(
     screenLocked: Boolean,
-    lockBanner: Boolean?,
-    bandTagsDrawn: Boolean,
     isLandscape: Boolean,
     /**
      * The live dashboard band (Phase 2), taken as a [State] so the band's animation re-runs this
@@ -52,18 +50,16 @@ internal fun MapLockLayer(
     //     controls) receives touch while locked. The duplicate button sits above the scrim so the
     //     lock can be toggled off.
     val lockTopInset = chromeTopInset(isLandscape)
+    // The band is read only on the path that actually paints over the dashboard (G8): while unlocked
+    // there is nothing to align, so the read — and the recomposition it would cost on every frame of
+    // the band's tween — is deferred until there is.
     if (screenLocked) {
         LockScrim(
             onInterceptedTap = onInterceptedTap
         )
-    }
-    // The band is read only on the path that actually paints over the dashboard (G8): while unlocked
-    // with no banner there is nothing to align, so the read — and the recomposition it would cost on
-    // every frame of the band's tween — is deferred until there is.
-    if (screenLocked || lockBanner != null) {
         // Locked-overlay controls sit inside the map area: mirror MapContent's
         // dashboard padding (portrait: bottom; landscape: start) so the duplicate
-        // lock button, zoom controls, and banner align over the originals.
+        // lock button and zoom controls align over the originals.
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -74,68 +70,59 @@ internal fun MapLockLayer(
                         PaddingValues(start = 0.dp, top = 0.dp, end = 0.dp, bottom = dashboardBandHeight.value)
                 )
         ) {
-            if (screenLocked) {
-                // Unlocking is a hold, never a tap (U04): the zoom pair below already asks for a double
-                // tap, and a single tap on the lock square — a splash, a sleeve — would otherwise undo
-                // the lock. The square's own clickable stays inert; the gesture box drawn over it takes
-                // every pointer first, flashes the lock banner on a tap and unlocks on a long press.
-                val currentToggle by rememberUpdatedState(onToggleScreenLock)
-                val currentIntercepted by rememberUpdatedState(onInterceptedTap)
+            // Unlocking is a hold, never a tap (U04): the zoom pair below already asks for a double
+            // tap, and a single tap on the lock square — a splash, a sleeve — would otherwise undo
+            // the lock. The square's own clickable stays inert; the gesture box drawn over it takes
+            // every pointer first, flashes the lock line on a tap and unlocks on a long press.
+            val currentToggle by rememberUpdatedState(onToggleScreenLock)
+            val currentIntercepted by rememberUpdatedState(onInterceptedTap)
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(
+                        top = lockTopInset,
+                        // The arithmetic's one home, over the slot the row actually drew: the same
+                        // list the row composes from finds the lock square's visible index, so the
+                        // mirror cannot land on another control.
+                        start = topToggleSlotOffset(
+                            TopToggleControl.row(appSettings).indexOf(TopToggleControl.LOCK)
+                        )
+                    )
+            ) {
+                LockScreenButton(
+                    locked = true,
+                    onClick = {}
+                )
                 Box(
                     modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(
-                            top = lockTopInset,
-                            // The arithmetic's one home, over the slot the row actually drew: the same
-                            // list the row composes from finds the lock square's visible index, so the
-                            // mirror cannot land on another control.
-                            start = topToggleSlotOffset(
-                                TopToggleControl.row(appSettings).indexOf(TopToggleControl.LOCK)
+                        .matchParentSize()
+                        .semantics { onLongClick { currentToggle(); true } }
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onTap = { currentIntercepted() },
+                                onLongPress = { currentToggle() }
                             )
-                        )
-                ) {
-                    LockScreenButton(
-                        locked = true,
-                        onClick = {}
-                    )
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .semantics { onLongClick { currentToggle(); true } }
-                            .pointerInput(Unit) {
-                                detectTapGestures(
-                                    onTap = { currentIntercepted() },
-                                    onLongPress = { currentToggle() }
-                                )
-                            }
-                    )
-                }
-                ZoomControls(
-                    onZoomIn = {
-                        mapView?.let { mv ->
-                            mv.controller.zoomIn()
-                            viewModel.updateZoomLevel(mv.zoomLevelDouble)
                         }
-                    },
-                    onZoomOut = {
-                        mapView?.let { mv ->
-                            mv.controller.zoomOut()
-                            viewModel.updateZoomLevel(mv.zoomLevelDouble)
-                        }
-                    },
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(end = 6.dp, bottom = 6.dp),
-                    doubleTap = true
                 )
             }
-            if (lockBanner != null) {
-                LockBanner(
-                    locked = lockBanner == true,
-                    tagsDrawn = bandTagsDrawn,
-                    modifier = Modifier.align(Alignment.BottomStart)
-                )
-            }
+            ZoomControls(
+                onZoomIn = {
+                    mapView?.let { mv ->
+                        mv.controller.zoomIn()
+                        viewModel.updateZoomLevel(mv.zoomLevelDouble)
+                    }
+                },
+                onZoomOut = {
+                    mapView?.let { mv ->
+                        mv.controller.zoomOut()
+                        viewModel.updateZoomLevel(mv.zoomLevelDouble)
+                    }
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 6.dp, bottom = 6.dp),
+                doubleTap = true
+            )
         }
     }
 }

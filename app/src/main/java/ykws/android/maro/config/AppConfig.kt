@@ -13,7 +13,8 @@ import java.util.Properties
  * [ui.properties](app/src/main/assets/ui.properties), and
  * [colors.properties](app/src/main/assets/colors.properties) — each file
  * overrides the previous on key collision, so `colors.properties` always
- * wins for colour keys.
+ * wins for colour keys. No key is defined in two files (`NoticePropertiesTest`): a copy left
+ * behind in a later file would silently override the one that moved.
  *
  * If a file is missing or any value cannot be parsed, the corresponding
  * hardcoded default is used so the app never crashes on a bad config.
@@ -1026,8 +1027,71 @@ object AppConfig {
         private set
 
     /** Gutter (dp) between two squares — the row's own start inset too. Default 6.
-     *  Set via `ui.map.toggle.gutter` in colors.properties. */
+     *  Set via `ui.map.toggle.gutter` in maro.properties. */
     var uiMapToggleGutter: Float = 6f
+        private set
+
+    // ── Notices — the pills and the action rows (from maro.properties, `notice.*`) ──────────────
+    // Every default is the shipped value; `NoticePropertiesTest` holds the two sides together.
+
+    /** Dwell (ms) of a short confirmation pill. Default 2000. Set via `notice.dwell.shortMs`. */
+    var noticeDwellShortMs: Long = 2_000L
+        private set
+
+    /** Dwell (ms) of a result the user must read, the import count. Default 6000. Set via `notice.dwell.readableMs`. */
+    var noticeDwellReadableMs: Long = 6_000L
+        private set
+
+    /** Dwell (ms) of an error pill, whose reason the user must read. Default 6000. Set via `notice.dwell.errorMs`. */
+    var noticeDwellErrorMs: Long = 6_000L
+        private set
+
+    /** Wait (ms) before an action row's timeout commits what it defers. Default 4000. Set via `notice.row.timeoutMs`. */
+    var noticeRowTimeoutMs: Long = 4_000L
+        private set
+
+    /** Pills standing at once; the rest queue by class. Default 3. Set via `notice.pill.maxVisible`. */
+    var noticePillMaxVisible: Int = 3
+        private set
+
+    /** Action rows standing at once; the rest queue. Default 3. Set via `notice.row.maxVisible`. */
+    var noticeRowMaxVisible: Int = 3
+        private set
+
+    /** Horizontal drag (dp) that dismisses an action row. Default 48. Set via `notice.row.swipeDp`. */
+    var noticeRowSwipeDp: Float = 48f
+        private set
+
+    /** Corner radius (dp) of the banner family's skin. Default 14. Set via `notice.skin.cornerDp`. */
+    var noticeSkinCornerDp: Float = 14f
+        private set
+
+    /** Border width (dp) of the banner family's skin. Default 2. Set via `notice.skin.borderDp`. */
+    var noticeSkinBorderDp: Float = 2f
+        private set
+
+    /** Shadow elevation (dp) under every banner. Default 8. Set via `notice.skin.shadowDp`. */
+    var noticeSkinShadowDp: Float = 8f
+        private set
+
+    /** Text size (sp) of the banner family's line. Default 16. Set via `notice.text.sizeSp`. */
+    var noticeTextSizeSp: Float = 16f
+        private set
+
+    /** Horizontal padding (dp) inside a pill. Default 16. Set via `notice.pill.padHorizontalDp`. */
+    var noticePillPadHorizontalDp: Float = 16f
+        private set
+
+    /** Vertical padding (dp) inside a pill. Default 10. Set via `notice.pill.padVerticalDp`. */
+    var noticePillPadVerticalDp: Float = 10f
+        private set
+
+    /** Gap (dp) under a pill and between two stacked pills. Default 6. Set via `notice.stack.gapDp`. */
+    var noticeStackGapDp: Float = 6f
+        private set
+
+    /** Window (ms) for the second back press, and the exit pill's dwell. Default 2000. Set via `map.exit.backWindowMs`. */
+    var exitBackWindowMs: Long = 2_000L
         private set
 
     /** Emoji glyph size (sp) inside one square. Default 22.
@@ -2392,6 +2456,22 @@ object AppConfig {
             props.getProperty("ui.map.toggle.square")?.toFloatOrNull()?.let { uiMapToggleSquare = it }
             props.getProperty("ui.map.toggle.gutter")?.toFloatOrNull()?.let { uiMapToggleGutter = it }
             props.getProperty("ui.map.toggle.icon.size")?.toFloatOrNull()?.let { uiMapToggleIconSize = it }
+            // ── Notices ──────────────────────────────────────────────────────
+            props.getProperty("notice.dwell.shortMs")?.toLongOrNull()?.let { noticeDwellShortMs = it.coerceIn(500L, 10_000L) }
+            props.getProperty("notice.dwell.readableMs")?.toLongOrNull()?.let { noticeDwellReadableMs = it.coerceIn(500L, 30_000L) }
+            props.getProperty("notice.dwell.errorMs")?.toLongOrNull()?.let { noticeDwellErrorMs = it.coerceIn(500L, 30_000L) }
+            props.getProperty("notice.row.timeoutMs")?.toLongOrNull()?.let { noticeRowTimeoutMs = it.coerceIn(1_000L, 30_000L) }
+            props.getProperty("notice.pill.maxVisible")?.toIntOrNull()?.let { noticePillMaxVisible = it.coerceIn(1, 6) }
+            props.getProperty("notice.row.maxVisible")?.toIntOrNull()?.let { noticeRowMaxVisible = it.coerceIn(1, 6) }
+            props.getProperty("notice.row.swipeDp")?.toFloatOrNull()?.let { noticeRowSwipeDp = it.coerceIn(16f, 200f) }
+            props.getProperty("notice.skin.cornerDp")?.toFloatOrNull()?.let { noticeSkinCornerDp = it.coerceIn(0f, 32f) }
+            props.getProperty("notice.skin.borderDp")?.toFloatOrNull()?.let { noticeSkinBorderDp = it.coerceIn(0f, 8f) }
+            props.getProperty("notice.skin.shadowDp")?.toFloatOrNull()?.let { noticeSkinShadowDp = it.coerceIn(0f, 24f) }
+            props.getProperty("notice.text.sizeSp")?.toFloatOrNull()?.let { noticeTextSizeSp = it.coerceIn(10f, 24f) }
+            props.getProperty("notice.pill.padHorizontalDp")?.toFloatOrNull()?.let { noticePillPadHorizontalDp = it.coerceIn(0f, 32f) }
+            props.getProperty("notice.pill.padVerticalDp")?.toFloatOrNull()?.let { noticePillPadVerticalDp = it.coerceIn(0f, 24f) }
+            props.getProperty("notice.stack.gapDp")?.toFloatOrNull()?.let { noticeStackGapDp = it.coerceIn(0f, 24f) }
+            props.getProperty("map.exit.backWindowMs")?.toLongOrNull()?.let { exitBackWindowMs = it.coerceIn(500L, 5_000L) }
             // ── Inspect mode ─────────────────────────────────────────────────
             // The clamp keeps a malformed file from breaking the trigger: a dwell of zero would
             // recentre on the first frame of every pan. The margin's own clamp stops it from either

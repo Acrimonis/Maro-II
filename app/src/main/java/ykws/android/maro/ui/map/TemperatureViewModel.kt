@@ -60,7 +60,7 @@ internal class TemperatureViewModel(application: Application) : AndroidViewModel
 
     private val _notices = MutableSharedFlow<TemperatureNotice>(extraBufferCapacity = 4)
 
-    /** What the user is told by toast: a refresh begun, a request that went wrong, no connection to refresh on. */
+    /** What the user is told by a pill on the notice host: a refresh begun, a request that went wrong, no connection to refresh on. */
     val notices: SharedFlow<TemperatureNotice> = _notices
 
 

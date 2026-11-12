@@ -44,6 +44,9 @@ touching the device, and stating a claim about the code with no file read behind
   line, and `eli20jp` names it — a floor, never a lid: a gate's verdict line, a review's item list and
   any evidence a rule demands stay on top of it. `#brief` subtracts the ELIJP half and leaves the
   closing line standing.
+- **🪧 `b20` (also `bullet20`) is a bullet list in plain words.** Every bullet is twenty words or fewer,
+  jargon stripped — no paths, identifiers or mechanism — and the list is the whole answer, with no
+  headings and no nesting. The focus line below still closes it.
 - **🪧 Focus line.** Every reply closes on one line of twenty words or fewer saying what the exchange
   settled, in plain words — no mechanism, no paths or identifiers, and never a next step or a question.
 - **🗣️ Recommendations argue against themselves.** State the strongest objection to your own

@@ -1,20 +1,20 @@
-# Context Hydration — Ui_General — 2026-10-23
+# Context Hydration — Ui_General — 2026-11-12
 
-**Last Bake:** 2026-10-23 15:22 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-11-12 13:25 UTC — written by `#bake`; absence means never baked
 
-**Directive trace:** All five covered action classes were met — no dependency was added, no machine-shaped data file was opened, every write followed the user's own orders (`#new toats-life-cycle`, the z-order discussion, then `#focus Ui_General`/`#bake`/`#commit`/`#merge`/`#push`), the device was not touched, and every claim about the code rests on a file read.
+**Directive trace:** All five covered action classes were met — no dependency was added, no machine-shaped data file was opened, every write followed the user's own orders (`#impl` for the steps, the finalize and the review fixes, `#bake`, `#commit`), the device was not touched (the user ran both device passes), and every claim about the code rests on a file read.
 
 ## State
 
-On `feature/toats-life-cycle`, cut from `origin/develop` with `--no-track`. The map's bottom-band snackbar/toast stack now composes **before** the drawer ladder: `MapSnackbarHost` sits ahead of `OverlayLayer` in `MapScreen.kt`, so an open drawer and its scrim paint above a visible toast while the dialogs still paint above the drawer; the `MapStatusBanner` toasts already lay inside `MapContent`, below the menu. `docs/ui-drawer-guidelines.md` §1 lists the stack in Layer 0.
-
-Gates: `:app:compileDebugKotlin` and `:app:assembleDebug` green; the device pass is the user's.
+On `feature/notices-toasts`, cut from `origin/develop` at PR #404. The notice host is built, reviewed and device-validated: every transient map message is a pill on `NoticeHost` (a pure `NoticeArbiter` behind the process-scoped `NoticeCenter`, keys in `NoticeKeys`), no `android.widget.Toast` remains, and the undo rows' queue rules are the pure `ActionLane`. The post-build code review's seven findings are folded (waiting notices show late instead of dropping, queued replacements re-rank, the host resolves text once per notice, the center tracks attached hosts for startup posts and orphan statuses); `assembleDebug` is green with 1 882 unit tests, and the user's device pass on the final build read OK. The `### notice host` section is folded into `## Implemented`; its rules, docs and key files now sit at feature level.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `MapSnackbarHost` moved ahead of `OverlayLayer`, the call site carrying the z-order comment
-- `docs/ui-drawer-guidelines.md` §1 — the bottom-band stack added to the Layer 0 diagram
+- `xTrack/Ui_General/261111_FEAT_PLN_Ui_General_notice-host.md` — the plan of record, with its `## Implemented` and `## Outcome`
+- `app/src/main/java/ykws/android/maro/ui/notice/NoticeArbiter.kt` — class ranking, replace-by-key and re-rank, late-not-dropped waiting
+- `app/src/main/java/ykws/android/maro/ui/notice/NoticeCenter.kt` — attached-host count, startup restamp, orphan-status guard
+- `app/src/main/java/ykws/android/maro/ui/map/NoticeHost.kt` — text resolved once per notice
 
 ## Next Step
 
-Nothing owed on the z-order itself; the device looks at the menu opened over a route-ending or undo toast. Retirement candidates reported, not moved: `261004_FEAT_PLN_Ui_General_action-toasts.md` and `261005_FEAT_PLN_Ui_General_action-toast-alignment.md` — `#archive` does the moving.
+No open todo in the notice host. Remaining Ui_General todos: the route-dialogs device pass and the three diagnostic log lines in `RouteHost`.
