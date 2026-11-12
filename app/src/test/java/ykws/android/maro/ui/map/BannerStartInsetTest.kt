@@ -18,27 +18,27 @@ import java.util.Properties
  * its `reservesControlColumn` states.
  *
  * The numbers the arithmetic ships with are the ones the `ui.map.*` keys carry in
- * `app/src/main/assets/colors.properties`, read here in the shape `CoastlineAppearancePropertiesTest`
+ * `app/src/main/assets/maro.properties` (the bottom band's geometry moved there from `colors.properties`), read here in the shape `CoastlineAppearancePropertiesTest`
  * uses: the code holds the same values as defaults, so a key misspelled on either side, or a value moved
  * on one side only, fails here instead of leaving the code's default standing unnoticed.
  */
 class BannerStartInsetTest {
 
-    private val colorsFile: File = System.getProperty("maro.repoDir")
-        ?.let { File(it, "app/src/main/assets/colors.properties") }
+    private val propertiesFile: File = System.getProperty("maro.repoDir")
+        ?.let { File(it, "app/src/main/assets/maro.properties") }
         ?.takeIf { it.isFile }
-        ?: File("src/main/assets/colors.properties")
+        ?: File("src/main/assets/maro.properties")
 
     /**
      * The three shipped keys the inset's arithmetic reads, with `${key}` references resolved the way
      * `AppConfig` resolves them — `ui.map.overlay.gap` is written as the gutter, not as a literal.
      */
     private fun shippedInsets(): Triple<Float, Float, Float> {
-        assumeTrue("colors.properties not found", colorsFile.isFile)
-        val props = Properties().apply { colorsFile.inputStream().use { load(it) } }
+        assumeTrue("maro.properties not found", propertiesFile.isFile)
+        val props = Properties().apply { propertiesFile.inputStream().use { load(it) } }
 
         fun value(key: String): Float {
-            val raw = props.getProperty(key)?.trim() ?: error("colors.properties must carry $key")
+            val raw = props.getProperty(key)?.trim() ?: error("maro.properties must carry $key")
             val resolved = REF.replace(raw) { m -> props.getProperty(m.groupValues[1])?.trim() ?: m.value }
             return resolved.toFloat()
         }

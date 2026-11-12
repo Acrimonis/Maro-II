@@ -1,7 +1,6 @@
 package ykws.android.maro.ui.map
 
 import android.content.Context
-import android.widget.Toast
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -20,6 +19,7 @@ import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.temperature.TemperatureProblem
 import ykws.android.maro.data.temperature.TemperatureSource
+import ykws.android.maro.ui.notice.NoticeCenter
 import androidx.compose.ui.graphics.Color as ComposeColor
 
 /**
@@ -28,8 +28,8 @@ import androidx.compose.ui.graphics.Color as ComposeColor
  * `temperature.tile.alpha` so the colour stays strong over the map.
  *
  * A tap switches between air and water when the marker is on water. A long press asks for fresh values and
- * says so: a vibration, a toast (raised by the ViewModel, so the settings control gets it too), and the
- * shown value subdued until the new one arrives.
+ * says so: a vibration, a pill on the notice host (the ViewModel raises it, the tile is the only caller), and
+ * the shown value subdued until the new one arrives.
  * The text is subdued while the value is outdated or is the previous one awaiting its replacement.
  */
 @Composable
@@ -45,17 +45,11 @@ internal fun TemperatureTile(
     val haptics = LocalHapticFeedback.current
     val context = LocalContext.current
 
-    // One toast at a time: a new notice replaces the one on screen instead of queueing behind it.
+    // The one collection site: each notice becomes a pill on the notice host, which paints it over any open
+    // drawer, so a failed fetch is seen even with Settings open. One key, so a new line replaces the old.
     LaunchedEffect(viewModel) {
-        var shown: Toast? = null
         viewModel.notices.collect { notice ->
-            shown?.cancel()
-            shown = when (notice) {
-                TemperatureNotice.Refreshing ->
-                    Toast.makeText(context, R.string.temperature_refresh_toast, Toast.LENGTH_SHORT)
-                is TemperatureNotice.Problem ->
-                    Toast.makeText(context, problemMessage(context, notice.problem), Toast.LENGTH_LONG)
-            }.also { it.show() }
+            NoticeCenter.shared.post(notice.asNotice { problemMessage(context, it) })
         }
     }
     val tint = ComposeColor(temperatureTint(view == TemperatureView.WATER))
@@ -92,7 +86,7 @@ internal fun TemperatureTile(
     }
 }
 
-/** The toast line for a problem: no connection, or the source, the HTTP status and the API's own reason. */
+/** The pill line for a problem: no connection, or the source, the HTTP status and the API's own reason. */
 private fun problemMessage(context: Context, problem: TemperatureProblem): String {
     val source = problem.source ?: return context.getString(R.string.temperature_problem_offline_toast)
     val label = context.getString(

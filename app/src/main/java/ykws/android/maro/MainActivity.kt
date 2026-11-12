@@ -15,7 +15,6 @@ import android.os.Bundle
 import android.provider.Settings
 import android.view.MotionEvent
 import android.view.WindowInsetsController
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -59,6 +58,10 @@ import ykws.android.maro.config.AppConfig
 import ykws.android.maro.spatial.DirectoryFineTileStore
 import ykws.android.maro.spatial.RouteEngineChoice
 import ykws.android.maro.spatial.multipass.FineTileCache
+import ykws.android.maro.ui.notice.Notice
+import ykws.android.maro.ui.notice.NoticeCenter
+import ykws.android.maro.ui.notice.NoticeKeys
+import ykws.android.maro.ui.notice.NoticeText
 import java.io.File
 
 /** The fine-tile reclaim alert's own notification id — distinct from the recording banner's 1001 (D9). */
@@ -77,7 +80,7 @@ class MainActivity : ComponentActivity() {
      * The one `POST_NOTIFICATIONS` ask (D1). Registered as a property so it is bound at construction —
      * legal before `onStart`, unlike a call from `onCreate` — and launched from the composition's head
      * only on Android 13+ and only while the grant is missing. The result needs no reader: a denial is
-     * covered by the alert's own `areNotificationsEnabled()` guard, which leaves the toast alone.
+     * covered by the alert's own `areNotificationsEnabled()` guard, which leaves the error pill alone.
      */
     private val requestNotificationPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -140,7 +143,7 @@ class MainActivity : ComponentActivity() {
             // and never requested, so a posted notification stays invisible on Android 13+ without it.
             // Fired at the head of the composition — over a drawn window rather than a blank one — and
             // only while the grant is missing, so a granted app is never asked again. A denial needs no
-            // handling: the alert's own guard degrades it to the toast.
+            // handling: the alert's own guard degrades it to the pill.
             LaunchedEffect(Unit) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                     ContextCompat.checkSelfPermission(
@@ -312,16 +315,19 @@ class MainActivity : ComponentActivity() {
      * Reports the colour keys the runtime parser could not read, at start (R42). Empty — the ordinary
      * case — shows nothing at all, so a correct `maro.properties` stays silent and a broken one does
      * not. The keys come from the runtime parser's own channel ([AppConfig.unreadableColourKeys]), the
-     * build no longer publishing them.
+     * build no longer publishing them. It runs before the first composition, so the error is posted on the
+     * process-scoped center, and its dwell starts when the map's notice host first attaches
+     * ([NoticeCenter.hostAttached]), not at the post.
      */
     private fun reportUnreadableColourKeys() {
         val keys = ykws.android.maro.config.AppConfig.unreadableColourKeys
         if (keys.isEmpty()) return
-        Toast.makeText(
-            this,
-            getString(R.string.startup_colour_value_unreadable, keys.joinToString(",")),
-            Toast.LENGTH_LONG
-        ).show()
+        NoticeCenter.shared.post(
+            Notice.error(
+                NoticeKeys.STARTUP_COLOURS,
+                NoticeText.Res(R.string.startup_colour_value_unreadable, listOf(keys.joinToString(",")))
+            )
+        )
     }
 
     /**
@@ -330,35 +336,34 @@ class MainActivity : ComponentActivity() {
      */
     private fun reportUnclaimedRouteEngineId(id: String) {
         if (RouteEngineChoice.all.any { it.id == id }) return
-        Toast.makeText(
-            this,
-            getString(R.string.startup_route_engine_id_unclaimed, id),
-            Toast.LENGTH_LONG
-        ).show()
+        NoticeCenter.shared.post(
+            Notice.error(
+                NoticeKeys.STARTUP_ROUTE_ENGINE,
+                NoticeText.Res(R.string.startup_route_engine_id_unclaimed, listOf(id))
+            )
+        )
     }
 
     /**
      * Reports the fine-tile store's **first reclamation** (D9) — the disk ceiling evicted the oldest
      * tiles. Raised mid-arm by the store's own `onReclaim`, already hopped to the UI thread there, and
-     * once-guarded in the store, so a long session says it at most once. The toast is seen at once and
-     * the notification survives the shade, so the event says itself both ways and neither replaces the
-     * other.
+     * once-guarded in the store, so a long session says it at most once. The error pill is seen at once
+     * and the notification survives the shade, so the event says itself both ways and neither replaces
+     * the other.
      */
     private fun reportFineTileReclaimed() {
-        Toast.makeText(
-            this,
-            getString(R.string.startup_fine_tile_reclaimed),
-            Toast.LENGTH_LONG
-        ).show()
+        NoticeCenter.shared.post(
+            Notice.error(NoticeKeys.FINE_TILE_RECLAIM, NoticeText.Res(R.string.startup_fine_tile_reclaimed))
+        )
         postFineTileReclaimNotification()
     }
 
     /**
-     * Pushes the reclamation as a notification beside the toast (D9). It rides the app's one channel —
+     * Pushes the reclamation as a notification beside the error pill (D9). It rides the app's one channel —
      * [TrackRecordingService.CHANNEL_ID], already silent — so no second entry appears in Android's
      * notification settings; it is auto-cancelling and non-ongoing, and it opens the app on the same
      * intent the recording banner uses. Posted only while notifications are enabled, so a denied or
-     * revoked grant degrades to the toast alone rather than a silent refusal.
+     * revoked grant degrades to the pill alone rather than a silent refusal.
      */
     private fun postFineTileReclaimNotification() {
         val manager = NotificationManagerCompat.from(this)

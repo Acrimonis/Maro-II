@@ -94,13 +94,13 @@ internal fun bannerStartInset(tagsDrawn: Boolean): Dp =
     TOP_TOGGLE_GUTTER + (if (tagsDrawn) TOP_TOGGLE_SQUARE + AppConfig.uiMapOverlayGap.dp else 0.dp)
 
 /** Corner of the banner family — the pill and the two cards share it. */
-private val BANNER_CORNER = RoundedCornerShape(14.dp)
+private val BANNER_CORNER: RoundedCornerShape get() = RoundedCornerShape(AppConfig.noticeSkinCornerDp.dp)
 
 /** Border width (dp) of the banner family, stroked in the caller's own colour. */
-private val BANNER_BORDER_WIDTH = 2.dp
+private val BANNER_BORDER_WIDTH: Dp get() = AppConfig.noticeSkinBorderDp.dp
 
 /** Shadow (dp) under every banner. */
-private val BANNER_SHADOW_ELEVATION = 8.dp
+private val BANNER_SHADOW_ELEVATION: Dp get() = AppConfig.noticeSkinShadowDp.dp
 
 /**
  * A 44×44 dp icon square showing either water (🌊) or earth (🏔️), painted by [MapToggleSquare] on the
@@ -329,7 +329,7 @@ internal fun ZoomButton(
 }
 
 /**
- * The bottom band's one banner control — the three pills and the two cards' shared container.
+ * The bottom band's one banner control — the notice host's pills, the lock pill and the two cards' shared container.
  *
  * It owns the family's skin (a [BANNER_CORNER] corner, a [BANNER_BORDER_WIDTH] border in [borderColor]
  * over [AppConfig.uiCardBackground], a [BANNER_SHADOW_ELEVATION] shadow and
@@ -343,16 +343,15 @@ internal fun ZoomButton(
  * The rules this family follows are written in `docs/ui-component-guidelines.md` §5.7 and nowhere
  * else — this KDoc and the two call-site faces below point at it rather than restating it.
  *
- * @param borderColor the border's own colour, the one thing that distinguishes the faces: the
- *        recording red or [AppConfig.uiDashboardBackground] for the exit banner, the fixed
- *        [AppConfig.uiDashboardBackground] for the lock and status banners,
- *        [AppConfig.uiDashboardZoneDanger] for the error card.
+ * @param borderColor the border's own colour, the one thing that distinguishes the faces: the notice host's
+ *        pills wear [AppConfig.uiDashboardBackground], or the recording red for the exit pill while a
+ *        recording would be stopped, and [AppConfig.uiDashboardZoneDanger] marks the error card.
  * @param tagsDrawn whether the bottom-left tag stack draws at least one tag — the band's one answer to
  *        "is that column there", read through `regulatedZoneTags`.
  * @param reservesControlColumn whether the banner's parent is full width, so nothing else keeps its face
- *        off the right control column. True for [LockBanner] and [MapStatusBanner], whose parent is the
- *        whole map area; false for the exit toast and the two cards, whose parent is the map's left
- *        overlay column and already ends where that column does.
+ *        off the right control column. True for the notice host's pills, whose parent is the whole map
+ *        area; false for the two cards, whose parent is the map's left overlay column and already ends
+ *        where that column does.
  */
 @Composable
 internal fun MapBanner(
@@ -392,12 +391,12 @@ internal fun MapBanner(
 @Composable
 internal fun bannerLineStyle(): TextStyle = TextStyle(
     color = ComposeColor(AppConfig.uiToastText),
-    fontSize = 16.sp,
+    fontSize = AppConfig.noticeTextSizeSp.sp,
     fontWeight = FontWeight.Medium
 )
 
 /**
- * The banner face's one line — what the three pills hand [MapBanner]'s slot: [bannerLineStyle], centred,
+ * The banner face's one line — what the pills hand [MapBanner]'s slot: [bannerLineStyle], centred,
  * on 16/10 padding, and with no `maxLines` and no ellipsis, so a long message wraps uncapped and the
  * bottom-anchored pill grows upward rather than cutting its instruction.
  */
@@ -407,76 +406,9 @@ internal fun MapBannerText(text: String) {
         text = text,
         style = bannerLineStyle(),
         textAlign = TextAlign.Center,
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
-    )
-}
-
-/**
- * Lock/unlock feedback banner — the screen-lock face of [MapBanner]. Its parent is the whole map area,
- * so it is the control that reserves the right control column (`reservesControlColumn = true`), and its
- * pill centres in the band's free space: clear of the bottom-left tag column while one is drawn
- * ([tagsDrawn]), and of the control column always. The border is the fixed
- * [AppConfig.uiDashboardBackground]. Non-interactive.
- */
-@Composable
-internal fun LockBanner(
-    locked: Boolean,
-    tagsDrawn: Boolean,
-    modifier: Modifier = Modifier
-) {
-    MapBanner(
-        borderColor = ComposeColor(AppConfig.uiDashboardBackground),
-        tagsDrawn = tagsDrawn,
-        modifier = modifier.padding(bottom = 6.dp),
-        reservesControlColumn = true
-    ) {
-        MapBannerText(
-            text = stringResource(
-                if (locked) R.string.toast_screen_locked else R.string.toast_screen_unlocked
-            )
+        modifier = Modifier.padding(
+            horizontal = AppConfig.noticePillPadHorizontalDp.dp,
+            vertical = AppConfig.noticePillPadVerticalDp.dp
         )
-    }
-}
-
-/**
- * Map status banner — the import and in-progress track-operation face of [MapBanner]. Same fixed
- * [AppConfig.uiDashboardBackground] border and the same full-size parent as [LockBanner], so it asks
- * the control for the same right-control-column reserve and centres in the band's free space beside it.
- * Non-interactive.
- */
-@Composable
-internal fun MapStatusBanner(
-    message: String,
-    tagsDrawn: Boolean,
-    modifier: Modifier = Modifier
-) {
-    MapBanner(
-        borderColor = ComposeColor(AppConfig.uiDashboardBackground),
-        tagsDrawn = tagsDrawn,
-        modifier = modifier.padding(bottom = 6.dp),
-        reservesControlColumn = true
-    ) {
-        MapBannerText(text = message)
-    }
-}
-
-/**
- * The status pills' one column — every [MapStatusBanner] message that stands at once, drawn one above the
- * other instead of each pinned to the same corner and painted over the last.
- *
- * [messages] arrive in top-to-bottom order, so the newest or most pressing one is last and sits on the band's
- * bottom edge. Each pill keeps its own 6 dp bottom gap, which is also the gap between two of them. An empty
- * list draws nothing. The caller owns which messages stand and for how long — a transient toast and a message
- * bound to a state alike — so this column holds no timer and no state.
- */
-@Composable
-internal fun MapStatusBannerStack(
-    messages: List<String>,
-    tagsDrawn: Boolean,
-    modifier: Modifier = Modifier
-) {
-    if (messages.isEmpty()) return
-    Column(modifier = modifier) {
-        messages.forEach { message -> MapStatusBanner(message = message, tagsDrawn = tagsDrawn) }
-    }
+    )
 }

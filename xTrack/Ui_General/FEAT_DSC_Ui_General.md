@@ -2,7 +2,7 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-10-23 15:22
+modified: 2026-11-12 11:35
 ---
 
 # Feature: Ui_General
@@ -17,7 +17,7 @@ App-lifecycle UX for the Maro-II app: back-exit guard, edge-to-edge rendering, W
 - Each list card is entered by a leading selection door, the picked card wearing a 2 dp accent border, the 15 % shift and a 24 dp check disc at the head of the first line.
 - The delete family runs on one pending set with one hiding rule — a card's deferred delete hides its item on the map while a list swipe never does.
 - The selected-item dashboard closes on exactly two conditions: a surface wanting its slot, or a change of the world its Prev/Next walks.
-- The bottom-band snackbar/toast stack composes before the drawer ladder, so an open drawer and its scrim cover it while dialogs stay above the drawer.
+- Every transient map message is a pill on one notice host (`NoticeHost`, a pure `NoticeArbiter` behind a process-scoped `NoticeCenter`) and no Android Toast remains; the pills paint above the drawer ladder, while the undo rows keep the 2026-10-23 rule and stay under it, their queue rules the pure `ActionLane`. Steps 0–5 of the plan are built and the preliminary device pass read OK; the code review's findings are open (see `### notice host`). The feature was folded into this one from the short-lived Notices feature on 2026-11-12.
 
 ## Sections
 
@@ -45,12 +45,43 @@ The pills the map shows at the bottom of the band — the exit-press-back banner
 
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — the exit toast's box, the two banner call sites, the double-back guard, `SnackRow`'s container and its commands
-- `app/src/main/java/ykws/android/maro/ui/map/MapControls.kt` — `LockBanner` and `MapStatusBanner` today, one `MapBanner` holding the shared skin after the fix, and `bannerLineStyle` as the family's one text definition
+- `app/src/main/java/ykws/android/maro/ui/map/MapControls.kt` — `MapBanner` holding the shared skin (the pills are drawn by `NoticeHost`; `LockBanner` and `MapStatusBanner` are gone) and `bannerLineStyle` as the family's one text definition
 - `app/src/main/java/ykws/android/maro/ui/map/MapSnackbarHost.kt` — the stack, its clearance and its three extracted messages
 - `app/src/main/java/ykws/android/maro/ui/map/CoastlineMapView.kt` — `LoadingOverlay` and `ErrorOverlay`, which take that control
 - `app/src/main/java/ykws/android/maro/ui/map/RegulatedZoneComponents.kt` — the tag stack, the info text, the pair derivation they share
 - `docs/ui-drawer-guidelines.md` §1 — the paint-only right-edge control column rule
 - `docs/ui-component-guidelines.md` §5 — the banner family entry, the only home for its rules
+
+### notice host
+
+One notice host for every transient message on the map: a pill lane ranked by class (exit, error, status, result, confirmation) with replace-by-key, an action lane for the undo rows, and a stateless Compose face on the bottom-band pill skin. Built through all six steps of the plan and read OK on a preliminary device pass; the plan's regression guards (§3) and ranked risks (§7) stay the review checklist, above all that a row's timeout still commits deletes and route disposals. What is open is the finalized-build device pass and the findings of the post-build code review:
+
+#### Todos
+- [ ] Take the device pass on the finalized build (the preliminary pass read OK).
+- [ ] Review fix — a lock, save or route confirmation that waits past its 2 s dwell behind standing statuses is dropped, where the old banners always showed; the lock line is the user's only lock feedback.
+- [ ] Review fix — a post under a key already queued keeps the old queue position instead of re-ranking by its new class (a temperature error replacing a queued refresh line).
+- [ ] Review fix — `NoticeHost` re-resolves every pill's text on each recomposition, including each frame of the dashboard band's animation; resolve once per notice.
+- [ ] Review fix — `MapBanner`'s skin getters (`BANNER_CORNER`, border, shadow) allocate on every access; read them once.
+- [ ] Review fix — `MapDashboardController.publish` clears and refills the whole visible list on every change; apply only the difference.
+- [ ] Review fix — a startup notice re-posted on a recreated activity runs its dwell from the post (`hostAttached` restamps once per process); a late transfer-progress callback after `MapScreen` is gone can leave a status pill with no timeout.
+- [ ] Review fix — delete the orphan KDoc above `ImportBannerState` in `MapScreen.kt`.
+
+#### Rules
+- The notice lane paints above the drawer ladder; the action lane stays under it (user, 2026-11-11). Action rows sit on the band's edge, pills stacked above.
+- A row's timeout commits its delete or route disposal: no notice may delay, pre-empt or drop a row, and the double-back window and the exit pill share one key.
+- Moved properties keep their names and leave their old file in the same change; `ui.toast.*` colours stay in `colors.properties`.
+
+#### Docs
+- `xTrack/Ui_General/261111_FEAT_PLN_Ui_General_notice-host.md` — the decisions, the model, the guards and the migration order
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/NoticeHost.kt` · `ui/notice/` — the host and the pure arbiter, centre and model
+- `app/src/main/java/ykws/android/maro/ui/map/MapControls.kt` — `MapBanner` family (`MapStatusBannerStack` retired)
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — the notice posts (keys in `NoticeKeys`), the back handler's exit post, the lock line
+- `app/src/main/java/ykws/android/maro/ui/map/MapDashboardController.kt` — the action rows' Compose list over the pure `ActionLane`
+- `app/src/main/java/ykws/android/maro/ui/map/TemperatureTile.kt` — posts the temperature notices
+- `app/src/main/java/ykws/android/maro/config/AppConfig.kt` — the load order the properties move depends on
+- `docs/ui-component-guidelines.md` §5.7 — the family's only rule home
 
 ### route-dialogs
 
@@ -81,6 +112,8 @@ The app's dropdown is the row family's own box: the row is the anchor, the list 
 - `docs/ui-component-guidelines.md` §2.12 — its rules; §2.10 holds the popup surface the wheel sits on; §2.15 the rule of entry
 
 ## Implemented
+
+- **notice-host (2026-11-12, `feature/notices-toasts`)** — one notice host carries every transient message on the map. A pure `NoticeArbiter` (`ui/notice/`) ranks the pill lane by class — exit, error, status, result, confirmation — coalesces by key, and a process-scoped `NoticeCenter` is the one place anything posts from, the startup diagnostics included (their dwell starts when the first `NoticeHost` attaches). The pills — import result, transfer status, saves, route confirmations, arrival, the exit and lock lines, the temperature tile's refresh and problem lines and the speed-history result — **paint above the drawer ladder**, reversing the 2026-10-23 `toast-menu-z-order` rule for pills; the action and undo rows keep that rule and stay under the ladder, their queue rules now the pure `ActionLane`. The notice family's figures moved into `maro.properties` (`notice.*`, `map.exit.backWindowMs` — one key for the double-back window and the exit pill's dwell), every key lives in `NoticeKeys`, and no `android.widget.Toast` remains in the app. §5.7 carries the "which vehicle when" rule. `assembleDebug` green and the unit suite green; the preliminary device pass read OK → [`261111_FEAT_PLN_Ui_General_notice-host.md`](261111_FEAT_PLN_Ui_General_notice-host.md)
 
 - **toast-menu-z-order (2026-10-23, `feature/toats-life-cycle`)** — the map's bottom-band snackbar/toast stack now composes **before** the drawer ladder: `MapSnackbarHost` moved ahead of `OverlayLayer` in `MapScreen.kt`, so an open drawer and its scrim paint above a visible toast while the dialogs stay above the drawer — the `MapStatusBanner` toasts already sat inside `MapContent`, below the menu. `docs/ui-drawer-guidelines.md` §1 lists the stack in Layer 0. `:app:compileDebugKotlin` and `:app:assembleDebug` green; no dependency added, the device pass the user's.
 

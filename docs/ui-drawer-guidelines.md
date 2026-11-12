@@ -18,7 +18,8 @@ Layer 0 (permanent, always rendered):
 ├── Right-edge controls (fan, add zone, zoom)
 ├── GPS / Track / EarthWater status icons (EarthWater hidden when the Layers tab setting is off)
 ├── Regulated zone warning strip
-└── Bottom-band snackbar/toast stack (`MapSnackbarHost` + the `MapStatusBanner` toasts) — composed before `OverlayLayer`, so drawers paint above it
+├── Bottom-band action rows (`MapSnackbarHost`) — composed before `OverlayLayer`, so drawers paint above them
+└── Notice lane (`NoticeHost`, the pills) — composed after `OverlayLayer`, so a pill reads **over** an open drawer (2026-11-11); the dialogs and the lock scrim still paint above it. The lock and exit lines are pills on this lane since 2026-11-12, so the lock layer paints no banner of its own
 
 Layer 1 (transient, self-contained):
 ├── Scrim
@@ -37,7 +38,7 @@ Layer 1 is a single composable call: [`OverlayLayer`](../app/src/main/java/ykws/
 
 **Key rule:** Layer 0 components must never be conditional. Dashboard, controls, and status icons are always present. Only Layer 1 surfaces appear/disappear.
 
-**Right-edge control column rule (paint-only):** the right-edge controls (zoom `+`/`−`, fan, add-zone) float over the map; the map itself always renders full-bleed and must never be padded by the control column. An overlay drawn **outside** the map's left overlay column anchors `BottomStart` — never `BottomCenter`/`BottomEnd` — and reserves the column on the overlay itself via `end = RIGHT_CONTROL_COLUMN_INSET` (82dp: 12dp gap + 64dp button + 6dp end). Its live users are the undo snackbar stack ([`MapSnackbarHost`](../app/src/main/java/ykws/android/maro/ui/map/MapSnackbarHost.kt)), `LockBanner` and `MapStatusBanner`, all three drawn from full-width parents.
+**Right-edge control column rule (paint-only):** the right-edge controls (zoom `+`/`−`, fan, add-zone) float over the map; the map itself always renders full-bleed and must never be padded by the control column. An overlay drawn **outside** the map's left overlay column anchors `BottomStart` — never `BottomCenter`/`BottomEnd` — and reserves the column on the overlay itself via `end = RIGHT_CONTROL_COLUMN_INSET` (82dp: 12dp gap + 64dp button + 6dp end). Its live users are the undo snackbar stack ([`MapSnackbarHost`](../app/src/main/java/ykws/android/maro/ui/map/MapSnackbarHost.kt)), and the notice host's pills ([`NoticeHost`](../app/src/main/java/ykws/android/maro/ui/map/NoticeHost.kt)), all drawn from full-width parents.
 
 **Bottom-band clearance rule:** every banner in the map's bottom band clears the bottom-left zone tag column whenever one is drawn — its start inset is `bannerStartInset(tagsDrawn)`, the band's gutter plus the tag column's width — and the right control column always; an overlay inside the left overlay column takes that second half from the column itself and adds no `end` reserve of its own, an overlay outside it from the rule above. The banner family's control, skin, clearance and each face's interior are written once, in `docs/ui-component-guidelines.md` §5.7.
 

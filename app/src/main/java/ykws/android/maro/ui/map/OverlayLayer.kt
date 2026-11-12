@@ -31,7 +31,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color as ComposeColor
@@ -53,6 +52,7 @@ import ykws.android.maro.ui.components.ConfirmActionRole
 import ykws.android.maro.ui.components.DrawerScaffold
 import ykws.android.maro.ui.components.PendingDeletion
 import ykws.android.maro.ui.icons.Speed
+import ykws.android.maro.ui.notice.NoticeCenter
 import kotlinx.coroutines.launch
 
 /**
@@ -292,7 +292,6 @@ internal fun OverlayLayer(
 
     // ── Collect track ViewModel state ────────────────────────────────────
     val settingsScope = rememberCoroutineScope()
-    val context = LocalContext.current
     // Calculate runs once at a time: the button is off from the press until the store is rebuilt.
     var speedHistoryCalculating by remember { mutableStateOf(false) }
     val trackRecorderState by trackViewModel.uiState.collectAsState()
@@ -1000,15 +999,11 @@ internal fun OverlayLayer(
                         settingsScope.launch {
                             try {
                                 val store = seedSpeedHistory(trackViewModel, routeRestricted)
-                                // No eligible track leaves the history as it stood; the toast says which.
+                                // No eligible track leaves the history as it stood; the notice says which.
                                 if (store.isNotEmpty()) {
                                     onUpdateSettings { it.withSeededHistory(store, System.currentTimeMillis()) }
                                 }
-                                android.widget.Toast.makeText(
-                                    context,
-                                    speedHistoryCalculatedMessage(context.resources, store.size),
-                                    android.widget.Toast.LENGTH_SHORT
-                                ).show()
+                                NoticeCenter.shared.post(speedHistoryNotice(store.size))
                             } finally {
                                 speedHistoryCalculating = false
                             }

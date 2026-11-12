@@ -1,6 +1,5 @@
 package ykws.android.maro.ui.map
 
-import android.content.res.Resources
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -19,6 +18,9 @@ import ykws.android.maro.data.track.Track
 import ykws.android.maro.data.track.TrackSummary
 import ykws.android.maro.data.track.TrackViewModel
 import ykws.android.maro.spatial.SpatialOperations
+import ykws.android.maro.ui.notice.Notice
+import ykws.android.maro.ui.notice.NoticeKeys
+import ykws.android.maro.ui.notice.NoticeText
 import kotlin.math.abs
 
 /**
@@ -90,12 +92,14 @@ internal suspend fun seedSpeedHistory(
  * What Calculate tells the user once it is done: how many trips the store was rebuilt from, or — when no
  * track was eligible — that the history was left as it stood.
  */
-internal fun speedHistoryCalculatedMessage(resources: Resources, trips: Int): String =
+internal fun speedHistoryNotice(trips: Int): Notice = Notice.result(
+    NoticeKeys.SPEED_HISTORY,
     if (trips > 0) {
-        resources.getQuantityString(R.plurals.settings_speed_history_calculated, trips, trips)
+        NoticeText.Plural(R.plurals.settings_speed_history_calculated, trips)
     } else {
-        resources.getString(R.string.settings_speed_history_none_eligible)
+        NoticeText.Res(R.string.settings_speed_history_none_eligible)
     }
+)
 
 /** The settings after a Calculate: the store replaced, and the snapshot — its date and the profile it gave — kept apart. */
 internal fun AppSettings.withSeededHistory(store: List<SpeedHistory.Trip>, nowMs: Long): AppSettings {

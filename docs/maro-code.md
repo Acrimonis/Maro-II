@@ -93,8 +93,8 @@ zero behavior change):
 |------|------|
 | `MapScreen.kt` | Orchestration shell: chrome state holder, click-n-move, back-handler ladder, `MapContent` stable slot, `OverlayLayer` invocation, snackbar/dialog/import state hoisting |
 | `MapOverlayData.kt` | The five `OverlayLayer` data-construction builders (`MenuOverlayData`, `TrackListOverlayData`, `SettingsOverlayData`, `MarkerListOverlayData`, `TrackInfoOverlayData`) |
-| `MapScreenChrome.kt` | The eight written chrome values in one `@Stable` holder (`showSettings`, `showTrackDrawer`, `showTrackHistory`, `showMarkerManagement`, `navigateToTarget`, `selectedTab`, `pendingResume`, `trackOpStatus`) with a `Saver` serialising `selectedTab` alone |
-| `MapDashboardController.kt` | The snackbar stack (public `activeSnacks`, overflow queue, `enqueue`/`remove`) |
+| `MapScreenChrome.kt` | The eight written chrome values in one `@Stable` holder (`showSettings`, `showTrackDrawer`, `showTrackHistory`, `showMarkerManagement`, `navigateToTarget`, `selectedTab`, `pendingResume`, `trackOpStatus`) with a `Saver` serialising `selectedTab` alone; a `trackOpStatus` write posts the transfer-status notice on `NoticeCenter` (`ui/notice/` — the arbiter and centre; `ui/map/NoticeHost.kt` draws the pills) |
+| `MapDashboardController.kt` | The snackbar stack's Compose state (public `activeSnacks`, `enqueue`/`remove`) over the pure `ActionLane` (`ui/notice/`), which owns the queue rules |
 | `MapRouteEffects.kt` | Route engine/end effect clusters |
 | `MapLockLayer.kt` | Screen-lock scrim, mirrored controls and lock banner |
 | `MapScreenSettingsOverlay.kt` | Settings overlay subtree (4 tabs) |

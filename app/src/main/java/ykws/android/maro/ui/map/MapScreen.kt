@@ -91,6 +91,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.OutlinedButton
+import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -134,7 +135,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.core.content.ContextCompat
@@ -219,6 +219,10 @@ import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.ui.map.MarkersViewModel
 import ykws.android.maro.ui.map.MarkerDrawer
 import ykws.android.maro.ui.map.toMarkerSnapshot
+import ykws.android.maro.ui.notice.Notice
+import ykws.android.maro.ui.notice.NoticeCenter
+import ykws.android.maro.ui.notice.NoticeKeys
+import ykws.android.maro.ui.notice.NoticeText
 
 /** Animation duration per GPS-follow scroll (ms). Must be < min GPS fix interval (1s). */
 private const val GPS_ANIMATION_DURATION_MS = 600L
@@ -410,6 +414,8 @@ internal data class PendingTrackResume(
 /** Which transfer a result banner speaks for — a track's counts or a marker's. */
 internal enum class TransferKind { TRACK, MARKER }
 
+/** The notice keys the screen's own pills post under — one slot each, so a repeat replaces. */
+
 /** Transient import feedback: result counts or a hard failure. */
 internal sealed interface ImportBannerState {
     data class Result(
@@ -460,9 +466,6 @@ internal data class PendingRouteDiscard(
     val snack: ActiveSnack.RouteEnd
 )
 
-/** The snackbar's horizontal-swipe threshold, past which the press takes the timeout's own path. */
-private const val SNACK_SWIPE_THRESHOLD_DP = 48f
-
 @Composable
 internal fun SnackRow(
     message: String,
@@ -479,7 +482,7 @@ internal fun SnackRow(
     onSecondAction: (() -> Unit)? = null
 ) {
     LaunchedEffect(snackKey) {
-        kotlinx.coroutines.delay(4000L)
+        kotlinx.coroutines.delay(AppConfig.noticeRowTimeoutMs)
         onTimeout()
     }
     var entered by remember { mutableStateOf(false) }
@@ -487,7 +490,7 @@ internal fun SnackRow(
     // The horizontal swipe takes the timeout's own path, so a delete toast still commits and the route
     // toast simply keeps the discard.
     var swipePx by remember { mutableStateOf(0f) }
-    val swipeThresholdPx = with(LocalDensity.current) { SNACK_SWIPE_THRESHOLD_DP.dp.toPx() }
+    val swipeThresholdPx = with(LocalDensity.current) { AppConfig.noticeRowSwipeDp.dp.toPx() }
     androidx.compose.animation.AnimatedVisibility(
         visible = entered,
         enter = androidx.compose.animation.slideInVertically(initialOffsetY = { it }) + androidx.compose.animation.fadeIn()
@@ -671,10 +674,6 @@ fun MapScreen(
     var expandedFanId by remember { mutableStateOf<ControlId?>(null) }
     // ── Screen-lock state (splash-proof touch guard) ────────────────────
     var screenLocked by rememberSaveable { mutableStateOf(false) }
-    // Lock/unlock transient banner: null = hidden, true = locked, false = unlocked.
-    var lockBanner by remember { mutableStateOf<Boolean?>(null) }
-    // Monotonic timestamp key: each show/refresh bumps this so the 2s timeout restarts (no queue).
-    var lockBannerAt by remember { mutableStateOf(0L) }
 
     // ── Click-N-Move state ─────────────────────────────────────────────
     var highlightedTrackId by remember { mutableStateOf<String?>(null) }
@@ -1050,24 +1049,24 @@ fun MapScreen(
     var pendingTrackImport by remember { mutableStateOf<PendingTrackImport?>(null) }
     // Single-GPX marker import whose match dialog is pending a Duplicate / Override / Cancel choice.
     var pendingMarkerImport by remember { mutableStateOf<PendingMarkerImport?>(null) }
-    // Import feedback banner: null = hidden; Result / Failed shows briefly at the map bottom.
-    var importBanner by remember { mutableStateOf<ImportBannerState?>(null) }
-    var importBannerAt by remember { mutableStateOf(0L) }
-    fun showImportBanner(banner: ImportBannerState) {
-        importBanner = banner
-        importBannerAt = SystemClock.elapsedRealtime()
-    }
-    // Transient route-acquisition refusal toast: null = hidden.
-    var routeNoticeToast by remember { mutableStateOf<String?>(null) }
-    var routeNoticeToastAt by remember { mutableStateOf(0L) }
-
-    // Transient save toast: the track or route just written, named, hidden after two seconds.
-    var trackSavedToast by remember { mutableStateOf<String?>(null) }
-    var trackSavedToastAt by remember { mutableStateOf(0L) }
-    LaunchedEffect(trackSavedToastAt) {
-        if (trackSavedToast != null) {
-            delay(2_000L)
-            trackSavedToast = null
+    // ── The pills (import result, save and route confirmations, the transfer in progress, the arrival) are
+    // notices raised through the one center and drawn by `NoticeHost`; what stands, for how long and in what
+    // order is `NoticeArbiter`'s. ──
+    val noticeCenter = NoticeCenter.shared
+    // The action rows' column height, reported by `MapSnackbarHost` so the notice lane stacks above it.
+    var actionRowsHeightPx by remember { mutableIntStateOf(0) }
+    fun showImportBanner(banner: ImportBannerState) = noticeCenter.post(importNotice(banner))
+    fun showRouteNotice(@StringRes id: Int) =
+        noticeCenter.post(Notice.confirm(NoticeKeys.ROUTE, NoticeText.Res(id)))
+    // A status the screen owns must not outlive it: a transfer cut short by the screen leaving would
+    // otherwise hold its pill forever on the process-wide center.
+    DisposableEffect(noticeCenter) {
+        // A status left by an earlier screen (a late progress callback after it went) is nobody's to clear.
+        noticeCenter.clear(NoticeKeys.TRACK_OP)
+        noticeCenter.clear(NoticeKeys.ROUTE_ARRIVAL)
+        onDispose {
+            noticeCenter.clear(NoticeKeys.TRACK_OP)
+            noticeCenter.clear(NoticeKeys.ROUTE_ARRIVAL)
         }
     }
 
@@ -1141,38 +1140,22 @@ fun MapScreen(
     val selectionEyeStore = remember { SelectionEyeStore(context) }
     var trackEyeOverride by remember { mutableStateOf(selectionEyeStore.trackEye()) }
     var routeEyeOverride by remember { mutableStateOf(selectionEyeStore.routeEye()) }
-    // ── Screen-lock toggle: flip state + toast ──────────────────────────
+    // ── Screen-lock toggle: flip state + say so on the notice host ─────────
+    // One key, so each flip or intercepted tap replaces the line showing and restarts its dwell.
+    fun showLockNotice(locked: Boolean) = noticeCenter.post(
+        Notice.confirm(
+            NoticeKeys.LOCK,
+            NoticeText.Res(if (locked) R.string.toast_screen_locked else R.string.toast_screen_unlocked)
+        )
+    )
     val onToggleScreenLock = {
         val newLocked = !screenLocked
         screenLocked = newLocked
-        lockBanner = newLocked
-        lockBannerAt = SystemClock.elapsedRealtime()
-    }
-    LaunchedEffect(lockBannerAt) {
-        if (lockBanner != null) {
-            delay(2_000L)
-            lockBanner = null
-        }
-    }
-    LaunchedEffect(importBannerAt) {
-        if (importBanner != null) {
-            // Long enough to read a count and a reason; the lock banner keeps its own 2 s.
-            delay(6_000L)
-            importBanner = null
-        }
-    }
-    LaunchedEffect(routeNoticeToastAt) {
-        if (routeNoticeToast != null) {
-            delay(2_000L)
-            routeNoticeToast = null
-        }
+        showLockNotice(newLocked)
     }
     // The last route landing moved a hand-picked highlight onto the winner: say so on the map banner.
     LaunchedEffect(routeViewModel) {
-        routeViewModel.seatMovedAtEnd.collect {
-            routeNoticeToast = context.getString(R.string.route_best_selected_toast)
-            routeNoticeToastAt = SystemClock.elapsedRealtime()
-        }
+        routeViewModel.seatMovedAtEnd.collect { showRouteNotice(R.string.route_best_selected_toast) }
     }
     // ── Background location permission dialog state (A2) ─────────────────
     var showBgLocationDialog by remember { mutableStateOf(false) }
@@ -1256,13 +1239,17 @@ fun MapScreen(
         delay((AppConfig.routeFollowArrivalSettleSec * 1_000.0).toLong())
         routeAtDestinationSettled = routeAtDestinationRaw
     }
-    val routeArrivalNotice = if (
-        routeArrivalNoticeShown(
-            displayArmed = routeDisplayArmed,
-            following = routeFollowingNow,
-            atDestination = routeAtDestinationSettled
-        )
-    ) stringResource(R.string.route_arrived_notice) else null
+    val routeArrivalShown = routeArrivalNoticeShown(
+        displayArmed = routeDisplayArmed,
+        following = routeFollowingNow,
+        atDestination = routeAtDestinationSettled
+    )
+    // The arrival is a state, not an event: it stands while the settled reading holds, then comes down.
+    LaunchedEffect(routeArrivalShown) {
+        if (routeArrivalShown) {
+            noticeCenter.post(Notice.status(NoticeKeys.ROUTE_ARRIVAL, NoticeText.Res(R.string.route_arrived_notice)))
+        } else noticeCenter.clear(NoticeKeys.ROUTE_ARRIVAL)
+    }
 
     // ── The Route section's standing pair (R44–R48, R66) ─────────────────────────
     // **A route's two ends are chosen in the drawer and read at the trigger** (R44, R71): each selector
@@ -1667,8 +1654,9 @@ fun MapScreen(
 
     /** The one home of the save toast: names the track or route just written (2026-10-10). */
     fun toastSaved(name: String) {
-        trackSavedToast = context.getString(R.string.snackbar_saved, name)
-        trackSavedToastAt = SystemClock.elapsedRealtime()
+        noticeCenter.post(
+            Notice.confirm(NoticeKeys.TRACK_SAVED, NoticeText.Res(R.string.snackbar_saved, listOf(name)))
+        )
     }
 
     // ── First launch: seed the speed history from the tracks list, once, when no history exists yet ──
@@ -1936,7 +1924,6 @@ fun MapScreen(
 
     // ── Double-back-to-exit state ─────────────────────────────────────────
     var lastBackAt by remember { mutableStateOf(0L) }
-    var showExitBanner by remember { mutableStateOf(false) }
     var showExitDialog by remember { mutableStateOf(false) }
     // Stop-recording confirmation (🐾 icon + menu drawer stop) — same 3-way sheet as exit.
     var showStopRecordingSheet by remember { mutableStateOf(false) }
@@ -1990,7 +1977,9 @@ fun MapScreen(
         BackHandler(enabled = !chrome.showSettings && !chrome.showTrackHistory && !chrome.showRouteHistory && !chrome.showMarkerManagement && !anyFanExpanded && !trackDrawerState.isOpen && !anyConfirmDialogOpen) {
             val now = SystemClock.elapsedRealtime()
             val isRecording = trackRecorderState.state == ykws.android.maro.data.track.TrackRecorderState.ON
-            if (now - lastBackAt <= 2_000L) {
+            if (now - lastBackAt <= AppConfig.exitBackWindowMs) {
+                // The second press ends the window, so the pill that announced it goes with it.
+                noticeCenter.clear(NoticeKeys.EXIT)
                 if (isRecording) {
                     showExitDialog = true
                 } else {
@@ -1999,13 +1988,16 @@ fun MapScreen(
                 }
             } else {
                 lastBackAt = now
-                showExitBanner = true
-            }
-        }
-        if (showExitBanner) {
-            LaunchedEffect(lastBackAt) {
-                delay(2_000L)
-                showExitBanner = false
+                // The pill stands exactly as long as this window is open: both read `map.exit.backWindowMs`.
+                noticeCenter.post(
+                    Notice.exit(
+                        NoticeKeys.EXIT,
+                        NoticeText.Res(
+                            if (isRecording) R.string.exit_press_back_again_recording else R.string.exit_press_back_again
+                        ),
+                        danger = isRecording
+                    )
+                )
             }
         }
 
@@ -2382,8 +2374,7 @@ fun MapScreen(
              * and again where a matched file falls back to the search below.
              */
             fun refuseShortRoutePair() {
-                routeNoticeToast = context.getString(R.string.route_refusal_too_short)
-                routeNoticeToastAt = SystemClock.elapsedRealtime()
+                showRouteNotice(R.string.route_refusal_too_short)
             }
 
 
@@ -2788,8 +2779,7 @@ fun MapScreen(
             fun armFreshRoute() {
                 armRouteMode(forceFresh = true)
                 if (routeArmed) {
-                    routeNoticeToast = context.getString(R.string.route_started_toast)
-                    routeNoticeToastAt = SystemClock.elapsedRealtime()
+                    showRouteNotice(R.string.route_started_toast)
                 }
             }
 
@@ -3334,8 +3324,7 @@ fun MapScreen(
                     // fire on a later arming through another door.
                     if (!routeArmed) routeAutoPick = false
                     if (searchRunning) {
-                        routeNoticeToast = context.getString(R.string.route_auto_follow_toast)
-                        routeNoticeToastAt = SystemClock.elapsedRealtime()
+                        showRouteNotice(R.string.route_auto_follow_toast)
                     }
                 }
             )
@@ -3481,12 +3470,6 @@ fun MapScreen(
                 expandedFanId = expandedFanId,
                 onToggleFan = { id -> expandedFanId = if (expandedFanId == id) null else id },
                 onDismissFan = { expandedFanId = null },
-                showExitBanner = showExitBanner,
-                importBanner = importBanner,
-                trackOpStatus = chrome.trackOpStatus,
-                routeNoticeToast = routeNoticeToast,
-                routeArrivalNotice = routeArrivalNotice,
-                trackSavedToast = trackSavedToast,
                 rasterProgress = depthRaster.rasterProgress,
                 autoFollowSuppressed = autoFollowSuppressed,
                 onRecenter = { viewModel.recenterNow() },
@@ -4124,7 +4107,8 @@ fun MapScreen(
                 if (snack is ActiveSnack.RouteEnd) {
                     if (pendingDiscard?.snack?.uid == snack.uid) armRouteMode(forceFresh = true)
                 }
-            }
+            },
+            onHeightChanged = { actionRowsHeightPx = it }
         )
 
         CompositionLocalProvider(LocalConfirmDialogHost provides confirmDialogHost) {
@@ -4490,6 +4474,17 @@ fun MapScreen(
         )
         }
 
+        // ── The notice lane: every pill, above the drawer ladder (decided 2026-11-11) and below the dialogs,
+        //     stacked over the action rows that stay on the band's edge. ──
+        NoticeHost(
+            center = noticeCenter,
+            tagsDrawn = bandTagsDrawn,
+            isLandscape = isLandscape,
+            dashboardBandHeight = dashboardBandHeight,
+            landscapeDashboardWidth = landscapeDashboardWidth,
+            rowsHeightPx = { actionRowsHeightPx }
+        )
+
         // ── Post-save undo → stack entry ────────────────────────────────
         val lastSavedId by markersViewModel.lastSavedMarkerId.collectAsState()
         LaunchedEffect(lastSavedId) {
@@ -4610,12 +4605,10 @@ fun MapScreen(
         // drawer stays open behind them.
         ConfirmRequestHost(state = confirmDialogHost)
 
-        // ── Screen lock: the scrim, its mirrored controls and the lock banner ──
+        // ── Screen lock: the scrim and its mirrored controls ──
         //     Painted last, after the overlay ladder, so the scrim sits above every drawer and the map.
         MapLockLayer(
             screenLocked = screenLocked,
-            lockBanner = lockBanner,
-            bandTagsDrawn = bandTagsDrawn,
             isLandscape = isLandscape,
             dashboardBandHeight = dashboardBandHeight,
             landscapeDashboardWidth = landscapeDashboardWidth,
@@ -4623,10 +4616,7 @@ fun MapScreen(
             viewModel = viewModel,
             appSettings = appSettings,
             onToggleScreenLock = onToggleScreenLock,
-            onInterceptedTap = {
-                lockBanner = true
-                lockBannerAt = SystemClock.elapsedRealtime()
-            }
+            onInterceptedTap = { showLockNotice(true) }
         )
     }
 }
@@ -5133,12 +5123,6 @@ private fun MapContent(
     expandedFanId: ControlId? = null,
     onDismissFan: () -> Unit = {},
     onToggleFan: (ControlId) -> Unit = {},
-    showExitBanner: Boolean,
-    importBanner: ImportBannerState? = null,
-    trackOpStatus: String? = null,
-    routeNoticeToast: String? = null,
-    routeArrivalNotice: String? = null,
-    trackSavedToast: String? = null,
     rasterProgress: RasterProgress? = null,
     showCrosshair: Boolean = false,
     autoFollowSuppressed: Boolean = false,
@@ -5463,30 +5447,6 @@ private fun MapContent(
                             )
                         }
                     }
-
-                    // Top layer: exit toast (conditional) — MapBanner's first caller. A child of the
-                    // map's left overlay column, so it adds no end reserve of its own: that column
-                    // already excludes the right control column, and the tag column's width is what the
-                    // band's start inset clears (docs/ui-drawer-guidelines.md §1).
-                    if (showExitBanner) {
-                        val isRecording = trackRecorderState.state == ykws.android.maro.data.track.TrackRecorderState.ON
-                        val borderColor = if (isRecording)
-                            ComposeColor(AppConfig.uiDashboardZoneDanger)
-                        else
-                            ComposeColor(AppConfig.uiDashboardBackground)
-                        MapBanner(
-                            borderColor = borderColor,
-                            tagsDrawn = bandTagsDrawn,
-                            modifier = Modifier.align(Alignment.BottomStart)
-                        ) {
-                            MapBannerText(
-                                text = if (isRecording)
-                                    stringResource(R.string.exit_press_back_again_recording)
-                                else
-                                    stringResource(R.string.exit_press_back_again)
-                            )
-                        }
-                    }
                 }
             }
 
@@ -5674,41 +5634,6 @@ private fun MapContent(
             }
 
         }
-
-        // ── Import feedback banner (bottom band, centred in the space the map leaves free) ──
-        val importMessage = importBanner?.let { banner ->
-            when (banner) {
-                is ImportBannerState.Result ->
-                    if (banner.imported == 0 && banner.ignored == 0 && banner.invalid == 0) {
-                        stringResource(R.string.import_failed)
-                    } else {
-                        val (importedPlural, ignoredPlural) = when (banner.kind) {
-                            TransferKind.MARKER ->
-                                R.plurals.import_result_marker_imported to R.plurals.import_result_marker_ignored
-                            TransferKind.TRACK ->
-                                R.plurals.import_result_imported to R.plurals.import_result_ignored
-                        }
-                        val importedText = pluralStringResource(importedPlural, banner.imported, banner.imported)
-                        val ignoredText = pluralStringResource(ignoredPlural, banner.ignored, banner.ignored)
-                        val counts = stringResource(R.string.import_result_format, importedText, ignoredText)
-                        // An unreadable file is a reason the user must see, not a count folded into "ignored".
-                        if (banner.invalid > 0) {
-                            val invalidText = pluralStringResource(R.plurals.import_result_invalid, banner.invalid, banner.invalid)
-                            stringResource(R.string.import_result_format, counts, invalidText)
-                        } else counts
-                    }
-                ImportBannerState.Failed -> stringResource(R.string.import_failed)
-            }
-        }
-
-        // ── The status pills, stacked: the import result, the track operation in progress, the save toast,
-        // the route toast and the arrival notice, top to bottom, so two at once no longer paint over each other. A message
-        // equal to another is drawn once. ──
-        MapStatusBannerStack(
-            messages = listOfNotNull(importMessage, trackOpStatus, trackSavedToast, routeNoticeToast, routeArrivalNotice).distinct(),
-            tagsDrawn = bandTagsDrawn,
-            modifier = Modifier.align(Alignment.BottomStart)
-        )
     }
 }
 

@@ -5,6 +5,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.setValue
+import ykws.android.maro.ui.notice.NoticeCenter
+import ykws.android.maro.ui.notice.NoticeKeys
 
 /**
  * The screen's chrome state — the nine written surface values folded out of [`MapScreen`](MapScreen.kt)'s
@@ -28,11 +30,16 @@ internal class MapScreenChrome(
     var pendingResume by mutableStateOf<PendingTrackResume?>(null)
 
     /**
-     * Transient transfer status banner (a track's or a marker's export/import in progress): null =
-     * hidden. One slot serves both transfers, since only one of them can run at a time and the message
-     * itself names which it is.
+     * Transient transfer status (a track's or a marker's export/import in progress): null = hidden. One
+     * slot serves both transfers, since only one of them can run at a time and the message itself names
+     * which it is. A write posts or clears the status notice on the center, and `NoticeHost` draws it;
+     * the field only holds the last text written.
      */
-    var trackOpStatus by mutableStateOf<String?>(null)
+    var trackOpStatus: String? = null
+        set(value) {
+            field = value
+            NoticeCenter.shared.setStatus(NoticeKeys.TRACK_OP, value)
+        }
 
     companion object {
         /**

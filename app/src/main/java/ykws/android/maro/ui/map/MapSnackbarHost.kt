@@ -10,6 +10,7 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -42,7 +43,12 @@ internal fun MapSnackbarHost(
     tagsDrawn: Boolean,
     onUndo: (ActiveSnack) -> Unit,
     onTimeout: (ActiveSnack) -> Unit,
-    onSecondAction: (ActiveSnack) -> Unit = {}
+    onSecondAction: (ActiveSnack) -> Unit = {},
+    /**
+     * The rows' own column height in px (0 while none stands), reported so the notice lane can ride above
+     * them — the rows stay on the band's edge, the pills stack over them.
+     */
+    onHeightChanged: (Int) -> Unit = {}
 ) {
     val bandHeight = dashboardBandHeight.value
     Box(modifier = Modifier.fillMaxSize()) {
@@ -55,7 +61,10 @@ internal fun MapSnackbarHost(
                     // gains the same gutter (R1).
                     bottom = (if (isLandscape) 0.dp else bandHeight) + AppConfig.uiMapToggleGutter.dp,
                     start = if (isLandscape) landscapeDashboardWidth else 0.dp
-                ),
+                )
+                // After the padding, so it measures the rows alone — the band's clearance is the notice
+                // lane's own padding already.
+                .onSizeChanged { onHeightChanged(it.height) },
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             activeSnacks.forEach { snack ->
