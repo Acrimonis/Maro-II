@@ -1,21 +1,19 @@
-# Context Hydration — Tracks — 2026-11-11
+# Context Hydration — Tracks — 2026-11-27
 
-**Last Bake:** 2026-11-11 08:58 UTC — written by `#bake` on `feature/tracks-slow-water`.
+**Last Bake:** 2026-11-27 18:06 UTC — written by `#bake` on `feature/salis-out-track`.
 
-**Directive trace:** the code moved on the user's `#impl`; no dependency was added, no machine-shaped data file was opened, the device was not touched, and every claim about the code came from a file read; none of the covered action classes stopped.
+**Directive trace:** the code moved on the user's "remove it" and `impl`; no dependency was added, no machine-shaped data file was opened, the device was not touched, and every claim about the code came from a file read; none of the covered action classes stopped.
 
 ## State
 
-The slow-water card plan's Ask findings are fixed and green (`apk-build.bat`, 1 770 tests): the catch-up that fills a recording's `Open water · 300M · Zones` figure walks off the recorder's write lock and merges by compare-and-set, a pass is owed whenever the attached source differs from the one the last pass completed under, the walk reads zones through a box-rejected containment read whose stamp and test arrive as one `slowWaterAttachment`, the map's dashboard card reads the unfiltered summaries, and the route table reads the band once per leg. Findings 4, 7b–d and 8 stand dropped; the `zones.properties` and coastline stamp gaps stay named. Three nits are open in the plan's Outcome. The auto-start work (step 1 shipped, step 2 parked) is untouched, and the 2026-09-15 walk level in the feature file is still open.
+The home-port exit rule is built and green (`assembleDebug`, 1 883 tests): `AutoStartDetector` arms on any fix inside the home circle and starts a recording on a fix farther outside than its accuracy while off, past a GPS-only spike guard (Doppler ≥ 0.5 m/s, implied speed from the last fix inside ≤ `tracking.boatMaxSpeedKn`), on water and with no recovery pending. The two 5-minute waits, the persisted last stop and the never-left safety net are gone; the radius is 100 m, which the 2026-10-25 widening to 150 m (a route end 106–113 m out) contradicts for trip naming. Planned next and not started: a Navigation settings section for the auto-start (GPS / Demo / both) and the sister auto-stop on return.
 
 ## Target Files
 
-- `xTrack/Tracks/261101_FEAT_PLN_Tracks_stops-and-slow-water.md` — the plan; `## Remediation` holds the triage, R1–R5, both reviews and the Outcome
-- `app/src/main/java/ykws/android/maro/data/track/TrackRepository.kt` — `listTracks`, `attributeSlowWater`, `slowWaterPassDoneFor`
-- `app/src/main/java/ykws/android/maro/ui/map/NavigationViewModel.kt` — `slowWaterAttachment`, `slowWaterAt`, the publication order
-- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt` — the dashboard's stored-summary lookup
-- `app/src/main/java/ykws/android/maro/spatial/multipass/RouteEta.kt` — `LegWater.withZone`
+- `app/src/main/java/ykws/android/maro/data/track/AutoStartDetector.kt` — the exit rule and its spike guard
+- `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt` — `processSampleLocked`, `beginRecording`, the arrival prompt in `startIdleTimer`
+- `app/src/main/assets/maro.properties` — `tracking.homePort.*`
 
 ## Next Step
 
-The device pass is the user's: a filtered-out recording opened from the map keeps its row, and a first launch after a regulation bake while recording checkpoints without a stall.
+The device pass is the user's: leave La Salis with tracking off and see a recording start just past the 100 m circle.

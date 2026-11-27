@@ -15,9 +15,8 @@ import org.junit.rules.TemporaryFolder
 import ykws.android.maro.data.model.LatLng
 
 /**
- * The recorder's side of the forgotten-start rule ([AutoStartDetector] owns the rule itself): what it
- * feeds the detector, what a start does to the trip and the arrival prompt, how the last stop is kept,
- * and the safety net for a false start. The monotonic clock is driven by hand.
+ * The recorder's side of the home-port exit rule ([AutoStartDetector] owns the rule itself): what it feeds
+ * the detector, what a start does to the trip and the arrival prompt, and that a stop sets no wait.
  */
 class TrackRecorderAutoStartTest {
 
@@ -28,6 +27,7 @@ class TrackRecorderAutoStartTest {
     private val homeLon = 7.1313
     private val metresPerDegree = 6_371_000.0 * Math.PI / 180.0
 
+    /** The recorder's monotonic clock, driven by hand: each fed fix lands 20 s after the previous one. */
     private var nowMs = 1_000_000L
 
     private val repository by lazy { TrackRepository(temp.root) }
@@ -36,10 +36,7 @@ class TrackRecorderAutoStartTest {
         geofenceEnabled: Boolean = true,
         water: Boolean? = true,
         orphansPending: suspend () -> Boolean = { false },
-        lastStopWallMs: Long? = null,
-        offMs: Long = 300_000L,
-        stopped: MutableStateFlow<Boolean> = MutableStateFlow(false),
-        onStopped: (Long) -> Unit = {}
+        stopped: MutableStateFlow<Boolean> = MutableStateFlow(false)
     ) = TrackRecorder(
         repository = repository,
         config = TrackRecorderConfig(
@@ -48,32 +45,22 @@ class TrackRecorderAutoStartTest {
             geofenceRadiusM = 150.0,
             geofenceEnabled = geofenceEnabled,
             gpsMode = false,
-            idleThresholdSec = 1,
-            autoStartOffMs = offMs,
-            autoStartRestMs = 300_000L
+            idleThresholdSec = 1
         ),
         isStopped = stopped,
         dispatcher = Dispatchers.Unconfined,
         monotonicNowMs = { nowMs },
         waterAt = { water },
-        orphansPending = orphansPending,
-        lastStopWallMs = lastStopWallMs,
-        onStopped = onStopped
+        orphansPending = orphansPending
     )
 
-    private fun sample(
-        northM: Double,
-        speed: Float = 3f,
-        accuracy: Float? = 5f,
-        demo: Boolean = false,
-        wallMs: Long = nowMs
-    ) = TrackSample(
+    private fun sample(northM: Double, speed: Float = 3f, demo: Boolean = false) = TrackSample(
         position = LatLng(homeLat + northM / metresPerDegree, homeLon),
         speedMps = speed,
         bearingDeg = null,
         hasLock = !demo,
-        timestampEpochMs = wallMs,
-        accuracyM = accuracy,
+        timestampEpochMs = System.currentTimeMillis(),
+        accuracyM = if (demo) null else 5f,
         isDemo = demo
     )
 
@@ -81,21 +68,18 @@ class TrackRecorderAutoStartTest {
 
     private fun flow() = MutableSharedFlow<TrackSample>(extraBufferCapacity = 16)
 
-    /** Emit [s] at [atMs] on the hand-driven clock and let the collector take it. */
-    private suspend fun MutableSharedFlow<TrackSample>.feed(atMs: Long, s: TrackSample) {
-        nowMs = atMs
+    /** Emit [s] 20 s after the previous fix and let the collector take it. */
+    private suspend fun MutableSharedFlow<TrackSample>.feed(s: TrackSample) {
+        nowMs += 20_000L
         tryEmit(s)
         delay(100)
     }
 
-    /** A still fix at the berth, then two 10 m moves 5 s apart: the third completes the rule. */
-    private suspend fun MutableSharedFlow<TrackSample>.departFromBerth(
-        atMs: Long = nowMs,
-        wallMs: (Long) -> Long = { it }
-    ) {
-        feed(atMs, sample(0.0, speed = 0f, wallMs = wallMs(atMs)))
-        feed(atMs + 5_000, sample(10.0, wallMs = wallMs(atMs + 5_000)))
-        feed(atMs + 10_000, sample(20.0, wallMs = wallMs(atMs + 10_000)))
+    /** A fix at the berth, one in the harbour, one 50 m past the edge: the third completes the rule. */
+    private suspend fun MutableSharedFlow<TrackSample>.leavePort(demo: Boolean = false) {
+        feed(sample(0.0, demo = demo))
+        feed(sample(100.0, demo = demo))
+        feed(sample(200.0, demo = demo))
     }
 
     private fun promptCount(events: List<TrackEvent>) = events.filterIsInstance<TrackEvent.HomePortArrivalPrompt>().size
@@ -103,17 +87,17 @@ class TrackRecorderAutoStartTest {
     // ── The start ───────────────────────────────────────────────────────────
 
     @Test
-    fun `a rested boat moving off the berth on water starts a recording that began at the home port`() = runBlocking {
+    fun `leaving the circle on water starts a recording that began at the home port`() = runBlocking {
         val samples = flow()
         val rec = recorder()
         val events = CopyOnWriteArrayList<TrackEvent>()
         val collectJob = launch { rec.events.collect { events.add(it) } }
         try {
             rec.start(samples)
-            samples.feed(nowMs, sample(0.0, speed = 0f))
-            samples.feed(nowMs + 5_000, sample(10.0))
-            assertEquals("two fixes are not yet a move", false, rec.isOn())
-            samples.feed(nowMs + 5_000, sample(20.0))
+            samples.feed(sample(0.0))
+            samples.feed(sample(100.0))
+            assertEquals("moving inside the harbour starts nothing", false, rec.isOn())
+            samples.feed(sample(200.0))
             assertEquals(true, rec.isOn())
             assertEquals(1, events.filterIsInstance<TrackEvent.Started>().size)
 
@@ -128,15 +112,30 @@ class TrackRecorderAutoStartTest {
     }
 
     @Test
-    fun `a boat first seen moving starts nothing`() = runBlocking {
+    fun `a GPS spike out of the berth starts nothing - the real departure does`() = runBlocking {
         val samples = flow()
         val rec = recorder()
         try {
             rec.start(samples)
-            samples.feed(nowMs, sample(10.0))
-            samples.feed(nowMs + 5_000, sample(20.0))
-            samples.feed(nowMs + 5_000, sample(30.0))
-            samples.feed(nowMs + 5_000, sample(40.0))
+            samples.feed(sample(0.0, speed = 0f))
+            samples.feed(sample(250.0, speed = 0f))
+            assertEquals("no Doppler speed: a spike", false, rec.isOn())
+            samples.feed(sample(0.0, speed = 0f))
+            samples.leavePort()
+            assertEquals(true, rec.isOn())
+        } finally {
+            rec.dispose()
+        }
+    }
+
+    @Test
+    fun `a boat first seen outside starts nothing`() = runBlocking {
+        val samples = flow()
+        val rec = recorder()
+        try {
+            rec.start(samples)
+            samples.feed(sample(300.0))
+            samples.feed(sample(400.0))
             assertEquals(false, rec.isOn())
         } finally {
             rec.dispose()
@@ -149,7 +148,7 @@ class TrackRecorderAutoStartTest {
         val rec = recorder(geofenceEnabled = false)
         try {
             rec.start(samples)
-            samples.departFromBerth()
+            samples.leavePort()
             assertEquals(false, rec.isOn())
         } finally {
             rec.dispose()
@@ -169,7 +168,7 @@ class TrackRecorderAutoStartTest {
         )
         try {
             rec.start(samples)
-            samples.departFromBerth()
+            samples.leavePort()
             assertEquals(false, rec.isOn())
         } finally {
             rec.dispose()
@@ -183,7 +182,7 @@ class TrackRecorderAutoStartTest {
             val rec = recorder(water = water)
             try {
                 rec.start(samples)
-                samples.departFromBerth()
+                samples.leavePort()
                 assertEquals("water=$water", false, rec.isOn())
             } finally {
                 rec.dispose()
@@ -197,29 +196,14 @@ class TrackRecorderAutoStartTest {
         val rec = recorder()
         try {
             rec.start(samples)
-            samples.feed(nowMs, sample(0.0, speed = 0f, demo = true))
-            samples.feed(nowMs + 5_000, sample(10.0, demo = true))
-            samples.feed(nowMs + 5_000, sample(20.0, demo = true))
+            samples.leavePort(demo = true)
             assertEquals(true, rec.isOn())
         } finally {
             rec.dispose()
         }
     }
 
-    @Test
-    fun `a sample's own wall timestamp is never read`() = runBlocking {
-        val samples = flow()
-        val rec = recorder()
-        try {
-            rec.start(samples)
-            samples.departFromBerth(wallMs = { 42L })
-            assertEquals(true, rec.isOn())
-        } finally {
-            rec.dispose()
-        }
-    }
-
-    // ── The last stop ───────────────────────────────────────────────────────
+    // ── After a stop ────────────────────────────────────────────────────────
 
     @Test
     fun `a stop is announced by a discard and by a save and not by a start`() = runBlocking {
@@ -247,72 +231,39 @@ class TrackRecorderAutoStartTest {
     }
 
     @Test
-    fun `every stop reports its wall time before the recorder reads OFF`() = runBlocking {
-        val stops = CopyOnWriteArrayList<Long>()
+    fun `a stop inside the circle sets no wait - leaving right after starts again`() = runBlocking {
         val samples = flow()
-        val rec = recorder(onStopped = { stops.add(it) })
+        val rec = recorder()
         try {
             rec.start(samples)
-            rec.startManual()
-            delay(200)
-            assertEquals(0, stops.size)
+            samples.leavePort()
+            assertEquals(true, rec.isOn())
+            samples.feed(sample(50.0))
             rec.stop()
             delay(500)
-            assertEquals(1, stops.size)
-            rec.startManual()
-            delay(200)
-            rec.discard()
-            delay(500)
-            assertEquals(2, stops.size)
+            assertEquals(false, rec.isOn())
+
+            samples.feed(sample(200.0))
+            assertEquals(true, rec.isOn())
         } finally {
             rec.dispose()
         }
     }
 
     @Test
-    fun `a stop persisted by the service is read back by a re-created recorder`() = runBlocking {
-        val oneMinuteAgo = System.currentTimeMillis() - 60_000L
-        val tooSoon = recorder(lastStopWallMs = oneMinuteAgo)
-        val samples = flow()
-        try {
-            tooSoon.start(samples)
-            samples.departFromBerth()
-            assertEquals(false, tooSoon.isOn())
-        } finally {
-            tooSoon.dispose()
-        }
-
-        val tenMinutesAgo = System.currentTimeMillis() - 600_000L
-        val longEnough = recorder(lastStopWallMs = tenMinutesAgo)
-        val later = flow()
-        try {
-            longEnough.start(later)
-            later.departFromBerth()
-            assertEquals(true, longEnough.isOn())
-        } finally {
-            longEnough.dispose()
-        }
-    }
-
-    @Test
-    fun `a stop in this process restarts the off clock`() = runBlocking {
+    fun `a trip stopped at sea does not restart on its own`() = runBlocking {
         val samples = flow()
         val rec = recorder()
         try {
             rec.start(samples)
-            rec.startManual()
-            delay(200)
+            samples.leavePort()
+            samples.feed(sample(400.0))
             rec.stop()
             delay(500)
+
+            samples.feed(sample(500.0))
+            samples.feed(sample(600.0))
             assertEquals(false, rec.isOn())
-            // A minute after the stop: rested at the berth, then away — too soon.
-            samples.departFromBerth(atMs = nowMs + 60_000)
-            assertEquals(false, rec.isOn())
-            // Six minutes after it: the same departure now starts.
-            samples.feed(nowMs + 300_000, sample(30.0))
-            samples.feed(nowMs + 5_000, sample(40.0))
-            samples.feed(nowMs + 5_000, sample(50.0))
-            assertEquals(true, rec.isOn())
         } finally {
             rec.dispose()
         }
@@ -334,7 +285,8 @@ class TrackRecorderAutoStartTest {
         val rec = recorder(orphansPending = { repository.hasRecoverableCheckpoint() })
         try {
             rec.start(samples)
-            samples.departFromBerth()
+            samples.leavePort()
+            delay(400)
             assertEquals(false, rec.isOn())
         } finally {
             rec.dispose()
@@ -351,7 +303,7 @@ class TrackRecorderAutoStartTest {
         val rec = recorder(orphansPending = { repository.hasRecoverableCheckpoint() })
         try {
             rec.start(samples)
-            samples.departFromBerth()
+            samples.leavePort()
             delay(400) // the checkpoint is decoded on the IO pool before the rule can answer
             assertEquals(true, rec.isOn())
         } finally {
@@ -362,102 +314,21 @@ class TrackRecorderAutoStartTest {
     // ── The arrival prompt ──────────────────────────────────────────────────
 
     @Test
-    fun `a start inside the circle raises no prompt on a stop inside until the boat has left and returned`() = runBlocking {
+    fun `an auto start prompts on the return`() = runBlocking {
         val stopped = MutableStateFlow(false)
         val samples = flow()
         val events = CopyOnWriteArrayList<TrackEvent>()
-        val rec = recorder(offMs = 60_000L, stopped = stopped)
+        val rec = recorder(stopped = stopped)
         val collectJob = launch { rec.events.collect { events.add(it) } }
         try {
             rec.start(samples)
-            samples.departFromBerth()
-            assertEquals(true, rec.isOn())
-
-            // A fuel-dock stop seconds after leaving: no Save / Discard.
-            stopped.value = true
-            samples.feed(nowMs + 5_000, sample(30.0))
-            delay(1_500)
-            assertEquals(0, promptCount(events))
-
-            // Out of the circle and back in: now the arrival asks.
-            stopped.value = false
-            samples.feed(nowMs + 5_000, sample(300.0))
-            stopped.value = true
-            samples.feed(nowMs + 5_000, sample(60.0))
-            delay(1_500)
-            assertEquals(1, promptCount(events))
-        } finally {
-            collectJob.cancel()
-            rec.dispose()
-        }
-    }
-
-    @Test
-    fun `a start whose completing fix is already outside prompts on the return`() = runBlocking {
-        val stopped = MutableStateFlow(false)
-        val samples = flow()
-        val events = CopyOnWriteArrayList<TrackEvent>()
-        val rec = recorder(offMs = 60_000L, stopped = stopped)
-        val collectJob = launch { rec.events.collect { events.add(it) } }
-        try {
-            rec.start(samples)
-            samples.feed(nowMs, sample(125.0, speed = 0f))
-            samples.feed(nowMs + 5_000, sample(142.0))
-            // 10 m past the edge, inside its own 20 m accuracy: the latch holds and the window has inside fixes.
-            samples.feed(nowMs + 5_000, sample(160.0, accuracy = 20f))
+            samples.leavePort()
             assertEquals(true, rec.isOn())
 
             stopped.value = true
-            samples.feed(nowMs + 5_000, sample(60.0))
+            samples.feed(sample(60.0))
             delay(1_500)
             assertEquals(1, promptCount(events))
-        } finally {
-            collectJob.cancel()
-            rec.dispose()
-        }
-    }
-
-    @Test
-    fun `the safety net prompts once after idling inside a trip that never left`() = runBlocking {
-        val stopped = MutableStateFlow(false)
-        val samples = flow()
-        val events = CopyOnWriteArrayList<TrackEvent>()
-        val rec = recorder(offMs = 1_000L, stopped = stopped)
-        val collectJob = launch { rec.events.collect { events.add(it) } }
-        try {
-            rec.start(samples)
-            samples.departFromBerth()
-            assertEquals(true, rec.isOn())
-
-            stopped.value = true
-            samples.feed(nowMs + 5_000, sample(30.0))
-            delay(2_500)
-            assertEquals(1, promptCount(events))
-            delay(1_500)
-            assertEquals("once", 1, promptCount(events))
-        } finally {
-            collectJob.cancel()
-            rec.dispose()
-        }
-    }
-
-    @Test
-    fun `moving again withdraws the safety net`() = runBlocking {
-        val stopped = MutableStateFlow(false)
-        val samples = flow()
-        val events = CopyOnWriteArrayList<TrackEvent>()
-        val rec = recorder(offMs = 1_500L, stopped = stopped)
-        val collectJob = launch { rec.events.collect { events.add(it) } }
-        try {
-            rec.start(samples)
-            samples.departFromBerth()
-
-            stopped.value = true
-            samples.feed(nowMs + 5_000, sample(30.0))
-            stopped.value = false
-            samples.feed(nowMs + 5_000, sample(40.0))
-            delay(2_500)
-            assertEquals(0, promptCount(events))
         } finally {
             collectJob.cancel()
             rec.dispose()
@@ -469,7 +340,7 @@ class TrackRecorderAutoStartTest {
         val stopped = MutableStateFlow(false)
         val samples = flow()
         val events = CopyOnWriteArrayList<TrackEvent>()
-        val rec = recorder(offMs = 60_000L, stopped = stopped)
+        val rec = recorder(stopped = stopped)
         val collectJob = launch { rec.events.collect { events.add(it) } }
         try {
             rec.start(samples)
@@ -477,7 +348,7 @@ class TrackRecorderAutoStartTest {
             delay(200)
             assertNotNull(rec.uiState.value.currentTrackId)
             stopped.value = true
-            samples.feed(nowMs + 5_000, sample(30.0))
+            samples.feed(sample(30.0))
             delay(1_500)
             assertEquals(1, promptCount(events))
         } finally {

@@ -59,10 +59,8 @@ private const val TAG = "MaroII_TrackService"
 /** Minimum interval between GPS re-arm attempts — silences repeated SecurityException logs. */
 private const val GPS_REARM_COOLDOWN_MS = 15_000L
 
-/** The service's small preference file — the water state and the last stop survive the process here. */
+/** The service's small preference file — the water state survives the process here. */
 private const val SERVICE_PREFS = "maro_service_prefs"
-private const val PREF_LAST_STOP_WALL_MS = "pref_last_stop_wall_ms"
-private const val NO_STOP_RECORDED = -1L
 
 /**
  * Foreground service that keeps Maro II alive when backgrounded.
@@ -299,17 +297,7 @@ class TrackRecordingService : Service() {
             autoMarkerManager = autoMarkerManager,
             // Read at the moment of each fix, so the UI registering after the service started is seen.
             waterAt = { pos -> WhereAmIProvider.isWaterAt?.invoke(pos) },
-            orphansPending = { repository.hasRecoverableCheckpoint() },
-            lastStopWallMs = getSharedPreferences(SERVICE_PREFS, Context.MODE_PRIVATE)
-                .getLong(PREF_LAST_STOP_WALL_MS, NO_STOP_RECORDED)
-                .takeIf { it != NO_STOP_RECORDED },
-            // The last stop outlives the process, a discard included (it leaves no file behind): the
-            // forgotten-start rule's "off for a while" reads it after a restart. Written as the recorder
-            // leaves ON, not from the event stream, so an exit that waits for OFF cannot cancel it.
-            onStopped = { wallMs ->
-                getSharedPreferences(SERVICE_PREFS, Context.MODE_PRIVATE).edit()
-                    .putLong(PREF_LAST_STOP_WALL_MS, wallMs).apply()
-            }
+            orphansPending = { repository.hasRecoverableCheckpoint() }
         )
         recorder = rec
         rec.start(_sampleInput)
@@ -352,7 +340,7 @@ class TrackRecordingService : Service() {
         adaptivePolicy.reset()
         gpsJob = serviceScope.launch {
             // The rate follows the recorder: one fix a second while a track records, the standby
-            // cadence while nothing does — enough for the forgotten-start rule and the stop detector,
+            // cadence while nothing does — enough for the home-port exit rule and the stop detector,
             // and a fraction of the battery the recording rate used to spend all day.
             combine(demoMode, _isRecording) { demo, recording -> demo to recording }
                 .distinctUntilChanged()

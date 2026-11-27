@@ -277,7 +277,7 @@ data class AppSettings(
     val trackOriginLon: Double = BuildConfig.TRACK_ORIGIN_LON,
     /** Home-circle radius in metres. */
     val trackGeofenceRadiusM: Double = BuildConfig.TRACK_GEOFENCE_RADIUS_M,
-    /** When false, the home circle plays no part: no forgotten-start rule, no arrival prompt. */
+    /** When false, the home circle plays no part: no exit auto-start, no arrival prompt. */
     val trackGeofenceEnabled: Boolean = true,
     /** Maximum GPS self-reported accuracy (m) for a fix to be recorded. Fixes with worse accuracy are rejected. */
     val maxRecordingAccuracyM: Float = 30f,
