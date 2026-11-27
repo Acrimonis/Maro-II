@@ -22,8 +22,11 @@ import kotlin.coroutines.resumeWithException
 
 /** What one request to the weather source came back with. */
 sealed interface FetchResult {
-    /** The source answered with a temperature, in °C. */
-    data class Value(val celsius: Double) : FetchResult
+    /**
+     * The source answered with a temperature, in °C. A value made of several sources carries each one's
+     * own in [sources], in their order, null for one that had none; a single source leaves it empty.
+     */
+    data class Value(val celsius: Double, val sources: List<Double?> = emptyList()) : FetchResult
 
     /** The source answered but has no temperature for that point (the sea model over land, say). */
     data object Empty : FetchResult
@@ -43,8 +46,39 @@ fun interface TemperatureFetcher {
 }
 
 /**
- * Open-Meteo, both sources: the Météo-France AROME air model and the marine API's sea surface
- * temperature, each asked for its `current` value at one point.
+ * GETs [url] and hands the status and body to [classify]. Best-effort and never throws: no answer, a
+ * timeout or a malformed URL is a [FetchResult.Failure] with no code and the error's message.
+ */
+internal suspend fun OkHttpClient.fetchClassified(url: String, classify: (Int, String) -> FetchResult): FetchResult =
+    withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder().url(url).build()
+            newCall(request).await().use { response -> classify(response.code, response.body?.string().orEmpty()) }
+        } catch (e: IOException) {
+            FetchResult.Failure(null, e.message)
+        } catch (e: IllegalArgumentException) {
+            FetchResult.Failure(null, e.message)
+        }
+    }
+
+/** Runs the call and gives up the connection at once when the calling coroutine is cancelled. */
+private suspend fun Call.await(): Response = suspendCancellableCoroutine { continuation ->
+    continuation.invokeOnCancellation { cancel() }
+    enqueue(object : Callback {
+        override fun onResponse(call: Call, response: Response) {
+            continuation.resume(response) { _, value, _ -> value.close() }
+        }
+
+        override fun onFailure(call: Call, e: IOException) {
+            continuation.resumeWithException(e)
+        }
+    })
+}
+
+/**
+ * Open-Meteo: the Météo-France AROME air model, the marine API's sea surface temperature (Météo-France,
+ * Copernicus global ocean model) and ECMWF IFS's sea surface temperature, each asked for its `current`
+ * value at one point.
  *
  * Best-effort and never throws: see [FetchResult.Failure] for what counts as one; the only quiet
  * "nothing" is [FetchResult.Empty], a sea answer that is well formed but has no temperature (over land).
@@ -56,32 +90,13 @@ class OpenMeteoClient(
 ) : TemperatureFetcher {
 
     override suspend fun fetch(source: TemperatureSource, latitude: Double, longitude: Double): FetchResult =
-        withContext(Dispatchers.IO) {
-            val request = Request.Builder().url(urlFor(source, latitude, longitude)).build()
-            try {
-                httpClient.newCall(request).await().use { response ->
-                    classify(source, response.code, response.body?.string().orEmpty())
-                }
-            } catch (e: IOException) {
-                FetchResult.Failure(null, e.message)
-            } catch (e: IllegalArgumentException) {
-                FetchResult.Failure(null, e.message)
-            }
+        httpClient.fetchClassified(urlFor(source, latitude, longitude)) { code, body -> classify(source, code, body) }
+
+    /** ECMWF IFS's sea surface temperature at one point, classified like the marine answer. */
+    suspend fun fetchEcmwfSea(latitude: Double, longitude: Double): FetchResult =
+        httpClient.fetchClassified(ecmwfSeaUrlFor(latitude, longitude)) { code, body ->
+            classify(TemperatureSource.WATER, code, body)
         }
-
-    /** Runs the call and gives up the connection at once when the calling coroutine is cancelled. */
-    private suspend fun Call.await(): Response = suspendCancellableCoroutine { continuation ->
-        continuation.invokeOnCancellation { cancel() }
-        enqueue(object : Callback {
-            override fun onResponse(call: Call, response: Response) {
-                continuation.resume(response) { _, value, _ -> value.close() }
-            }
-
-            override fun onFailure(call: Call, e: IOException) {
-                continuation.resumeWithException(e)
-            }
-        })
-    }
 
     /**
      * Reads an answer: a 2xx carries a value or none, anything else is a failure with the API's reason.
@@ -99,15 +114,24 @@ class OpenMeteoClient(
             FetchResult.Failure(code, parseReason(body))
         }
 
-    internal fun urlFor(source: TemperatureSource, latitude: Double, longitude: Double): String {
-        val position = String.format(Locale.US, "latitude=%.5f&longitude=%.5f", latitude, longitude)
-        return when (source) {
+    internal fun urlFor(source: TemperatureSource, latitude: Double, longitude: Double): String =
+        when (source) {
             TemperatureSource.AIR ->
-                "$airBaseUrl?$position&current=temperature_2m&models=$AIR_MODEL"
+                "$airBaseUrl?${position(latitude, longitude)}&current=temperature_2m&models=$AIR_MODEL"
             TemperatureSource.WATER ->
-                "$waterBaseUrl?$position&current=sea_surface_temperature"
+                "$waterBaseUrl?${position(latitude, longitude)}&current=sea_surface_temperature"
         }
-    }
+
+    /**
+     * The ECMWF sea request goes to the forecast API, which answers a land surface temperature over a land
+     * cell: `cell_selection=sea` makes it take the nearest sea cell instead.
+     */
+    internal fun ecmwfSeaUrlFor(latitude: Double, longitude: Double): String =
+        "$airBaseUrl?${position(latitude, longitude)}&current=sea_surface_temperature" +
+            "&models=$SEA_MODEL_ECMWF&cell_selection=sea"
+
+    private fun position(latitude: Double, longitude: Double): String =
+        String.format(Locale.US, "latitude=%.5f&longitude=%.5f", latitude, longitude)
 
     companion object {
         const val AIR_BASE_URL = "https://api.open-meteo.com/v1/forecast"
@@ -115,6 +139,9 @@ class OpenMeteoClient(
 
         /** Météo-France AROME blended with its coarser fallbacks, so a point the fine grid misses still answers. */
         const val AIR_MODEL = "meteofrance_arome_seamless"
+
+        /** ECMWF IFS at its native ~9 km: the only forecast-API model with a sea surface temperature here. */
+        const val SEA_MODEL_ECMWF = "ecmwf_ifs"
 
         private val JSON = Json { ignoreUnknownKeys = true }
 

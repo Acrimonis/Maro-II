@@ -966,6 +966,10 @@ object AppConfig {
     var temperatureWaterExpiryMin: Long = 720L
         private set
 
+    /** Tolerance (°C) of the sea sources' weighted blend: a value this far from the median weighs half. Default 3.0. Set via `temperature.water.blend.toleranceC`. */
+    var temperatureWaterBlendToleranceC: Double = 3.0
+        private set
+
     /** Waits (s) after consecutive failed fetches; the last step repeats. Default 60, 120, 300. Set via `temperature.backoffS`. */
     var temperatureBackoffS: List<Int> = listOf(60, 120, 300)
         private set
@@ -2495,6 +2499,9 @@ object AppConfig {
             }
             props.getProperty("temperature.water.expiry.min")?.toLongOrNull()?.let {
                 temperatureWaterExpiryMin = it.coerceIn(1L, 2_880L)
+            }
+            props.getProperty("temperature.water.blend.toleranceC")?.toDoubleOrNull()?.let {
+                temperatureWaterBlendToleranceC = it.coerceIn(0.1, 20.0)
             }
             props.getProperty("temperature.backoffS")?.let { raw ->
                 raw.split(',').mapNotNull { it.trim().toIntOrNull()?.coerceIn(10, 3_600) }

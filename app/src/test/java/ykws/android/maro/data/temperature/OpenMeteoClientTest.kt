@@ -79,4 +79,13 @@ class OpenMeteoClientTest {
             client.urlFor(TemperatureSource.WATER, 43.5696, 7.1313)
         )
     }
+
+    @Test
+    fun `the ECMWF sea request names the model and asks for a sea cell`() {
+        assertEquals(
+            "https://api.open-meteo.com/v1/forecast?latitude=43.56960&longitude=7.13130" +
+                "&current=sea_surface_temperature&models=ecmwf_ifs&cell_selection=sea",
+            OpenMeteoClient().ecmwfSeaUrlFor(43.5696, 7.1313)
+        )
+    }
 }

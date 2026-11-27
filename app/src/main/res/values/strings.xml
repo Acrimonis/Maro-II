@@ -532,6 +532,9 @@
     <string name="temperature_tile_value_fmt">%1$d°</string>
     <string name="temperature_tile_none">–</string>
     <string name="temperature_refresh_toast">Refreshing temperatures…</string>
+    <string name="temperature_refreshed_toast">Water: %1$s\nAir: %2$s</string>
+    <string name="temperature_refreshed_air_toast">Air: %1$s</string>
+    <string name="temperature_degrees_fmt">%1$s°</string>
     <string name="temperature_source_air">Air</string>
     <string name="temperature_source_water">Water</string>
     <string name="temperature_problem_toast">Temperature – %1$s: %2$s</string>

@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import ykws.android.maro.BuildConfig
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.data.temperature.CopernicusSeaClient
+import ykws.android.maro.data.temperature.AverageSeaFetcher
 import ykws.android.maro.data.temperature.OpenMeteoClient
 import ykws.android.maro.data.temperature.TemperatureCache
 import ykws.android.maro.data.temperature.TemperatureEngine
@@ -53,10 +55,10 @@ internal class TemperatureViewModel(application: Application) : AndroidViewModel
         AppConfig.temperatureWaterCellSideM
     )
 
-    /** What a stored cache must have been written under, or it is discarded. */
+    /** What a stored cache must have been written under, or it is discarded; `sea` names the water sources. */
     private val signature =
         "air=${AppConfig.temperatureAirCellSideM};water=${AppConfig.temperatureWaterCellSideM};" +
-            "origin=${BuildConfig.TRACK_ORIGIN_LAT},${BuildConfig.TRACK_ORIGIN_LON}"
+            "origin=${BuildConfig.TRACK_ORIGIN_LAT},${BuildConfig.TRACK_ORIGIN_LON};sea=blend-marine-ecmwf-copernicus;tolerance=${AppConfig.temperatureWaterBlendToleranceC}"
 
     private val _notices = MutableSharedFlow<TemperatureNotice>(extraBufferCapacity = 4)
 
@@ -75,9 +77,22 @@ internal class TemperatureViewModel(application: Application) : AndroidViewModel
     @Volatile
     private var waterTest: (Double, Double) -> Boolean = { _, _ -> false }
 
+    private val http = OpenMeteoClient.defaultClient()
+    private val openMeteo = OpenMeteoClient(http)
+    private val copernicus = CopernicusSeaClient(http)
+
     private val engine = TemperatureEngine(
         scope = viewModelScope,
-        fetcher = OpenMeteoClient(),
+        // Water is the weighted average of the three sea sources asked at the same point.
+        fetcher = AverageSeaFetcher(
+            air = openMeteo,
+            seas = listOf(
+                { lat, lon -> openMeteo.fetch(TemperatureSource.WATER, lat, lon) },
+                openMeteo::fetchEcmwfSea,
+                copernicus::fetch
+            ),
+            toleranceC = AppConfig.temperatureWaterBlendToleranceC
+        ),
         airGrid = airGrid,
         waterGrid = waterGrid,
         cache = cache,
@@ -85,6 +100,7 @@ internal class TemperatureViewModel(application: Application) : AndroidViewModel
         isOnline = ::isOnline,
         onCacheChanged = ::persist,
         onProblem = { _notices.tryEmit(TemperatureNotice.Problem(it)) },
+        onRefreshed = { _notices.tryEmit(TemperatureNotice.Refreshed(it)) },
         timing = TemperatureTiming(
             settleMs = AppConfig.temperatureSettleMs,
             backoffS = AppConfig.temperatureBackoffS,
