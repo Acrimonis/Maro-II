@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.sp
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.temperature.TemperatureProblem
+import ykws.android.maro.data.temperature.TemperatureRefresh
 import ykws.android.maro.data.temperature.TemperatureSource
 import ykws.android.maro.ui.notice.NoticeCenter
 import androidx.compose.ui.graphics.Color as ComposeColor
@@ -49,7 +50,9 @@ internal fun TemperatureTile(
     // drawer, so a failed fetch is seen even with Settings open. One key, so a new line replaces the old.
     LaunchedEffect(viewModel) {
         viewModel.notices.collect { notice ->
-            NoticeCenter.shared.post(notice.asNotice { problemMessage(context, it) })
+            NoticeCenter.shared.post(
+                notice.asNotice(problemText = { problemMessage(context, it) }, refreshText = { refreshMessage(context, it) })
+            )
         }
     }
     val tint = ComposeColor(temperatureTint(view == TemperatureView.WATER))
@@ -100,6 +103,21 @@ private fun problemMessage(context: Context, problem: TemperatureProblem): Strin
             .ifEmpty { context.getString(R.string.temperature_problem_no_answer) }
     }
     return context.getString(R.string.temperature_problem_toast, label, detail)
+}
+
+/**
+ * The pill text for a refresh's answers, on two lines: each sea source's own value, "Water: 17°/15.5°/18.2°",
+ * then "Air: 17.3°"; air alone when water was not asked. A source with no value reads as the dash.
+ */
+private fun refreshMessage(context: Context, refresh: TemperatureRefresh): String {
+    val none = context.getString(R.string.temperature_tile_none)
+    val air = refreshDegrees(refresh.airC)?.let { context.getString(R.string.temperature_degrees_fmt, it) } ?: none
+    val water = refresh.waterC
+        ?: return context.getString(R.string.temperature_refreshed_air_toast, air)
+    val each = water.joinToString("/") { c ->
+        refreshDegrees(c)?.let { context.getString(R.string.temperature_degrees_fmt, it) } ?: none
+    }
+    return context.getString(R.string.temperature_refreshed_toast, each, air)
 }
 
 /** How many characters the reading's square has room for at the configured size: "18°", "-5°". */

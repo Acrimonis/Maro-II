@@ -10,11 +10,14 @@ Vocabulary: the **temperature tile** is the square shown on the map. The cache i
 - Air: Open-Meteo Weather API, Météo-France AROME model, in its seamless form (AROME blended with the coarser Météo-France models, so a point the fine grid misses still answers).
   - Request: `https://api.open-meteo.com/v1/forecast?latitude={LAT}&longitude={LON}&current=temperature_2m&models=meteofrance_arome_seamless`
   - Spatial granularity about 1.3 km; model refresh every 3 hours with hourly output steps.
-- Water: Open-Meteo Marine API, Météo-France SMOC / Copernicus CMEMS baseline.
+- Water (2026-11-27): the weighted average of three sources, each weighing 1 / (1 + (d / tolerance)²) with d its distance from their median, tolerance `temperature.water.blend.toleranceC` asked at the same point at once; a source that fails or has nothing while another answers is passed over.
+  - Open-Meteo Marine API, Météo-France SMOC / Copernicus CMEMS baseline:
   - Request: `https://marine-api.open-meteo.com/v1/marine?latitude={LAT}&longitude={LON}&current=sea_surface_temperature`
-  - Spatial granularity about 8 km; model refresh every 12 to 24 hours with hourly output steps.
+  - Spatial granularity about 8 km; 6-hourly steps, updated daily.
+  - ECMWF IFS through Open-Meteo's forecast API: `...&current=sea_surface_temperature&models=ecmwf_ifs&cell_selection=sea` — about 9 km; without `cell_selection=sea` a land cell answers a land surface temperature.
+  - Copernicus Marine Mediterranean analysis (`SST_MED_SST_L4_NRT_OBSERVATIONS_010_004`, 1/100° dataset) through the public WMTS `GetFeatureInfo`, no account: about 1 km, one night-time map a day, Mediterranean only (no request outside it).
 - The app is non-commercial, so the free tier applies. Free tier, no API key, limits per IP: 600 requests/min, 5,000/hour, 10,000/day, 300,000/month.
-- Units: °C, rounded to whole degrees.
+- Units: °C in whole degrees — air rounded, water cut down (17.9 shows 17).
 
 ## Reference point
 

@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.util.EnumMap
+import kotlin.math.floor
 import kotlin.math.roundToInt
 
 /** One temperature as the tile shows it: [celsius] null is the dash, [subdued] the less-exact styling. */
@@ -30,6 +31,13 @@ data class TemperatureProblem(val source: TemperatureSource?, val code: Int?, va
     /** True when the source answered fine (a 2xx) but with no temperature in it. */
     val answeredWithoutValue: Boolean get() = code != null && code in 200..299
 }
+
+/**
+ * What a "refresh now" fetched, in °C before any rounding: [airC] null when air had no value, [waterC] each
+ * sea source's value in order (null for one that had none), or null when water was not asked (the marker
+ * on land).
+ */
+data class TemperatureRefresh(val airC: Double?, val waterC: List<Double?>?)
 
 /** The timing knobs the engine runs on, defaulted to the documented values of `maro.properties`. */
 data class TemperatureTiming(
@@ -77,6 +85,8 @@ class TemperatureEngine(
     private val onCacheChanged: (TemperatureCache) -> Unit = {},
     /** Called when a request goes wrong, once per streak of failures of a source, and on a refresh with no connection. */
     private val onProblem: (TemperatureProblem) -> Unit = {},
+    /** Called once the fetches a "refresh now" started have ended, when at least one of them gave a value. */
+    private val onRefreshed: (TemperatureRefresh) -> Unit = {},
     private val timing: TemperatureTiming = TemperatureTiming()
 ) {
     private val _state = MutableStateFlow(TemperatureState())
@@ -101,6 +111,9 @@ class TemperatureEngine(
 
     private var lastAir: Int? = null
     private var lastWater: Int? = null
+
+    /** A "refresh now" is waiting for the fetches it started to end, to report them through [onRefreshed]. */
+    private var refreshPending = false
 
     // ── Inputs ─────────────────────────────────────────────────────────────
 
@@ -163,7 +176,10 @@ class TemperatureEngine(
             } else {
                 onProblem(TemperatureProblem(null, null, null)) // the request in flight may yet succeed: keep it
             }
+            refreshPending = true
             check()
+            // Nothing could be asked (offline, no position): there is nothing to report later either.
+            if (fetchJob?.isActive != true) refreshPending = false
         }
     }
 
@@ -258,11 +274,18 @@ class TemperatureEngine(
 
     private suspend fun runFetches(due: List<TemperatureSource>, pos: Pair<Double, Double>) {
         try {
+            var air: FetchResult? = null
+            var water: FetchResult? = null
             for (source in due) {
                 when (source) {
-                    TemperatureSource.AIR -> fetchAir(pos)
-                    TemperatureSource.WATER -> fetchWater(pos)
+                    TemperatureSource.AIR -> air = fetchAir(pos)
+                    TemperatureSource.WATER -> water = fetchWater(pos)
                 }
+            }
+            // Reached only when the batch ran to its end: a cancelled one (a newer press) reports nothing.
+            if (refreshPending) {
+                refreshPending = false
+                reportRefresh(air, water)
             }
         } finally {
             onCacheChanged(cache)
@@ -272,12 +295,15 @@ class TemperatureEngine(
         }
     }
 
-    private suspend fun fetchAir(pos: Pair<Double, Double>) {
+    private suspend fun fetchAir(pos: Pair<Double, Double>): FetchResult {
         val point = airGrid.nearest(pos.first, pos.second, 1).first()
-        record(TemperatureSource.AIR, point, fetcher.fetch(TemperatureSource.AIR, point.latitude, point.longitude))
+        return fetcher.fetch(TemperatureSource.AIR, point.latitude, point.longitude)
+            .also { record(TemperatureSource.AIR, point, it) }
     }
 
-    private suspend fun fetchWater(pos: Pair<Double, Double>) {
+    /** The last answer fetched, or null when no point needed asking. */
+    private suspend fun fetchWater(pos: Pair<Double, Double>): FetchResult? {
+        var last: FetchResult? = null
         for (point in waterCandidates(pos)) {
             val entry = cache.get(point.key)
             if (entry != null && cache.isFresh(TemperatureSource.WATER, entry, clock())) {
@@ -286,8 +312,22 @@ class TemperatureEngine(
             }
             val result = fetcher.fetch(TemperatureSource.WATER, point.latitude, point.longitude)
             record(TemperatureSource.WATER, point, result)
+            last = result
             if (result !is FetchResult.Empty) break // a value is the answer; a failure ends the burst
         }
+        return last
+    }
+
+    /** Reports the refresh's answers, unless none carried a value: then the problem line already says why. */
+    private fun reportRefresh(air: FetchResult?, water: FetchResult?) {
+        val airC = (air as? FetchResult.Value)?.celsius
+        val waterC = when (water) {
+            null -> null
+            is FetchResult.Value -> water.sources.ifEmpty { listOf(water.celsius) }
+            else -> listOf(null)
+        }
+        if (airC == null && waterC?.any { it != null } != true) return
+        onRefreshed(TemperatureRefresh(airC, waterC))
     }
 
     private fun record(source: TemperatureSource, point: SamplePoint, result: FetchResult) {
@@ -350,13 +390,13 @@ class TemperatureEngine(
                 entry == null -> return previousWater()
                 !cache.isFresh(TemperatureSource.WATER, entry, now) ->
                     return if (value != null) {
-                        val celsius = value.roundToInt()
+                        val celsius = waterDegrees(value)
                         lastWater = celsius
                         TemperatureReading(celsius, subdued = true)
                     } else previousWater()
                 value == null -> continue // fresh empty answer: the next point answers
                 else -> {
-                    val celsius = value.roundToInt()
+                    val celsius = waterDegrees(value)
                     lastWater = celsius
                     return TemperatureReading(celsius, subdued = false)
                 }
@@ -367,6 +407,9 @@ class TemperatureEngine(
 
     private fun previousWater(): TemperatureReading =
         lastWater?.let { TemperatureReading(it, subdued = true) } ?: TemperatureReading(null, false)
+
+    /** The sea value cut down to its whole degree, never rounded up: 17.9 shows 17, -0.5 shows -1. */
+    private fun waterDegrees(valueC: Double): Int = floor(valueC).toInt()
 }
 
 /** A guard, not a tunable: the memo of water answers is dropped whole if it ever grows past this. */

@@ -5,17 +5,19 @@ import org.junit.Test
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.temperature.TemperatureProblem
+import ykws.android.maro.data.temperature.TemperatureRefresh
 import ykws.android.maro.data.temperature.TemperatureSource
 import ykws.android.maro.ui.notice.NoticeClass
 import ykws.android.maro.ui.notice.NoticeKeys
 import ykws.android.maro.ui.notice.NoticeText
+import java.util.Locale
 
 /** How the temperature tile's and the speed history's outcomes reach the notice host (step 2). */
 class TemperatureNoticeTest {
 
     @Test
     fun aRefreshIsAShortConfirmationUnderTheTilesKey() {
-        val notice = TemperatureNotice.Refreshing.asNotice { error("a refresh carries no problem") }
+        val notice = TemperatureNotice.Refreshing.asNotice(problemText = { error("no problem") }, refreshText = { error("no answers") })
 
         assertEquals(NoticeKeys.TEMPERATURE, notice.key)
         assertEquals(NoticeClass.CONFIRM, notice.cls)
@@ -27,12 +29,37 @@ class TemperatureNoticeTest {
     fun aProblemIsAnErrorThatStaysLongEnoughToReadUnderTheSameKey() {
         val problem = TemperatureProblem(TemperatureSource.WATER, 429, "Too many requests")
 
-        val notice = TemperatureNotice.Problem(problem).asNotice { "line for ${it.code}" }
+        val notice = TemperatureNotice.Problem(problem).asNotice(problemText = { "line for ${it.code}" }, refreshText = { error("no answers") })
 
         assertEquals(NoticeKeys.TEMPERATURE, notice.key)
         assertEquals(NoticeClass.ERROR, notice.cls)
         assertEquals(AppConfig.noticeDwellErrorMs, notice.dwellMs)
         assertEquals(NoticeText.Resolved("line for 429"), notice.text)
+    }
+
+    @Test
+    fun aRefreshsAnswersAreAResultToReadUnderTheSameKey() {
+        val refresh = TemperatureRefresh(17.3, listOf(17.0, 15.5, null))
+
+        val notice = TemperatureNotice.Refreshed(refresh).asNotice(
+            problemText = { error("no problem") },
+            refreshText = { "answers ${it.waterC?.size}" }
+        )
+
+        assertEquals(NoticeKeys.TEMPERATURE, notice.key)
+        assertEquals(NoticeClass.RESULT, notice.cls)
+        assertEquals(AppConfig.noticeDwellReadableMs, notice.dwellMs)
+        assertEquals(NoticeText.Resolved("answers 3"), notice.text)
+    }
+
+    @Test
+    fun aRefreshNumberHasOneDecimalAtMostAndTheDevicesDecimalMark() {
+        assertEquals("17", refreshDegrees(17.0, Locale.US))
+        assertEquals("15.5", refreshDegrees(15.5, Locale.US))
+        assertEquals("17.7", refreshDegrees(17.66, Locale.US))
+        assertEquals("17.3", refreshDegrees(17.25, Locale.US))
+        assertEquals("15,5", refreshDegrees(15.5, Locale.FRANCE))
+        assertEquals(null, refreshDegrees(null, Locale.US))
     }
 
     @Test
