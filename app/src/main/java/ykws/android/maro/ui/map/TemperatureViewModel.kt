@@ -18,7 +18,9 @@ import ykws.android.maro.BuildConfig
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.temperature.CopernicusSeaClient
 import ykws.android.maro.data.temperature.AverageSeaFetcher
+import ykws.android.maro.data.temperature.FetchResult
 import ykws.android.maro.data.temperature.OpenMeteoClient
+import ykws.android.maro.data.temperature.SeaSource
 import ykws.android.maro.data.temperature.TemperatureCache
 import ykws.android.maro.data.temperature.TemperatureEngine
 import ykws.android.maro.data.temperature.TemperatureGrid
@@ -55,15 +57,20 @@ internal class TemperatureViewModel(application: Application) : AndroidViewModel
         AppConfig.temperatureWaterCellSideM
     )
 
-    /** What a stored cache must have been written under, or it is discarded; `sea` names the water sources. */
+    /**
+     * What a stored cache must have been written under, or it is discarded; `sea` names the water sources in
+     * [SeaSource]'s order, so reordering them also discards the values stored by position.
+     */
     private val signature =
         "air=${AppConfig.temperatureAirCellSideM};water=${AppConfig.temperatureWaterCellSideM};" +
-            "origin=${BuildConfig.TRACK_ORIGIN_LAT},${BuildConfig.TRACK_ORIGIN_LON};sea=blend-marine-ecmwf-copernicus;tolerance=${AppConfig.temperatureWaterBlendToleranceC}"
+            "origin=${BuildConfig.TRACK_ORIGIN_LAT},${BuildConfig.TRACK_ORIGIN_LON};" +
+            "sea=blend-${SeaSource.entries.joinToString("-") { it.name.lowercase() }};" +
+            "tolerance=${AppConfig.temperatureWaterBlendToleranceC}"
 
-    private val _notices = MutableSharedFlow<TemperatureNotice>(extraBufferCapacity = 4)
+    private val _problems = MutableSharedFlow<TemperatureProblem>(extraBufferCapacity = 4)
 
-    /** What the user is told by a pill on the notice host: a refresh begun, a request that went wrong, no connection to refresh on. */
-    val notices: SharedFlow<TemperatureNotice> = _notices
+    /** What the user is told by a pill on the notice host: a request that went wrong, no connection to refresh on. */
+    val problems: SharedFlow<TemperatureProblem> = _problems
 
 
     private val cache = TemperatureCache { source ->
@@ -86,11 +93,7 @@ internal class TemperatureViewModel(application: Application) : AndroidViewModel
         // Water is the weighted average of the three sea sources asked at the same point.
         fetcher = AverageSeaFetcher(
             air = openMeteo,
-            seas = listOf(
-                { lat, lon -> openMeteo.fetch(TemperatureSource.WATER, lat, lon) },
-                openMeteo::fetchEcmwfSea,
-                copernicus::fetch
-            ),
+            seas = SeaSource.entries.map(::seaAsk),
             toleranceC = AppConfig.temperatureWaterBlendToleranceC
         ),
         airGrid = airGrid,
@@ -99,8 +102,7 @@ internal class TemperatureViewModel(application: Application) : AndroidViewModel
         isWater = { lat, lon -> waterTest(lat, lon) },
         isOnline = ::isOnline,
         onCacheChanged = ::persist,
-        onProblem = { _notices.tryEmit(TemperatureNotice.Problem(it)) },
-        onRefreshed = { _notices.tryEmit(TemperatureNotice.Refreshed(it)) },
+        onProblem = { _problems.tryEmit(it) },
         timing = TemperatureTiming(
             settleMs = AppConfig.temperatureSettleMs,
             backoffS = AppConfig.temperatureBackoffS,
@@ -144,14 +146,20 @@ internal class TemperatureViewModel(application: Application) : AndroidViewModel
     fun onPosition(latitude: Double, longitude: Double) = engine.onPosition(latitude, longitude)
 
     /** Long press on the tile (which only shows while the feature is on): mark everything outdated and fetch once. */
-    fun refreshNow() {
-        _notices.tryEmit(TemperatureNotice.Refreshing)
-        engine.refreshNow()
-    }
+    fun refreshNow() = engine.refreshNow()
 
     /** A tap: switch views, when there is a water view to switch to. */
     fun toggleView() {
         tappedTemperatureView(engine.state.value, _preferredView.value)?.let { _preferredView.value = it }
+    }
+
+    /** One sea source's own request; exhaustive, so a new [SeaSource] cannot be left without one. */
+    private fun seaAsk(source: SeaSource): suspend (Double, Double) -> FetchResult = { lat, lon ->
+        when (source) {
+            SeaSource.MARINE -> openMeteo.fetch(TemperatureSource.WATER, lat, lon)
+            SeaSource.ECMWF -> openMeteo.fetchEcmwfSea(lat, lon)
+            SeaSource.COPERNICUS -> copernicus.fetch(lat, lon)
+        }
     }
 
     private fun isOnline(): Boolean {

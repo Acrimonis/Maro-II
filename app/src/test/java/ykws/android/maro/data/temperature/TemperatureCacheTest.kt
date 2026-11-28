@@ -94,6 +94,30 @@ class TemperatureCacheTest {
     }
 
     @Test
+    fun `the sea sources behind a value come back with it, a missing one included`() {
+        val cache = newCache()
+        cache.put("water:A:0:0", CacheEntry(17.0, 1_000L, sources = listOf(17.4, null, 16.8)))
+        val text = cache.encode("sig")
+
+        val restored = newCache()
+        restored.restore(text, "sig", 2_000L, ::sourceOf)
+
+        assertEquals(listOf(17.4, null, 16.8), restored.get("water:A:0:0")!!.sources)
+    }
+
+    @Test
+    fun `a cache stored before the sources were kept still loads, with none`() {
+        val text = """{"signature":"sig","entries":{"water:A:0:0":{"valueC":17.0,"fetchedAtMs":1000}}}"""
+
+        val restored = newCache()
+        restored.restore(text, "sig", 2_000L, ::sourceOf)
+
+        val entry = restored.get("water:A:0:0")!!
+        assertEquals(17.0, entry.valueC!!, 0.0)
+        assertTrue(entry.sources.isEmpty())
+    }
+
+    @Test
     fun `unreadable text leaves the cache empty`() {
         val restored = newCache()
         restored.restore("not json", "sig", 0L, ::sourceOf)

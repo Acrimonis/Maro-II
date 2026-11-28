@@ -18,6 +18,7 @@
     <!-- La légende des zones réglementées : le nom de la ligne synthétique des 300 m, la lecture d\'une
          limite de vitesse, et les libellés des neuf bascules de catégorie. -->
     <string name="regulated_zone300_name">Zone des 300 m</string>
+    <string name="zone_info_hold_label">Afficher ou masquer le texte d\'info</string>
     <string name="regulated_speed_kn_fmt">%1$d nd</string>
     <string name="zone_category_speed_limit">Limite de vitesse</string>
     <string name="zone_category_no_access">Accès interdit</string>
@@ -456,7 +457,7 @@
     <string name="action_regenerate">Régénérer</string>
 
     <!-- Settings — Priority 5 (Navigation + System tabs) -->
-    <string name="settings_reg_info_desc">Afficher le texte d\'info à côté des icônes</string>
+    <string name="settings_reg_info_desc">Afficher le texte des zones et les sources de température à côté des icônes</string>
     <string name="settings_reg_info_visible">Texte d\'info visible</string>
     <string name="settings_section_tracks">Traces</string>
     <string name="settings_section_routes_and_tracks">Routes et traces</string>
@@ -530,9 +531,6 @@
     <string name="settings_temperature_credit">Données météo par Open-Meteo.com</string>
     <string name="temperature_tile_value_fmt">%1$d°</string>
     <string name="temperature_tile_none">–</string>
-    <string name="temperature_refresh_toast">Actualisation des températures…</string>
-    <string name="temperature_refreshed_toast">Eau : %1$s\nAir : %2$s</string>
-    <string name="temperature_refreshed_air_toast">Air : %1$s</string>
     <string name="temperature_degrees_fmt">%1$s°</string>
     <string name="temperature_source_air">Air</string>
     <string name="temperature_source_water">Eau</string>
@@ -543,6 +541,13 @@
     <string name="temperature_problem_offline_toast">Pas de connexion : les températures ne peuvent pas être actualisées</string>
     <string name="temperature_tile_air_cd">Température de l\'air</string>
     <string name="temperature_tile_water_cd">Température de l\'eau</string>
+    <!-- La ligne des sources de température, une par vue de la tuile : son icône, puis les sources qui ont une valeur. -->
+    <string name="temperature_water_line_fmt">🌊 %1$s</string>
+    <string name="temperature_air_line_fmt">🏔️ %1$s</string>
+    <string name="temperature_sea_marine_fmt">Marine %1$s</string>
+    <string name="temperature_sea_ecmwf_fmt">ECMWF %1$s</string>
+    <string name="temperature_sea_copernicus_fmt">Copernicus %1$s</string>
+    <string name="temperature_air_arome_fmt">AROME %1$s</string>
 
     <!-- Content descriptions (accessibility) -->
     <string name="cd_cancel">Annuler</string>

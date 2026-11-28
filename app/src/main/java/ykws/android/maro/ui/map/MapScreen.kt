@@ -3462,6 +3462,9 @@ fun MapScreen(
                 onToggleLowDepthWarning = viewModel::toggleLowDepthWarningVisibility,
                 onToggleDepthLayer = viewModel::toggleDepthLayerVisibility,
                 onToggleRegulatedZones = viewModel::toggleRegulatedZonesVisibility,
+                onToggleZoneInfo = {
+                    viewModel.updateSettings { it.copy(regulationInfoVisible = !it.regulationInfoVisible) }
+                },
                 onToggleZone300 = viewModel::toggleZone300Visibility,
                 onToggleRouteTracks = viewModel::toggleRouteTracksVisibility,
                 isLandscape = isLandscape,
@@ -5113,6 +5116,8 @@ private fun MapContent(
     zone300OverlayVisible: Boolean = false,
     regulatedZoneOverlayVisible: Boolean = false,
     onToggleRegulatedZones: () -> Unit,
+    /** A hold on the zone tags: shows or hides the info text beside them. */
+    onToggleZoneInfo: () -> Unit,
     onToggleLowDepthWarning: () -> Unit,
     onToggleDepthLayer: () -> Unit,
     onToggleRouteTracks: () -> Unit = {},
@@ -5394,6 +5399,8 @@ private fun MapContent(
                             }
                             RegulatedZoneWarningStrip(
                                 regulatedZones = tagRegulatedZones,
+                                onHold = onToggleZoneInfo,
+                                onTap = onDismissFan,
                                 markerPosition = mapCenter,
                                 inZone300 = markerInZone300
                             )
@@ -5406,7 +5413,12 @@ private fun MapContent(
                                 modifier = Modifier
                                     .weight(1f)
                                     .padding(start = AppConfig.uiMapOverlayGap.dp)
-                                    .align(Alignment.Bottom)
+                                    .align(Alignment.Bottom),
+                                headLine = {
+                                    if (appSettings.temperatureEnabled && temperatureViewModel != null) {
+                                        TemperatureSourcesLine(temperatureViewModel)
+                                    }
+                                }
                             )
                         }
                     }

@@ -36,8 +36,17 @@ Vocabulary: the **temperature tile** is the square shown on the map. The cache i
 - A view chosen by tapping is sticky: it stays, with no timeout, for the rest of the current run of the app, until the next tap. A restart returns to the default view. If the tile was toggled to air while on water, air stays displayed. On land only air can show; the sticky choice applies again once the marker is back on water.
 - Water view applies only when isOnWater is true. When isOnLand, the tile shows air only and tapping does nothing.
 - Tapping the tile switches between the air and water views when water applies.
-- A long press on the tile forces a refresh: all cached values are marked as expired and the remembered empty answers are cleared, and the nearest sample point of each source is fetched once, ignoring any back-off for that one fetch. With a connection, a request already in flight is dropped and asked afresh at once; with none, it is left to finish. The press answers at once with a vibration and a short toast ("Refreshing temperatures…", in English and French), and the old value stays in the subdued font until the new value arrives. If the new attempt fails it is reported again (see Refresh), and with no connection the press says so instead of waiting.
+- A long press on the tile forces a refresh: all cached values are marked as expired and the remembered empty answers are cleared, and the nearest sample point of each source is fetched once, ignoring any back-off for that one fetch. With a connection, a request already in flight is dropped and asked afresh at once; with none, it is left to finish. The press answers at once with a vibration, and the old value stays in the subdued font until the new value arrives; a refresh that succeeds raises no message. If the new attempt fails it is reported again (see Refresh), and with no connection the press says so instead of waiting.
 - A double tap does nothing.
+
+## Source line
+
+- The info text beside the zone tags is headed by one line saying where the tile's number comes from, so it follows the tile's view. Values are written with one decimal at most, in the device's decimal mark.
+- Water view: `🌊 Marine 17.4° · ECMWF 17.1° · Copernicus 16.8°`, each sea source's own value. A source with no value, failed or empty alike, is left out until that sample point is asked again.
+- Air view, on land or on water after a tap: `🏔️ AROME 17.3°`, the air value before rounding, behind the land icon.
+- It shows while the info text is on (its Settings switch, or a hold on the zone tags) and the tile is on, whether or not any zone tag is there. With no source value to show there is no line.
+- It follows the value the tile shows, a held-over one included, and is muted while that value is outdated. It carries no time or date.
+- A water value cached before the sources were kept has no line until its next fetch.
 
 ## Refresh
 

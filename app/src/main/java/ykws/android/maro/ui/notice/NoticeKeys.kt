@@ -27,7 +27,7 @@ internal object NoticeKeys {
     /** The arrival status, standing while the settled reading holds. */
     const val ROUTE_ARRIVAL = "routeArrival"
 
-    /** The temperature tile's refresh line and problem line, one slot. */
+    /** The temperature tile's problem line, one slot. */
     const val TEMPERATURE = "temperature"
 
     /** The outcome of Settings' speed-history Calculate. */

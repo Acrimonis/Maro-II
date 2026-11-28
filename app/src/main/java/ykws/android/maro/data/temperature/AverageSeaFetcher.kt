@@ -5,6 +5,12 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 
 /**
+ * The sea sources, in the order [AverageSeaFetcher] is given them: the order each blended value reports its
+ * [FetchResult.Value.sources] in, and the cache and the temperature source line read them in.
+ */
+enum class SeaSource { MARINE, ECMWF, COPERNICUS }
+
+/**
  * The engine's fetcher: air goes to [air]; water asks every one of [seas] at the same point at once and
  * keeps their weighted average, see [blend].
  */
