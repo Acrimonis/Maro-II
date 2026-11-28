@@ -19,6 +19,7 @@
     <!-- The regulated-zone legend: the synthetic 300 m line's own name, a speed limit's reading, and the
          nine category toggles' labels. -->
     <string name="regulated_zone300_name">300 m zone</string>
+    <string name="zone_info_hold_label">Show or hide the info text</string>
     <string name="regulated_speed_kn_fmt">%1$d kn</string>
     <string name="zone_category_speed_limit">Speed limit</string>
     <string name="zone_category_no_access">No access</string>
@@ -457,7 +458,7 @@
     <string name="action_regenerate">Regenerate</string>
 
     <!-- Settings — Priority 5 (Navigation + System tabs) -->
-    <string name="settings_reg_info_desc">Show zone info text beside the icon strip</string>
+    <string name="settings_reg_info_desc">Show zone text and temperature sources beside the icon strip</string>
     <string name="settings_reg_info_visible">Info text visible</string>
     <string name="settings_section_tracks">Tracks</string>
     <string name="settings_section_routes_and_tracks">Routes and Tracks</string>
@@ -531,9 +532,6 @@
     <string name="settings_temperature_credit">Weather data by Open-Meteo.com</string>
     <string name="temperature_tile_value_fmt">%1$d°</string>
     <string name="temperature_tile_none">–</string>
-    <string name="temperature_refresh_toast">Refreshing temperatures…</string>
-    <string name="temperature_refreshed_toast">Water: %1$s\nAir: %2$s</string>
-    <string name="temperature_refreshed_air_toast">Air: %1$s</string>
     <string name="temperature_degrees_fmt">%1$s°</string>
     <string name="temperature_source_air">Air</string>
     <string name="temperature_source_water">Water</string>
@@ -544,6 +542,13 @@
     <string name="temperature_problem_offline_toast">No connection: temperatures cannot be refreshed</string>
     <string name="temperature_tile_air_cd">Air temperature</string>
     <string name="temperature_tile_water_cd">Water temperature</string>
+    <!-- The temperature source line, one per tile view: its icon, then the parts of the sources that have a value. -->
+    <string name="temperature_water_line_fmt">🌊 %1$s</string>
+    <string name="temperature_air_line_fmt">🏔️ %1$s</string>
+    <string name="temperature_sea_marine_fmt">Marine %1$s</string>
+    <string name="temperature_sea_ecmwf_fmt">ECMWF %1$s</string>
+    <string name="temperature_sea_copernicus_fmt">Copernicus %1$s</string>
+    <string name="temperature_air_arome_fmt">AROME %1$s</string>
 
     <!-- Content descriptions (accessibility) -->
     <string name="cd_cancel">Cancel</string>

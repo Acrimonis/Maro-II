@@ -136,4 +136,24 @@ class RegulatedZoneTagsTest {
         assertEquals(AppConfig.zoneRegulatorySpeedKn.toDouble(), tags[0].speedKn!!, 0.0)
         assertNull("the band's entry has no zone of its own", tags[0].zone)
     }
+
+    @Test
+    fun `the 300 m band tags a point no regulated zone contains`() {
+        val zones = setOf(zone(RegulatedZoneType.MOORING))
+
+        val tags = regulatedZoneTags(zones, outside, inZone300 = true)
+
+        assertEquals(listOf(ZoneDisplayCategory.SPEED_LIMIT), tags.map { it.category })
+        assertNull(tags[0].zone)
+    }
+
+    @Test
+    fun `the 300 m band tags with no zone set at all, as when every category is filtered out`() {
+        listOf(null, setOf()).forEach { zones ->
+            val tags = regulatedZoneTags(zones, inside, inZone300 = true)
+
+            assertEquals(listOf(ZoneDisplayCategory.SPEED_LIMIT), tags.map { it.category })
+            assertEquals(AppConfig.zoneRegulatorySpeedKn.toDouble(), tags[0].speedKn!!, 0.0)
+        }
+    }
 }

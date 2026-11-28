@@ -18,7 +18,6 @@ import androidx.compose.ui.unit.sp
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.temperature.TemperatureProblem
-import ykws.android.maro.data.temperature.TemperatureRefresh
 import ykws.android.maro.data.temperature.TemperatureSource
 import ykws.android.maro.ui.notice.NoticeCenter
 import androidx.compose.ui.graphics.Color as ComposeColor
@@ -29,8 +28,8 @@ import androidx.compose.ui.graphics.Color as ComposeColor
  * `temperature.tile.alpha` so the colour stays strong over the map.
  *
  * A tap switches between air and water when the marker is on water. A long press asks for fresh values and
- * says so: a vibration, a pill on the notice host (the ViewModel raises it, the tile is the only caller), and
- * the shown value subdued until the new one arrives.
+ * says so: a vibration, and the shown value subdued until the new one arrives. A request that goes wrong is
+ * told by a pill on the notice host, the tile being the one collector of those problems.
  * The text is subdued while the value is outdated or is the previous one awaiting its replacement.
  */
 @Composable
@@ -46,13 +45,11 @@ internal fun TemperatureTile(
     val haptics = LocalHapticFeedback.current
     val context = LocalContext.current
 
-    // The one collection site: each notice becomes a pill on the notice host, which paints it over any open
+    // The one collection site: each problem becomes a pill on the notice host, which paints it over any open
     // drawer, so a failed fetch is seen even with Settings open. One key, so a new line replaces the old.
     LaunchedEffect(viewModel) {
-        viewModel.notices.collect { notice ->
-            NoticeCenter.shared.post(
-                notice.asNotice(problemText = { problemMessage(context, it) }, refreshText = { refreshMessage(context, it) })
-            )
+        viewModel.problems.collect { problem ->
+            NoticeCenter.shared.post(problem.asNotice { problemMessage(context, it) })
         }
     }
     val tint = ComposeColor(temperatureTint(view == TemperatureView.WATER))
@@ -103,21 +100,6 @@ private fun problemMessage(context: Context, problem: TemperatureProblem): Strin
             .ifEmpty { context.getString(R.string.temperature_problem_no_answer) }
     }
     return context.getString(R.string.temperature_problem_toast, label, detail)
-}
-
-/**
- * The pill text for a refresh's answers, on two lines: each sea source's own value, "Water: 17°/15.5°/18.2°",
- * then "Air: 17.3°"; air alone when water was not asked. A source with no value reads as the dash.
- */
-private fun refreshMessage(context: Context, refresh: TemperatureRefresh): String {
-    val none = context.getString(R.string.temperature_tile_none)
-    val air = refreshDegrees(refresh.airC)?.let { context.getString(R.string.temperature_degrees_fmt, it) } ?: none
-    val water = refresh.waterC
-        ?: return context.getString(R.string.temperature_refreshed_air_toast, air)
-    val each = water.joinToString("/") { c ->
-        refreshDegrees(c)?.let { context.getString(R.string.temperature_degrees_fmt, it) } ?: none
-    }
-    return context.getString(R.string.temperature_refreshed_toast, each, air)
 }
 
 /** How many characters the reading's square has room for at the configured size: "18°", "-5°". */

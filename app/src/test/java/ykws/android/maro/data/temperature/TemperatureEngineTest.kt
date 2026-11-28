@@ -57,7 +57,6 @@ class TemperatureEngineTest {
         waterFromXM: Double = Double.NEGATIVE_INFINITY,
         timing: TemperatureTiming = TemperatureTiming(),
         onProblem: (TemperatureProblem) -> Unit = {},
-        onRefreshed: (TemperatureRefresh) -> Unit = {},
         waterAt: (Double) -> Boolean = { x -> x > waterFromXM }
     ): Rig {
         val fetcher = FakeFetcher()
@@ -75,7 +74,6 @@ class TemperatureEngineTest {
             isOnline = { online[0] },
             clock = { 1_000_000L + testScheduler.currentTime },
             onProblem = onProblem,
-            onRefreshed = onRefreshed,
             timing = timing
         )
         return Rig(engine, fetcher, cache, online)
@@ -314,59 +312,53 @@ class TemperatureEngineTest {
     }
 
     @Test
-    fun `a refresh on water reports air and each sea source once its fetches end, a plain fetch reports nothing`() = runTest {
-        val reports = mutableListOf<TemperatureRefresh>()
-        val rig = rig(waterFromXM = -50_000.0, onRefreshed = { reports += it })
-        rig.fetcher.water = mutableListOf(FetchResult.Value(17.55, listOf(17.8, 17.2, 17.66)))
+    fun `the water sources follow the shown value, are held over with it, and are none on land`() = runTest {
+        val rig = rig(waterFromXM = -50_000.0)
+        rig.fetcher.water = mutableListOf(FetchResult.Value(17.55, listOf(17.8, null, 17.66)))
         rig.engine.setEnabled(true)
         rig.engine.onPosition(lat(100.0), lon(100.0))
         settle()
-        assertTrue("the first fetch was not asked for", reports.isEmpty())
 
-        rig.fetcher.air = FetchResult.Value(17.3)
-        rig.engine.refreshNow()
-        runCurrent()
+        val sources = listOf(17.8, null, 17.66)
+        assertEquals(sources, rig.engine.state.value.waterSources)
 
-        assertEquals(listOf(TemperatureRefresh(17.3, listOf(17.8, 17.2, 17.66))), reports)
-        settle(2 * hour)
-        assertEquals("one report per press", 1, reports.size)
+        // Twenty kilometres on: a point with nothing yet, so the previous value and its sources stay.
+        rig.engine.onPosition(lat(100.0), lon(20_000.0))
+        assertEquals(TemperatureReading(17, true), rig.engine.state.value.water)
+        assertEquals(sources, rig.engine.state.value.waterSources)
+
+        rig.engine.onPosition(lat(100.0), lon(-60_000.0))
+        assertNull(rig.engine.state.value.water)
+        assertTrue(rig.engine.state.value.waterSources.isEmpty())
     }
 
     @Test
-    fun `a refresh on land reports air alone, with no water`() = runTest {
-        val reports = mutableListOf<TemperatureRefresh>()
-        val rig = rig(waterFromXM = Double.POSITIVE_INFINITY, onRefreshed = { reports += it })
+    fun `the air source value follows the shown air, unrounded, and is held over with it`() = runTest {
+        val rig = rig(waterFromXM = Double.POSITIVE_INFINITY)
         rig.engine.setEnabled(true)
         rig.engine.onPosition(lat(100.0), lon(100.0))
+        assertNull("nothing fetched yet", rig.engine.state.value.airSourceC)
         settle()
+        assertEquals(18.4, rig.engine.state.value.airSourceC!!, 0.0)
 
-        rig.engine.refreshNow()
-        runCurrent()
+        // Another air point with nothing yet: the previous value stays, subdued, with what it was rounded from.
+        rig.engine.onPosition(lat(4_000.0), lon(4_000.0))
+        assertEquals(TemperatureReading(18, true), rig.engine.state.value.air)
+        assertEquals(18.4, rig.engine.state.value.airSourceC!!, 0.0)
 
-        assertEquals(listOf(TemperatureRefresh(18.4, null)), reports)
+        rig.engine.setEnabled(false)
+        assertNull(rig.engine.state.value.airSourceC)
     }
 
     @Test
-    fun `a refresh with no value at all or with no connection reports nothing`() = runTest {
-        val reports = mutableListOf<TemperatureRefresh>()
-        val rig = rig(waterFromXM = -50_000.0, onRefreshed = { reports += it })
+    fun `a water value with no sources behind it has none to show`() = runTest {
+        val rig = rig(waterFromXM = -50_000.0)
         rig.engine.setEnabled(true)
         rig.engine.onPosition(lat(100.0), lon(100.0))
         settle()
 
-        rig.fetcher.air = FetchResult.Failure(503, null)
-        rig.fetcher.water = mutableListOf(FetchResult.Failure(503, null))
-        rig.engine.refreshNow()
-        runCurrent()
-        assertTrue("the problem line says why", reports.isEmpty())
-
-        rig.fetcher.air = FetchResult.Value(18.4)
-        rig.online[0] = false
-        rig.engine.refreshNow()
-        runCurrent()
-        rig.online[0] = true
-        settle(2 * hour)
-        assertTrue("an offline press leaves nothing to report later", reports.isEmpty())
+        assertEquals(TemperatureReading(19, false), rig.engine.state.value.water)
+        assertTrue(rig.engine.state.value.waterSources.isEmpty())
     }
 
     @Test

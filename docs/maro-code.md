@@ -45,7 +45,7 @@
 | **Performance** | `data/power/`, `data/location/`, `data/settings/SettingsManager.kt`, `config/AppConfig.kt` |
 | **DepthSafety** | `ui/map/DepthViewModel.kt` (danger depth), `ui/map/LowDepthWarningBitmap.kt` |
 | **ArcLayout** | `ui/map/FanLayout.kt`, `ui/map/FanConfig.kt`, `ui/map/FanIconComponents.kt` |
-| **Temperature** | `data/temperature/`, `ui/map/TemperatureViewModel.kt`, `ui/map/TemperatureTile.kt`, the `temperature.*` keys of `maro.properties` |
+| **Temperature** | `data/temperature/`, `ui/map/TemperatureViewModel.kt`, `ui/map/TemperatureTile.kt`, `ui/map/TemperatureSourcesLine.kt`, the `temperature.*` keys of `maro.properties` |
 | **ZoneTile** | `ui/map/MapOverlayRenderer.kt` (zone tile rendering), `ui/map/RegulatedZoneComponents.kt` |
 | **Ui_Settings** | `data/settings/SettingsManager.kt`, `config/AppConfig.kt` |
 | **Ui_Menu** | `ui/map/MenuDrawerOverlay.kt`, `ui/map/DrawerSlot.kt` |

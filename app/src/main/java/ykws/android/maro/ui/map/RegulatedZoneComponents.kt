@@ -4,6 +4,7 @@ package ykws.android.maro.ui.map
 import androidx.annotation.StringRes
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import ykws.android.maro.data.regulation.contains
 import ykws.android.maro.data.regulation.displayCategories
 import ykws.android.maro.data.regulation.effectiveSpeedLimitKn
@@ -20,13 +21,20 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color as ComposeColor
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.onLongClick
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -63,10 +71,17 @@ val CATEGORY_PRIORITY: Map<ZoneDisplayCategory, Int> = mapOf(
  * bottom) to informational (INFORMATION at the top). Its content is [regulatedZoneTags]' — the one
  * derivation this strip, [RegulatedZoneInfoText] and the bottom band's banner clearance all read — so
  * the empty list is also the band's own answer: an empty stack reserves no space.
+ *
+ * A hold anywhere on the stack calls [onHold], with a vibration; a tap draws no ripple and only calls
+ * [onTap]. The gesture belongs to the stack rather than to a square, so a square stays a square with no
+ * tap. The stack takes the pointers over it, so a map drag does not start there and whatever lies beneath
+ * hears no tap — which is why [onTap] carries what a tap beneath it owes, closing an open fan.
  */
 @Composable
 fun RegulatedZoneWarningStrip(
     regulatedZones: RegulatedZoneSet?,
+    onHold: () -> Unit,
+    onTap: () -> Unit,
     markerPosition: LatLng? = null,
     inZone300: Boolean = false,
     modifier: Modifier = Modifier
@@ -77,9 +92,24 @@ fun RegulatedZoneWarningStrip(
 
     if (tags.isEmpty()) return
 
+    val haptics = LocalHapticFeedback.current
+    val currentOnHold by rememberUpdatedState(onHold)
+    val currentOnTap by rememberUpdatedState(onTap)
+    val hold = {
+        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        currentOnHold()
+    }
+    val holdLabel = stringResource(R.string.zone_info_hold_label)
+
     // Vertical column: first item at bottom (most restrictive), last at top
     Column(
-        modifier = modifier,
+        modifier = modifier
+            // One node to a screen reader, as a clickable square is: the tags' own text is read on it,
+            // so the hold is offered where the focus actually lands.
+            .semantics(mergeDescendants = true) { onLongClick(holdLabel) { hold(); true } }
+            .pointerInput(Unit) {
+                detectTapGestures(onTap = { currentOnTap() }, onLongPress = { hold() })
+            },
         verticalArrangement = Arrangement.spacedBy(TOP_TOGGLE_GUTTER),
     ) {
         // Render in reverse so the first sorted tag (most restrictive) appears at the bottom
@@ -111,20 +141,20 @@ internal data class RegulatedZoneTag(
  *
  * [inZone300] is that same point's band answer: while it is true the band is injected as the
  * highest-priority SPEED_LIMIT entry and the regulated SPEED_LIMIT pairs are dropped, so the band
- * replaces them rather than doubling them.
+ * replaces them rather than doubling them. The band's entry needs no regulated zone: it stands with no
+ * set at all and with no zone containing the point.
  */
 internal fun regulatedZoneTags(
     regulatedZones: RegulatedZoneSet?,
     markerPosition: LatLng?,
     inZone300: Boolean
 ): List<RegulatedZoneTag> {
-    if (regulatedZones == null || regulatedZones.zones.isEmpty()) return emptyList()
+    val all = regulatedZones?.zones.orEmpty()
     val zones = if (markerPosition != null) {
-        regulatedZones.zones.filter { it.contains(markerPosition) }
+        all.filter { it.contains(markerPosition) }
     } else {
-        regulatedZones.zones
+        all
     }
-    if (zones.isEmpty()) return emptyList()
 
     val base = zones
         .flatMap { zone ->
@@ -228,24 +258,27 @@ fun RegulationZoneCategoryIcon(
  * Format per line: {category_emoji} {zone.name or fallback} — {speed or desc}
  * Ordered by [CATEGORY_PRIORITY] (most restrictive at bottom, matching icons).
  * Auto-wraps within the available space.
+ *
+ * [headLine] heads the column and draws whether or not any zone line follows it; it may draw nothing,
+ * and an empty column takes no height.
  */
 @Composable
 fun RegulatedZoneInfoText(
     regulatedZones: RegulatedZoneSet?,
     markerPosition: LatLng? = null,
     inZone300: Boolean = false,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    headLine: @Composable () -> Unit = {}
 ) {
     val categoryLines = remember(regulatedZones, markerPosition, inZone300) {
         regulatedZoneTags(regulatedZones, markerPosition, inZone300)
     }
 
-    if (categoryLines.isEmpty()) return
-
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(AppConfig.uiMapOverlayLineSpacing.dp, Alignment.Bottom)
     ) {
+        headLine()
         // Render in reverse so most restrictive (first in sorted order) is at bottom
         categoryLines.reversed().forEach { (category, speedKn, zone) ->
             val emoji = if (category == ZoneDisplayCategory.SPEED_LIMIT) {
@@ -269,21 +302,33 @@ fun RegulatedZoneInfoText(
                 zone != null && zone.description.isNotBlank() -> zone.description.replace("\n", " ")
                 else -> ""
             }
-            // The line's box is the same [MapSurface] the legend card paints — one fill, one corner, one
-            // border and one padding — so this line gains the outline it never had (D3). Its text keeps
-            // the overlay family's own tokens: colour from `ui.map.overlay.text.color`, weight from
-            // `ui.map.overlay.text.weight`, size from `ui.map.overlay.text.size` and line height from
-            // `ui.map.overlay.text.line.height`.
-            MapSurface(face = mapSurfaceFace()) {
-                Text(
-                    text = if (keyInfo.isNotBlank()) "$emoji $name — $keyInfo" else "$emoji $name",
-                    fontSize = AppConfig.uiMapOverlayTextSize.sp,
-                    lineHeight = AppConfig.uiMapOverlayTextLineHeight.sp,
-                    color = ComposeColor(AppConfig.uiMapOverlayTextColor),
-                    fontWeight = FontWeight(AppConfig.uiMapOverlayTextWeight)
-                )
-            }
+            ZoneInfoLine(if (keyInfo.isNotBlank()) "$emoji $name — $keyInfo" else "$emoji $name")
         }
+    }
+}
+
+/**
+ * One line of the info column, shared by the zone lines and the temperature source line.
+ *
+ * The line's box is the same [MapSurface] the legend card paints — one fill, one corner, one border and
+ * one padding — so a line carries that outline (D3). Its text keeps the overlay family's own tokens:
+ * colour from `ui.map.overlay.text.color` unless [color] says otherwise, weight from
+ * `ui.map.overlay.text.weight`, size from `ui.map.overlay.text.size` and line height from
+ * `ui.map.overlay.text.line.height`.
+ */
+@Composable
+internal fun ZoneInfoLine(
+    text: String,
+    color: ComposeColor = ComposeColor(AppConfig.uiMapOverlayTextColor)
+) {
+    MapSurface(face = mapSurfaceFace()) {
+        Text(
+            text = text,
+            fontSize = AppConfig.uiMapOverlayTextSize.sp,
+            lineHeight = AppConfig.uiMapOverlayTextLineHeight.sp,
+            color = color,
+            fontWeight = FontWeight(AppConfig.uiMapOverlayTextWeight)
+        )
     }
 }
 

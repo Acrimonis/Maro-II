@@ -9,12 +9,16 @@ import kotlinx.serialization.json.Json
  *
  * [forced] marks a value the user asked to refresh: it is still shown (subdued) until a fresh one
  * replaces it, but it counts as expired.
+ *
+ * [sources] is each sea source's own value behind a blended [valueC], in [SeaSource] order and null for one
+ * that had none; empty for any other answer, and for an entry stored before the sources were kept.
  */
 @Serializable
 data class CacheEntry(
     val valueC: Double?,
     val fetchedAtMs: Long,
-    val forced: Boolean = false
+    val forced: Boolean = false,
+    val sources: List<Double?> = emptyList()
 )
 
 /**
