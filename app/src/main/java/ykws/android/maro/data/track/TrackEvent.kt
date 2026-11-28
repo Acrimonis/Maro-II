@@ -45,6 +45,12 @@ sealed class TrackEvent {
     /** Tracks were successfully merged into a single new track. */
     data class TracksMerged(val mergedId: String, val mergedName: String) : TrackEvent()
 
-    /** A live recording was finalized and persisted — its id and the name it was saved under. */
-    data class Finalized(val trackId: String, val name: String = "") : TrackEvent()
+    /**
+     * A live recording was finalized and persisted — its id, the name it was saved under, and whether the
+     * auto-save on return ended it (the UI then offers Continue instead of the plain saved notice).
+     */
+    data class Finalized(val trackId: String, val name: String = "", val auto: Boolean = false) : TrackEvent()
+
+    /** An automatic start saved the pending recoveries as finished tracks before it began — the offer is void. */
+    data class RecoveriesSaved(val trackIds: List<String>) : TrackEvent()
 }

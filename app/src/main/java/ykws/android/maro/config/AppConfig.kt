@@ -1510,18 +1510,16 @@ object AppConfig {
     var trackingStandbyMinDistanceM: Float = 10f
         private set
 
-    /**
-     * Minutes tracking must have been off before the home-circle forgotten-start rule may fire. Set via
-     * `tracking.autoStart.offMin`.
-     */
-    var trackingAutoStartOffMin: Long = 5L
+    /** The arrival circle's radius around the home-port origin (m) — the auto-save's. Set via `tracking.homePort.arrivalRadiusM`. */
+    var trackingArrivalRadiusM: Double = 50.0
         private set
 
-    /**
-     * Minutes without movement that make the boat rested in the home circle — the rule's latch. Set via
-     * `tracking.autoStart.restMin`.
-     */
-    var trackingAutoStartRestMin: Long = 5L
+    /** Seconds a returning boat stays in the arrival circle before the auto-save. Set via `tracking.homePort.arrivalHoldSec`. */
+    var trackingArrivalHoldSec: Long = 30L
+        private set
+
+    /** Distance (m) from where the boat rested at which the start on water fires. Set via `tracking.waterStart.distanceM`. */
+    var trackingWaterStartDistanceM: Double = 50.0
         private set
 
     /**
@@ -2275,11 +2273,15 @@ object AppConfig {
             props.getProperty("tracking.standbyMinDistanceM")?.toFloatOrNull()?.let {
                 trackingStandbyMinDistanceM = it.coerceAtLeast(0f)
             }
-            props.getProperty("tracking.autoStart.offMin")?.toLongOrNull()?.let {
-                trackingAutoStartOffMin = it.coerceAtLeast(0L)
+            // ── Automatic tracking: the auto-save on return and the start on water ──
+            props.getProperty("tracking.homePort.arrivalRadiusM")?.toDoubleOrNull()?.let {
+                trackingArrivalRadiusM = it.coerceAtLeast(10.0)
             }
-            props.getProperty("tracking.autoStart.restMin")?.toLongOrNull()?.let {
-                trackingAutoStartRestMin = it.coerceAtLeast(0L)
+            props.getProperty("tracking.homePort.arrivalHoldSec")?.toLongOrNull()?.let {
+                trackingArrivalHoldSec = it.coerceAtLeast(1L)
+            }
+            props.getProperty("tracking.waterStart.distanceM")?.toDoubleOrNull()?.let {
+                trackingWaterStartDistanceM = it.coerceAtLeast(10.0)
             }
             props.getProperty("track.name.maxLength")?.toIntOrNull()?.let {
                 trackNameMaxLength = it.coerceIn(8, 254)

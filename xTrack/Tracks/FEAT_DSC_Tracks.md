@@ -2,7 +2,7 @@
 name: Tracks
 status: active
 created: 2026-06-15 21:43
-modified: 2026-11-11 08:58
+modified: 2026-11-28 09:50
 ---
 
 # Feature: Tracks
@@ -21,7 +21,12 @@ Track the boat's movement (position, speed) during active navigation. One record
 - The two render axes per kind run on a global → kind → class `enabled` leaf, one painter serves both kinds over the `path.*` family, and the render count runs 0–30 plus an **All** value.
 - A trip's GPX carries the markers that own it, re-pointed at the landed track id on import.
 - The track list's **Source** filter (All · GPS · Demo) reads `TrackSummary.gpsSourced` — any point with an accuracy makes a track GPS, none makes it demo — not the sticky `Track.demo` flag; routes and the live recording always pass, and the route lists carry neither Source nor the On water / On land axis. `GpxImporter` never reads `<accuracy>`, so a foreign or re-imported GPX reads as demo.
-- A recording starts on its own by the **forgotten-start rule** (`AutoStartDetector`): the boat rested in the home circle (no movement for `tracking.autoStart.restMin`), tracking has been off `tracking.autoStart.offMin`, it has moved by the idle detection thresholds, it is on water by position and no recovery is pending — a level test per fix, so leaving La Salis starts one about 30 m out and arriving never does (read on the device 2026-11-11); demo mode takes the same path. An auto-started trip that never leaves the circle asks Save / Discard / Continue once after idling inside for `offMin`. The circle-exit trigger and its 10 s debounce are gone; flagged-marker auto-start is parked → [`261110_FEAT_PLN_Tracks_home-circle-forgotten-start.md`](261110_FEAT_PLN_Tracks_home-circle-forgotten-start.md)
+- **Automatic tracking** (2026-11-28) is three rules, each switched per mode (GPS, Demo) in Settings › Navigation › Automatic tracking — defaults on/on, on/on, on/off:
+  - **Leaving** (`AutoStartDetector`): with tracking off, a fix farther outside the home circle than its accuracy after one inside, past the spike guard (GPS only: Doppler ≥ 0.5 m/s, implied speed from the last fix inside ≤ `tracking.boatMaxSpeedKn`), on water, starts one; a recording's own exit spends the arming.
+  - **Returning** (`ArrivalDetector`): a trip back from open sea that holds `tracking.homePort.arrivalHoldSec` inside `tracking.homePort.arrivalRadiusM` is saved and offers *Continue* (which reopens it and needs a fresh exit before the next save); the arrival prompt keeps the ring beyond it.
+  - **On water** (`WaterStartDetector`): outside the home circle, a move of `tracking.waterStart.distanceM` from where the boat rested, at the Doppler floor, on water, starts one; a recording stopped there restarts only after a rest (the stop detection's test) and a move.
+  - An automatic start saves any pending recovery as a finished track first; arriving never starts one.
+  - Flagged-marker auto-start is parked → [`261110_FEAT_PLN_Tracks_home-circle-forgotten-start.md`](261110_FEAT_PLN_Tracks_home-circle-forgotten-start.md)
 - Track and route cards carry a third stats row, `Open water · 300M · Zones`: time on water with a limit, the zone over the band, open water the remainder of Nav (a track) or Total (est.) (a route). A recording's figure is its moving seconds per limit, stops removed by the stored idle test, kept on `TrackSummary` alone behind the screen's attached classifier and re-marked by a regulation bake's stamp; a route's is the plan's own, written at save on a settled search, so drafts and routes saved before 2026-11-01 hide the row. The Ask hop's findings were fixed on 2026-11-11 (the catch-up walks off the write lock, a containment-only zone read, the dashboard reading the unfiltered summaries); `zones.properties` and the coastline stay named stamp gaps → [`261101_FEAT_PLN_Tracks_stops-and-slow-water.md`](261101_FEAT_PLN_Tracks_stops-and-slow-water.md)
 
 ## Sections
@@ -77,18 +82,19 @@ Recorder-owned `AutoMarkerManager` for deterministic 🕐 IDLE_AUTO lifecycle; m
 
 ### auto-start
 
-The recorder's auto-start. Step 1 shipped 2026-11-10: the circle-exit trigger gave way to the **forgotten-start** level rule for the home circle — inside, rested there (no movement for `restMin`), tracking off for `offMin` (5 min), moved by the idle detection thresholds, on water by position, no recovery pending — and arrivals never start a recording. Flagged-marker auto-start (wizard checkbox, exit and ring triggers) is parked as step 2, maybe later.
+The recorder's auto-start. Step 1 shipped 2026-11-10 as the **forgotten-start** level rule; on 2026-11-27 it gave way to the **home-port exit rule** — seen inside the home circle, then a fix clearly outside it on water; the two 5-minute waits (`offMin`, `restMin`) and the never-left safety net are gone — and arrivals never start a recording. On 2026-11-28 the auto-save on return, the start on water and the per-mode settings joined it, and a pending recovery stopped blocking a start → [`261127_FEAT_PLN_Tracks_auto-start-stop-settings.md`](261127_FEAT_PLN_Tracks_auto-start-stop-settings.md). Flagged-marker auto-start (wizard checkbox, exit and ring triggers) is parked as step 2, maybe later.
 
 #### Todos
 - [ ] Step 2 (parked, maybe later): flagged-marker auto-start — resume from its plan, taking the home-circle decisions from step 1's
 
 #### Rules
 - The home circle is the only auto-start zone until step 2; arriving in it never starts a recording.
-- "Moved" reads the user's idle detection settings, never a second distance or time of its own.
+- The start fix passes its own spike guard (Doppler, implied speed); the recording's four gates never see it before it is the first point. The guard and the "farther outside than its accuracy" test live once, in `FixGuards`.
 
 #### Docs
-- `xTrack/Tracks/261110_FEAT_PLN_Tracks_home-circle-forgotten-start.md` — step 1, shipped 2026-11-10
+- `xTrack/Tracks/261110_FEAT_PLN_Tracks_home-circle-forgotten-start.md` — step 1, shipped 2026-11-10, superseded 2026-11-27 by the exit rule
 - `xTrack/Tracks/261110_FEAT_PLN_Tracks_marker-auto-start.md` — step 2, parked (revision 5, three reviews folded)
+- `xTrack/Tracks/261127_FEAT_PLN_Tracks_auto-start-stop-settings.md` — the settings, the auto-save on return, the start on water, recovery no longer blocking (implemented 2026-11-28)
 
 ### marker-track-nav
 
@@ -99,7 +105,7 @@ Deferred — cross-navigation between track detail and marker detail via `>` lin
 
 ## Rules
 - Feature-scoped plans go in `xTrack/[Feature]/YYMMDD_FEAT_PLN_[Feature]_[topic].md`.
-- Track points only recorded while speed > 2.5 kn; OFF→ON via the forgotten-start rule (home circle) or manual Start.
+- Track points only recorded while speed > 2.5 kn; OFF→ON via the exit rule, the water rule or manual Start; ON→OFF via Stop, the arrival prompt or the auto-save on return.
 - Internal storage: Protobuf binary (kotlinx-serialization-protobuf), not JSON. Export: GPX 1.1.
 - Recording lifecycle: ON state persists through stationary; only point capture suspends via `isStill()`.
 - 30s periodic checkpoint save; stats accumulated in-memory, written at finalize.
@@ -360,6 +366,8 @@ Deferred — cross-navigation between track detail and marker detail via `>` lin
 - Resolutions: four points settled in one pass — the axis joining the shipped link with no per-axis code written for it; the four inert colour keys and the three unread fields removed, nothing a user sees changing; the trace render count opening at its sibling's default of 5, within the same 0–20 bound and the same row pattern; and the export staying blob-only, a third-party round trip knowingly losing the flag. Dropped: the list-only axis, and a `<type>` element with the token it would have needed. Parked: nothing — what the level describes is work, and it is ordered in the plan and the todo list rather than held here.
 
 ## Implemented
+- **Automatic tracking (2026-11-28, `feature/salis-out-track`)** — Settings › Navigation opens on *Automatic tracking*: three rows (leaving La Salis, returning to La Salis, on water), each a GPS / Demo `MultiSelectRow`. [`ArrivalDetector`](../../app/src/main/java/ykws/android/maro/data/track/ArrivalDetector.kt) saves a trip back from open sea after `arrivalHoldSec` in the `arrivalRadiusM` circle and the map offers *Trip saved · Continue*; [`WaterStartDetector`](../../app/src/main/java/ykws/android/maro/data/track/WaterStartDetector.kt) starts one on a 50 m move on water away from the port, disarmed by a stop there until a rest; an automatic start saves pending recoveries first (`TrackRepository.finalizeLiveCheckpoints`, `TrackEvent.RecoveriesSaved`); a recording ended by any path closes the arrival prompt and the stop sheet. 4 new and rewritten suites, `assembleDebug` and 1 917 tests green, one Ask pass with its fixes folded and the rest open in the plan, the device pass owed → [`261127_FEAT_PLN_Tracks_auto-start-stop-settings.md`](261127_FEAT_PLN_Tracks_auto-start-stop-settings.md)
+- **The home-port exit rule (2026-11-27, `feature/salis-out-track`)** — the forgotten-start rule gives way to a start on leaving: [`AutoStartDetector`](../../app/src/main/java/ykws/android/maro/data/track/AutoStartDetector.kt) is armed by any fix inside the circle, fires on a fix farther outside than its own accuracy while off, past a spike guard for GPS fixes (Doppler ≥ 0.5 m/s, implied speed from the last fix inside ≤ `tracking.boatMaxSpeedKn`), on water and with no recovery pending; a recording's own exit spends the arming. `tracking.autoStart.offMin` / `restMin`, the persisted last stop and the never-left safety net are removed, every start arms the arrival prompt, and `tracking.homePort.geofenceRadiusM` goes 150 → 100. 17 + 14 tests rewritten, `assembleDebug` and 1 883 tests green, the device pass owed
 
 - **The forgotten-start rule (2026-11-10, `feature/rooouting`)** — leaving La Salis starts a recording by a level rule instead of the circle exit: [`AutoStartDetector`](../../app/src/main/java/ykws/android/maro/data/track/AutoStartDetector.kt) tests every accepted fix while off for inside (at the completing fix or any fix of the movement window), rested (the latch: no movement for `restMin`, kept current by the recording's own fixes), off `offMin` since the last stop (persisted in the service's prefs so a discard and a restart count), moved by the idle thresholds through the one `AdaptiveGpsPolicy.effectiveThresholdM`, on water by position (`WhereAmIProvider.isWaterAt`) and no recoverable checkpoint (`TrackRepository.hasRecoverableCheckpoint`); an auto start already outside arms the arrival prompt, one inside leaves it to the exit re-arm, and a safety net prompts once after `offMin` idle inside a trip that never left. `tracking.autoStart.offMin` / `restMin` added; the debounce is deleted. `apk-build.bat` and 1 764 tests green, one Ask pass folded with its leftovers open in the plan, read on the device 2026-11-11 → [`261110_FEAT_PLN_Tracks_home-circle-forgotten-start.md`](261110_FEAT_PLN_Tracks_home-circle-forgotten-start.md)
 - Auto-start on leaving the home port now works: the 10 s debounce was wiped by the second fix outside the circle, so a steady exit never started a recording; the crossing now arms it, the arm holds while outside and clears on re-entry or any recording start/stop, and demo mode (map-centre samples) takes the same path; the dead `tracking.homePort.enabled` flag removed end to end (shipped 2026-11-10, 10 new tests, `apk-build.bat` green, device pass owed)
