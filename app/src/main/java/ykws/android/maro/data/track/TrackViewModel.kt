@@ -151,6 +151,11 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
                 // timer guessing when the write finished.
                 when (event) {
                     is TrackEvent.Finalized, TrackEvent.Stopped, TrackEvent.Started -> refreshSummaries()
+                    // An automatic start saved the pending recoveries as tracks: the offer closes.
+                    is TrackEvent.RecoveriesSaved -> {
+                        _recoveryTrack.value = null
+                        refreshSummaries()
+                    }
                     else -> Unit
                 }
             }

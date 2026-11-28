@@ -2,7 +2,6 @@ package ykws.android.maro.data.track
 
 import ykws.android.maro.data.location.GpsLocationSource
 import ykws.android.maro.data.model.LatLng
-import ykws.android.maro.spatial.SpatialOperations
 
 /**
  * The home-port exit rule: decides, fix by fix, that a boat leaving the home circle with tracking off is on
@@ -10,9 +9,10 @@ import ykws.android.maro.spatial.SpatialOperations
  *
  * **Armed** by any accepted fix inside the circle — while recording or not, so an arrival that ends a
  * recording inside leaves the next departure armed. **Fires** on an accepted fix while recording is off
- * that is farther outside the circle than its own accuracy, when the rule is armed, the fix is no spike,
- * the position answers water (`false` and `null` both refuse) and no recovery is pending. A miss keeps the
- * rule armed and is retried on the next fix, so an exit fix read as land still starts on the first one at sea.
+ * that is farther outside the circle than its own accuracy, when the rule is armed and allowed for the
+ * mode, the fix is no spike and the position answers water (`false` and `null` both refuse). A miss keeps
+ * the rule armed and is retried on the next fix, so an exit fix read as land still starts on the first one
+ * at sea. A pending recovery does not block it: the recorder saves the checkpoint before it starts.
  *
  * **Spike guard** (GPS fixes only — demo samples bypass it, as they bypass the recorder's gates): the exit
  * fix must report a Doppler speed of at least [GpsLocationSource.MIN_SPEED_MPS] — a multipath jump moves
@@ -61,19 +61,13 @@ class AutoStartDetector(private val maxSpeedMps: Double) {
     /**
      * Fold one fix while recording is off and answer whether the rule starts a recording on it.
      *
-     * @param orphansPending whether a recoverable checkpoint awaits — asked only once the rest pass.
-     * @param waterAt        the water answer for a position: `true` water, `false` land, `null` unknown.
+     * @param allowed the user's toggle for the current mode; off, the fix still arms and the rule waits.
+     * @param waterAt the water answer for a position: `true` water, `false` land, `null` unknown.
      */
-    suspend fun onSample(
-        fix: Fix,
-        home: Home?,
-        orphansPending: suspend () -> Boolean,
-        waterAt: (LatLng) -> Boolean?
-    ): Boolean {
-        if (side(fix, home) != Side.FAR_OUT || !armed) return false
+    fun onSample(fix: Fix, home: Home?, allowed: Boolean, waterAt: (LatLng) -> Boolean?): Boolean {
+        if (side(fix, home) != Side.FAR_OUT || !armed || !allowed) return false
         if (!fix.isDemo && !isPlausibleExit(fix)) return false
         if (waterAt(fix.position) != true) return false
-        if (orphansPending()) return false
         armed = false
         return true
     }
@@ -83,10 +77,7 @@ class AutoStartDetector(private val maxSpeedMps: Double) {
         val speed = fix.speedMps ?: return false
         if (speed < GpsLocationSource.MIN_SPEED_MPS) return false
         val reference = lastInside ?: return false
-        val elapsedMs = fix.monoMs - reference.monoMs
-        if (elapsedMs <= 0L) return false
-        val impliedMps = SpatialOperations.haversine(reference.position, fix.position) * 1_000.0 / elapsedMs
-        return impliedMps <= maxSpeedMps
+        return FixGuards.isReachable(reference, fix, maxSpeedMps)
     }
 
     /** Where [fix] lies against the circle, arming on inside; null for a fix the rule ignores. */
@@ -106,7 +97,6 @@ class AutoStartDetector(private val maxSpeedMps: Double) {
             lastInside = fix
             return Side.INSIDE
         }
-        val pastEdgeM = SpatialOperations.haversine(fix.position, home.origin) - home.radiusM
-        return if (pastEdgeM > (fix.accuracyM ?: 0f)) Side.FAR_OUT else Side.EDGE
+        return if (FixGuards.isFarOutside(fix, home)) Side.FAR_OUT else Side.EDGE
     }
 }

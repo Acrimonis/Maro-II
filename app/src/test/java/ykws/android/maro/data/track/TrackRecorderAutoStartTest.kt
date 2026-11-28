@@ -32,26 +32,42 @@ class TrackRecorderAutoStartTest {
 
     private val repository by lazy { TrackRepository(temp.root) }
 
+    private fun config(
+        geofenceEnabled: Boolean = true,
+        leave: Boolean = true,
+        autoSave: Boolean = false,
+        onWater: Boolean = false,
+        holdMs: Long = 300L
+    ) = TrackRecorderConfig(
+        geofenceOriginLat = homeLat,
+        geofenceOriginLon = homeLon,
+        geofenceRadiusM = 150.0,
+        geofenceEnabled = geofenceEnabled,
+        gpsMode = false,
+        idleThresholdSec = 1,
+        autoStartLeave = leave,
+        autoSaveReturn = autoSave,
+        autoStartWater = onWater,
+        arrivalRadiusM = 50.0,
+        arrivalHoldMs = holdMs,
+        waterStartDistanceM = 50.0
+    )
+
     private fun recorder(
         geofenceEnabled: Boolean = true,
         water: Boolean? = true,
-        orphansPending: suspend () -> Boolean = { false },
-        stopped: MutableStateFlow<Boolean> = MutableStateFlow(false)
+        stopped: MutableStateFlow<Boolean> = MutableStateFlow(false),
+        leave: Boolean = true,
+        autoSave: Boolean = false,
+        onWater: Boolean = false,
+        holdMs: Long = 300L
     ) = TrackRecorder(
         repository = repository,
-        config = TrackRecorderConfig(
-            geofenceOriginLat = homeLat,
-            geofenceOriginLon = homeLon,
-            geofenceRadiusM = 150.0,
-            geofenceEnabled = geofenceEnabled,
-            gpsMode = false,
-            idleThresholdSec = 1
-        ),
+        config = config(geofenceEnabled, leave, autoSave, onWater, holdMs),
         isStopped = stopped,
         dispatcher = Dispatchers.Unconfined,
         monotonicNowMs = { nowMs },
-        waterAt = { water },
-        orphansPending = orphansPending
+        waterAt = { water }
     )
 
     private fun sample(northM: Double, speed: Float = 3f, demo: Boolean = false) = TrackSample(
@@ -279,34 +295,44 @@ class TrackRecorderAutoStartTest {
     )
 
     @Test
-    fun `a valid checkpoint suppresses the start`() = runBlocking {
+    fun `a pending recovery is saved as a track and the start goes on`() = runBlocking {
         repository.saveCheckpoint(checkpointedTrack())
         val samples = flow()
-        val rec = recorder(orphansPending = { repository.hasRecoverableCheckpoint() })
+        val rec = recorder()
+        val events = CopyOnWriteArrayList<TrackEvent>()
+        val collectJob = launch { rec.events.collect { events.add(it) } }
         try {
             rec.start(samples)
             samples.leavePort()
-            delay(400)
-            assertEquals(false, rec.isOn())
+            delay(400) // the checkpoint is decoded and saved on the IO pool before the start
+            assertEquals(true, rec.isOn())
+            assertNotNull("the interrupted trip is a finished track now", repository.load("t")?.endTimeMs)
+            assertEquals(listOf("t"), events.filterIsInstance<TrackEvent.RecoveriesSaved>().single().trackIds)
         } finally {
+            collectJob.cancel()
             rec.dispose()
         }
     }
 
     @Test
-    fun `a stale checkpoint does not suppress the start`() = runBlocking {
+    fun `a stale checkpoint is not saved again and the start goes on`() = runBlocking {
         val live = checkpointedTrack()
         repository.saveCheckpoint(live)
         // The finalize landed and the process died before the checkpoint's delete: the file covers it.
         repository.save(live.copy(endTimeMs = 11_000L, lastPointTimeMs = 11_000L))
         val samples = flow()
-        val rec = recorder(orphansPending = { repository.hasRecoverableCheckpoint() })
+        val rec = recorder()
+        val events = CopyOnWriteArrayList<TrackEvent>()
+        val collectJob = launch { rec.events.collect { events.add(it) } }
         try {
             rec.start(samples)
             samples.leavePort()
-            delay(400) // the checkpoint is decoded on the IO pool before the rule can answer
+            delay(400)
             assertEquals(true, rec.isOn())
+            assertEquals(0, events.filterIsInstance<TrackEvent.RecoveriesSaved>().size)
+            assertEquals(11_000L, repository.load("t")?.endTimeMs)
         } finally {
+            collectJob.cancel()
             rec.dispose()
         }
     }
@@ -329,6 +355,232 @@ class TrackRecorderAutoStartTest {
             samples.feed(sample(60.0))
             delay(1_500)
             assertEquals(1, promptCount(events))
+        } finally {
+            collectJob.cancel()
+            rec.dispose()
+        }
+    }
+
+    // ── The auto-save on return ─────────────────────────────────────────────
+
+    /** Out to 400 m and back into the 50 m arrival circle, 200 m at most per 20 s fix. */
+    private suspend fun MutableSharedFlow<TrackSample>.sailOutAndBack() {
+        feed(sample(400.0))
+        feed(sample(200.0))
+        feed(sample(100.0))
+        feed(sample(30.0))
+    }
+
+    @Test
+    fun `back from sea the trip saves itself after the hold and the prompt stands aside`() = runBlocking {
+        val stopped = MutableStateFlow(false)
+        val samples = flow()
+        val events = CopyOnWriteArrayList<TrackEvent>()
+        val rec = recorder(stopped = stopped, autoSave = true, holdMs = 1_500L)
+        val collectJob = launch { rec.events.collect { events.add(it) } }
+        try {
+            rec.start(samples)
+            samples.leavePort()
+            assertEquals(true, rec.isOn())
+            samples.feed(sample(400.0))
+            samples.feed(sample(200.0))
+            samples.feed(sample(100.0))
+            // Idle at the berth: the prompt's own timer (1 s) runs out before the hold (1.5 s).
+            stopped.value = true
+            samples.feed(sample(30.0))
+            delay(2_500)
+            assertEquals(false, rec.isOn())
+            assertEquals(0, promptCount(events))
+            assertEquals(true, events.filterIsInstance<TrackEvent.Finalized>().single().auto)
+        } finally {
+            collectJob.cancel()
+            rec.dispose()
+        }
+    }
+
+    @Test
+    fun `a fix out of the arrival circle cancels the hold`() = runBlocking {
+        val samples = flow()
+        val rec = recorder(autoSave = true, holdMs = 600L)
+        try {
+            rec.start(samples)
+            samples.leavePort()
+            samples.sailOutAndBack()
+            samples.feed(sample(90.0))
+            delay(1_000)
+            assertEquals(true, rec.isOn())
+        } finally {
+            rec.dispose()
+        }
+    }
+
+    @Test
+    fun `with the auto-save off a return keeps recording`() = runBlocking {
+        val samples = flow()
+        val rec = recorder(autoSave = false)
+        try {
+            rec.start(samples)
+            samples.leavePort()
+            samples.sailOutAndBack()
+            delay(800)
+            assertEquals(true, rec.isOn())
+        } finally {
+            rec.dispose()
+        }
+    }
+
+    @Test
+    fun `a trip that never left the home circle is not auto-saved`() = runBlocking {
+        val samples = flow()
+        val rec = recorder(autoSave = true)
+        try {
+            rec.start(samples)
+            rec.startManual()
+            delay(200)
+            samples.feed(sample(100.0))
+            samples.feed(sample(30.0))
+            delay(800)
+            assertEquals(true, rec.isOn())
+        } finally {
+            rec.dispose()
+        }
+    }
+
+    @Test
+    fun `Continue at the berth is not saved again until the trip leaves and returns`() = runBlocking {
+        val samples = flow()
+        val rec = recorder(autoSave = true)
+        try {
+            rec.start(samples)
+            samples.leavePort()
+            samples.sailOutAndBack()
+            delay(800)
+            assertEquals(false, rec.isOn())
+
+            // Continue: the saved trip reopens as the live recording.
+            val saved = repository.listTracks().single { !it.route }
+            rec.resume(repository.load(saved.id)!!, samples, fromCheckpoint = false)
+            delay(300)
+            assertEquals(true, rec.isOn())
+            samples.feed(sample(20.0))
+            delay(800)
+            assertEquals("still at the berth: no second save", true, rec.isOn())
+
+            samples.sailOutAndBack()
+            delay(800)
+            assertEquals(false, rec.isOn())
+        } finally {
+            rec.dispose()
+        }
+    }
+
+    @Test
+    fun `the auto-save switched off during the hold lets the arrival prompt ask`() = runBlocking {
+        val stopped = MutableStateFlow(false)
+        val samples = flow()
+        val events = CopyOnWriteArrayList<TrackEvent>()
+        val rec = recorder(stopped = stopped, autoSave = true, holdMs = 400L)
+        val collectJob = launch { rec.events.collect { events.add(it) } }
+        try {
+            rec.start(samples)
+            samples.leavePort()
+            samples.feed(sample(400.0))
+            samples.feed(sample(200.0))
+            samples.feed(sample(100.0))
+            samples.feed(sample(30.0))
+            rec.applyConfig(config(autoSave = false, holdMs = 400L))
+            delay(600)
+            assertEquals("no save: the toggle is off", true, rec.isOn())
+            // Idle at the berth: the prompt asks now that the hold has ended.
+            stopped.value = true
+            samples.feed(sample(31.0))
+            delay(1_500)
+            assertEquals(1, promptCount(events))
+        } finally {
+            collectJob.cancel()
+            rec.dispose()
+        }
+    }
+
+    @Test
+    fun `Continue at the berth raises no arrival prompt until the trip leaves`() = runBlocking {
+        val stopped = MutableStateFlow(false)
+        val samples = flow()
+        val events = CopyOnWriteArrayList<TrackEvent>()
+        val rec = recorder(stopped = stopped, autoSave = true)
+        val collectJob = launch { rec.events.collect { events.add(it) } }
+        try {
+            rec.start(samples)
+            samples.leavePort()
+            samples.sailOutAndBack()
+            delay(800)
+            val saved = repository.listTracks().single { !it.route }
+            rec.resume(repository.load(saved.id)!!, samples, fromCheckpoint = false)
+            delay(300)
+            stopped.value = true
+            samples.feed(sample(21.0))
+            delay(1_500)
+            assertEquals(0, promptCount(events))
+        } finally {
+            collectJob.cancel()
+            rec.dispose()
+        }
+    }
+
+    // ── The start on water ──────────────────────────────────────────────────
+
+    @Test
+    fun `away from the port a move on water starts a recording not from the home port`() = runBlocking {
+        val samples = flow()
+        val rec = recorder(leave = false, onWater = true)
+        try {
+            rec.start(samples)
+            samples.feed(sample(2_000.0))
+            samples.feed(sample(2_030.0))
+            assertEquals(false, rec.isOn())
+            samples.feed(sample(2_100.0))
+            assertEquals(true, rec.isOn())
+
+            val id = rec.uiState.value.currentTrackId!!
+            rec.stop()
+            delay(500)
+            assertEquals(false, repository.load(id)!!.startedAtHomePort)
+        } finally {
+            rec.dispose()
+        }
+    }
+
+    @Test
+    fun `with the water start on a trip stopped at sea still does not restart while moving`() = runBlocking {
+        val samples = flow()
+        val rec = recorder(onWater = true)
+        try {
+            rec.start(samples)
+            samples.leavePort()
+            samples.feed(sample(400.0))
+            rec.stop()
+            delay(500)
+
+            samples.feed(sample(500.0))
+            samples.feed(sample(600.0))
+            samples.feed(sample(700.0))
+            assertEquals(false, rec.isOn())
+        } finally {
+            rec.dispose()
+        }
+    }
+
+    @Test
+    fun `leaving the port starts once when both start rules are on`() = runBlocking {
+        val samples = flow()
+        val rec = recorder(onWater = true)
+        val events = CopyOnWriteArrayList<TrackEvent>()
+        val collectJob = launch { rec.events.collect { events.add(it) } }
+        try {
+            rec.start(samples)
+            samples.leavePort()
+            samples.feed(sample(300.0))
+            assertEquals(1, events.filterIsInstance<TrackEvent.Started>().size)
         } finally {
             collectJob.cancel()
             rec.dispose()

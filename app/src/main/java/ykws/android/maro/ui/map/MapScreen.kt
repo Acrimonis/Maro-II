@@ -450,6 +450,12 @@ internal sealed class ActiveSnack(val id: String, val name: String) {
      * own — the message comes from string resources in the host.
      */
     class RouteEnd(val kind: RouteEndKind) : ActiveSnack("", "")
+
+    /**
+     * **The auto-save on return's row:** the trip is already saved, so the row carries no Undo and its
+     * timeout commits nothing; its one command, Continue, reopens the trip for a stop that was not the end.
+     */
+    class TripAutoSaved(id: String, name: String) : ActiveSnack(id, name)
 }
 
 /** What the window's press cost: the line thrown away, or a leave with nothing lost. */
@@ -1104,6 +1110,8 @@ fun MapScreen(
             // The route ending's toast is answered at the host call site, inside the route block where
             // the disposal lives; this branch keeps the exhaustive `when` honest.
             is ActiveSnack.RouteEnd -> Unit
+            // No Undo is drawn on it: the trip is saved, Continue is its only command.
+            is ActiveSnack.TripAutoSaved -> Unit
         }
     }
 
@@ -1121,6 +1129,8 @@ fun MapScreen(
             is ActiveSnack.CreateUndo -> markersViewModel.dismissLastSaved()
             // Answered at the host call site (see `onSnackUndo`).
             is ActiveSnack.RouteEnd -> Unit
+            // The trip was saved before the row was shown; the timeout only lets it go.
+            is ActiveSnack.TripAutoSaved -> Unit
         }
     }
 
@@ -1698,6 +1708,9 @@ fun MapScreen(
 
     // Home-port arrival prompt (idle-in-zone 60 s) — the recording's three doors, Save accent.
     var showArrivalPrompt by remember { mutableStateOf(false) }
+    // Stop-recording confirmation (🐾 icon + menu drawer stop) — same 3-way sheet as exit. Declared here so the
+    // track-event handler below can close it when the recording ends by another path.
+    var showStopRecordingSheet by remember { mutableStateOf(false) }
 
     // ── Track event observation: drawer auto-open/close + live polyline restore ──
     LaunchedEffect(Unit) {
@@ -1723,7 +1736,12 @@ fun MapScreen(
                     showArrivalPrompt = true
                 }
                 is ykws.android.maro.data.track.TrackEvent.Finalized -> {
-                    toastSaved(event.name)
+                    // A recording ended by any path answers a standing arrival prompt or stop sheet.
+                    showArrivalPrompt = false
+                    showStopRecordingSheet = false
+                    // The auto-save on return offers Continue, for a stop at the berth that was not the end.
+                    if (event.auto) enqueueSnack(ActiveSnack.TripAutoSaved(event.trackId, event.name))
+                    else toastSaved(event.name)
                     // Fold the finished trip into the speed history: one trip, its cruising speed and its
                     // open-water minutes, appended live. The Calculate snapshot is left as it stood.
                     trackScope.launch {
@@ -1810,7 +1828,12 @@ fun MapScreen(
                     OverlayZOrder.reorder(mv)
                     mv.invalidate()
                 }
-                else -> { /* Started, Stopped, PointCaptured — handled elsewhere */ }
+                // A discard ends the recording too, with no Finalized: the prompt closes all the same.
+                ykws.android.maro.data.track.TrackEvent.Stopped -> {
+                    showArrivalPrompt = false
+                    showStopRecordingSheet = false
+                }
+                else -> { /* Started, PointCaptured — handled elsewhere */ }
             }
         }
     }
@@ -1923,8 +1946,6 @@ fun MapScreen(
     // ── Double-back-to-exit state ─────────────────────────────────────────
     var lastBackAt by remember { mutableStateOf(0L) }
     var showExitDialog by remember { mutableStateOf(false) }
-    // Stop-recording confirmation (🐾 icon + menu drawer stop) — same 3-way sheet as exit.
-    var showStopRecordingSheet by remember { mutableStateOf(false) }
 
     // ── Ladder confirm-dialog host ───────────────────────────────────────
     // Sink for ConfirmRequests raised by drawer-hosted surfaces (batch delete, merge). Their own
@@ -4104,6 +4125,10 @@ fun MapScreen(
             onSecondAction = { snack ->
                 if (snack is ActiveSnack.RouteEnd) {
                     if (pendingDiscard?.snack?.uid == snack.uid) armRouteMode(forceFresh = true)
+                } else if (snack is ActiveSnack.TripAutoSaved) {
+                    // Continue: the saved trip reopens as the live recording.
+                    dashboardController.remove(snack)
+                    trackViewModel.resumeTrack(snack.id)
                 }
             },
             onHeightChanged = { actionRowsHeightPx = it }

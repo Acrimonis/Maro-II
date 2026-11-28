@@ -1510,6 +1510,18 @@ object AppConfig {
     var trackingStandbyMinDistanceM: Float = 10f
         private set
 
+    /** The arrival circle's radius around the home-port origin (m) — the auto-save's. Set via `tracking.homePort.arrivalRadiusM`. */
+    var trackingArrivalRadiusM: Double = 50.0
+        private set
+
+    /** Seconds a returning boat stays in the arrival circle before the auto-save. Set via `tracking.homePort.arrivalHoldSec`. */
+    var trackingArrivalHoldSec: Long = 30L
+        private set
+
+    /** Distance (m) from where the boat rested at which the start on water fires. Set via `tracking.waterStart.distanceM`. */
+    var trackingWaterStartDistanceM: Double = 50.0
+        private set
+
     /**
      * The cap a recorded trip's marker-derived name may reach, beyond which every token is cut in
      * proportion to its own length, marked with an ellipsis (settled 2026-10-10). Set via
@@ -2260,6 +2272,16 @@ object AppConfig {
             }
             props.getProperty("tracking.standbyMinDistanceM")?.toFloatOrNull()?.let {
                 trackingStandbyMinDistanceM = it.coerceAtLeast(0f)
+            }
+            // ── Automatic tracking: the auto-save on return and the start on water ──
+            props.getProperty("tracking.homePort.arrivalRadiusM")?.toDoubleOrNull()?.let {
+                trackingArrivalRadiusM = it.coerceAtLeast(10.0)
+            }
+            props.getProperty("tracking.homePort.arrivalHoldSec")?.toLongOrNull()?.let {
+                trackingArrivalHoldSec = it.coerceAtLeast(1L)
+            }
+            props.getProperty("tracking.waterStart.distanceM")?.toDoubleOrNull()?.let {
+                trackingWaterStartDistanceM = it.coerceAtLeast(10.0)
             }
             props.getProperty("track.name.maxLength")?.toIntOrNull()?.let {
                 trackNameMaxLength = it.coerceIn(8, 254)

@@ -279,6 +279,18 @@ data class AppSettings(
     val trackGeofenceRadiusM: Double = BuildConfig.TRACK_GEOFENCE_RADIUS_M,
     /** When false, the home circle plays no part: no exit auto-start, no arrival prompt. */
     val trackGeofenceEnabled: Boolean = true,
+    /** Auto-start on leaving the home port, in GPS mode. */
+    val autoStartLeaveGps: Boolean = true,
+    /** Auto-start on leaving the home port, in demo mode. */
+    val autoStartLeaveDemo: Boolean = true,
+    /** Auto-save on returning to the home port, in GPS mode. */
+    val autoSaveReturnGps: Boolean = true,
+    /** Auto-save on returning to the home port, in demo mode. */
+    val autoSaveReturnDemo: Boolean = true,
+    /** Auto-start on water outside the home port, in GPS mode. */
+    val autoStartWaterGps: Boolean = true,
+    /** Auto-start on water outside the home port, in demo mode — off by default: a panned map centre would start trips. */
+    val autoStartWaterDemo: Boolean = false,
     /** Maximum GPS self-reported accuracy (m) for a fix to be recorded. Fixes with worse accuracy are rejected. */
     val maxRecordingAccuracyM: Float = 30f,
     /** Whether the tracks overlay layer is visible on the map. */
@@ -784,6 +796,12 @@ class SettingsManager(
         trackOriginLon = BuildConfig.TRACK_ORIGIN_LON,
         trackGeofenceRadiusM = BuildConfig.TRACK_GEOFENCE_RADIUS_M,
         trackGeofenceEnabled = prefs.getBoolean(KEY_TRACK_GEOFENCE_ENABLED, true),
+        autoStartLeaveGps = prefs.getBoolean(KEY_AUTO_START_LEAVE_GPS, true),
+        autoStartLeaveDemo = prefs.getBoolean(KEY_AUTO_START_LEAVE_DEMO, true),
+        autoSaveReturnGps = prefs.getBoolean(KEY_AUTO_SAVE_RETURN_GPS, true),
+        autoSaveReturnDemo = prefs.getBoolean(KEY_AUTO_SAVE_RETURN_DEMO, true),
+        autoStartWaterGps = prefs.getBoolean(KEY_AUTO_START_WATER_GPS, true),
+        autoStartWaterDemo = prefs.getBoolean(KEY_AUTO_START_WATER_DEMO, false),
         markerLayerState = try {
             ykws.android.maro.ui.map.MarkerLayerState.valueOf(
                 prefs.getString(KEY_MARKER_LAYER_STATE, "SHOW_ALL") ?: "SHOW_ALL")
@@ -1048,6 +1066,12 @@ class SettingsManager(
             .remove(KEY_TRACK_ORIGIN_LON)
             .remove(KEY_TRACK_GEOFENCE_RADIUS_M)
             .putBoolean(KEY_TRACK_GEOFENCE_ENABLED, updated.trackGeofenceEnabled)
+            .putBoolean(KEY_AUTO_START_LEAVE_GPS, updated.autoStartLeaveGps)
+            .putBoolean(KEY_AUTO_START_LEAVE_DEMO, updated.autoStartLeaveDemo)
+            .putBoolean(KEY_AUTO_SAVE_RETURN_GPS, updated.autoSaveReturnGps)
+            .putBoolean(KEY_AUTO_SAVE_RETURN_DEMO, updated.autoSaveReturnDemo)
+            .putBoolean(KEY_AUTO_START_WATER_GPS, updated.autoStartWaterGps)
+            .putBoolean(KEY_AUTO_START_WATER_DEMO, updated.autoStartWaterDemo)
             .putString(KEY_MARKER_LAYER_STATE, updated.markerLayerState.name)
             .putBoolean(KEY_MARKER_ZONES_VISIBLE, updated.markerZonesVisible)
             .putInt(KEY_MARKER_HALO_SIZE, updated.markerHaloSize)
@@ -1256,6 +1280,12 @@ class SettingsManager(
         private const val KEY_TRACK_ORIGIN_LON = "track_origin_lon"
         private const val KEY_TRACK_GEOFENCE_RADIUS_M = "track_geofence_radius_m"
         private const val KEY_TRACK_GEOFENCE_ENABLED = "track_geofence_enabled"
+        private const val KEY_AUTO_START_LEAVE_GPS = "auto_start_leave_gps"
+        private const val KEY_AUTO_START_LEAVE_DEMO = "auto_start_leave_demo"
+        private const val KEY_AUTO_SAVE_RETURN_GPS = "auto_save_return_gps"
+        private const val KEY_AUTO_SAVE_RETURN_DEMO = "auto_save_return_demo"
+        private const val KEY_AUTO_START_WATER_GPS = "auto_start_water_gps"
+        private const val KEY_AUTO_START_WATER_DEMO = "auto_start_water_demo"
         /** The layer fan's master gate for the route-and-tracks family (see [AppSettings.routeTracksVisible]). */
         private const val KEY_ROUTE_TRACKS_VISIBLE = "route_tracks_visible"
         private const val KEY_TRACKS_VISIBLE = "tracks_visible"

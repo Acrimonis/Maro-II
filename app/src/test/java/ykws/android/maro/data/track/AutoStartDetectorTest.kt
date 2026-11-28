@@ -1,6 +1,5 @@
 package ykws.android.maro.data.track
 
-import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import ykws.android.maro.data.model.LatLng
@@ -10,7 +9,7 @@ import ykws.android.maro.data.track.AutoStartDetector.Home
 /**
  * The home-port exit rule on a hand-driven monotonic clock: armed inside the 150 m home circle, fired by a
  * fix farther outside than its own accuracy while recording is off, past the spike guard (Doppler at least
- * 0.5 m/s, implied speed at most 32 kn), on water and with no recovery pending. Fixes are a minute apart
+ * 0.5 m/s, implied speed at most 32 kn), allowed for the mode and on water. Fixes are a minute apart
  * and report 2 m/s unless a test says otherwise.
  */
 class AutoStartDetectorTest {
@@ -28,9 +27,8 @@ class AutoStartDetectorTest {
         val detector = AutoStartDetector(maxSpeedMps)
         var now = 1_000_000L
         var water: Boolean? = true
-        var orphans = false
+        var allowed = true
         var waterAsked = 0
-        var orphansAsked = 0
 
         /** A fix [north] metres north of the origin, [after] ms after the previous one, while recording is off. */
         fun fix(
@@ -43,13 +41,9 @@ class AutoStartDetectorTest {
             home: Home? = this@AutoStartDetectorTest.home
         ): Boolean {
             now += after
-            return runBlocking {
-                detector.onSample(
-                    Fix(at(north), now, accuracy, speed, lock, demo),
-                    home,
-                    { orphansAsked++; orphans },
-                    { waterAsked++; water }
-                )
+            return detector.onSample(Fix(at(north), now, accuracy, speed, lock, demo), home, allowed) {
+                waterAsked++
+                water
             }
         }
 
@@ -161,18 +155,14 @@ class AutoStartDetectorTest {
     }
 
     @Test
-    fun `a pending recovery holds the start and is asked only after water`() {
+    fun `the rule switched off for the mode starts nothing and keeps the arming for when it is back on`() {
         val rig = Rig()
+        rig.allowed = false
         rig.fix(0.0)
-        rig.water = false
-        rig.orphans = true
         assertEquals(false, rig.fix(200.0))
-        assertEquals(0, rig.orphansAsked)
-        rig.water = true
-        assertEquals(false, rig.fix(250.0))
-        assertEquals(1, rig.orphansAsked)
-        rig.orphans = false
-        assertEquals(true, rig.fix(300.0))
+        assertEquals("water is not asked of a refused start", 0, rig.waterAsked)
+        rig.allowed = true
+        assertEquals(true, rig.fix(250.0))
     }
 
     @Test

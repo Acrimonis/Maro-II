@@ -92,15 +92,15 @@
 
 ## 3. Tracking Triggers & State Decisions
 
-### 3.1 Manual-Only Start/Stop (Primary)
-- **Decision:** Primary trigger is manual (Start/Stop in TrackDrawer). The home-port exit rule is the secondary auto-trigger (2026-11-27; it replaced the 2026-11-10 forgotten-start rule).
-- **Rationale:** Users should have full control. Auto-start on movement alone is NOT used outside the home circle — with the geofence disabled the rule is off and the user starts manually.
-- **Filed:** [`TrackRecorder.kt`](app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt:105)
+### 3.1 Manual and Automatic Start/Stop
+- **Decision (2026-11-28, supersedes "manual-only"):** Start/Stop in the TrackDrawer stays; three automatic rules run beside it, each switched per mode (GPS, Demo) in Settings › Navigation › Automatic tracking: the home-port exit rule starts on leaving La Salis, the water rule starts on a positive move on water anywhere else, the arrival rule saves a trip back from open sea that holds in the arrival circle. An automatic start saves any pending recovery first.
+- **Rationale:** The user wants every trip recorded without touching the phone; the toggles give back the control the manual-only rule protected.
+- **Filed:** [`TrackRecorder.kt`](app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt), [`AutoStartDetector.kt`](app/src/main/java/ykws/android/maro/data/track/AutoStartDetector.kt), [`WaterStartDetector.kt`](app/src/main/java/ykws/android/maro/data/track/WaterStartDetector.kt), [`ArrivalDetector.kt`](app/src/main/java/ykws/android/maro/data/track/ArrivalDetector.kt)
 
-### 3.2 No Auto-Start on Movement
-- **Decision:** Even when geofence is disabled, the user must start manually. No speed-based auto-start outside the home circle.
-- **Rationale:** Prevents accidental recordings. Inside the circle the rule needs rest, an off time, movement by the idle thresholds and water together (2026-11-10); the 10 s debounce is gone.
-- **Filed:** [`TrackRecorder.kt`](app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt:105)
+### 3.2 Auto-Start on Movement Outside the Home Circle
+- **Decision (2026-11-28, reverses "no speed-based auto-start"):** outside the home circle a recording starts on a positive move on water — `tracking.waterStart.distanceM` from where the boat rested, at the Doppler floor, past the spike guard. A recording the user stopped there starts again only after the boat rests (the stop detection's own test) and moves off.
+- **Rationale:** Trips from other ports and the app opened at sea are recorded too; the rest-then-move re-arm keeps a deliberate stop stopped.
+- **Filed:** [`WaterStartDetector.kt`](app/src/main/java/ykws/android/maro/data/track/WaterStartDetector.kt)
 
 ### 3.3 RECORDING Persists Through Stationary Periods
 - **Decision:** State stays ON when stationary. Only point capture suspends (gated by `isStill()`).

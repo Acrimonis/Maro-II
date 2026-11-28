@@ -154,6 +154,13 @@
     <string name="settings_sub_render_desc">Number of map redraws per second while GPS-following</string>
     <string name="settings_fps_label">Map refresh rate</string>
     <string name="settings_fps_desc">Lower = less battery, less smooth animation</string>
+    <string name="settings_section_auto_tracking">Automatic tracking</string>
+    <string name="settings_auto_leave_label">Start on leaving %1$s</string>
+    <string name="settings_auto_leave_desc">Tracking starts when the boat sails out of the home port.</string>
+    <string name="settings_auto_return_label">Save on returning to %1$s</string>
+    <string name="settings_auto_return_desc">Back from sea, the trip is saved once the boat has stayed %1$d s near the berth.</string>
+    <string name="settings_auto_water_label">Start on water</string>
+    <string name="settings_auto_water_desc">Anywhere else at sea, tracking starts when the boat moves off. After a stop on water, it waits for the boat to rest and move again.</string>
     <string name="settings_section_stop_detection">Stop detection</string>
     <string name="settings_stop_enable_label">Enable stop detection</string>
     <string name="settings_stop_enable_desc">Detect when boat is stationary. Doing so will also allow to save battery on GPS acquisition.</string>
@@ -852,6 +859,8 @@
     <!-- The map's action and undo rows (`MapSnackbarHost`): the three delete and create messages, each
          naming its own item, beside the route discard's two above. -->
     <string name="snack_track_deleted">Track \"%1$s\" deleted</string>
+    <string name="snack_trip_auto_saved">Back in port: \"%1$s\" saved</string>
+    <string name="snack_action_continue">Continue</string>
     <string name="snack_marker_deleted">Marker \"%1$s\" deleted</string>
     <string name="snack_marker_created">Marker \"%1$s\" created</string>
     <string name="route_started_toast">New route search started</string>

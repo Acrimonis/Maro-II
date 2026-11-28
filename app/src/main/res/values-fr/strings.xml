@@ -153,6 +153,13 @@
     <string name="settings_sub_render_desc">Nombre de redessins de la carte par seconde en suivi GPS</string>
     <string name="settings_fps_label">Taux de rafraîchissement carte</string>
     <string name="settings_fps_desc">Plus bas = moins de batterie, animation moins fluide</string>
+    <string name="settings_section_auto_tracking">Suivi automatique</string>
+    <string name="settings_auto_leave_label">Démarrer en quittant %1$s</string>
+    <string name="settings_auto_leave_desc">Le suivi démarre quand le bateau sort du port d\'attache.</string>
+    <string name="settings_auto_return_label">Enregistrer au retour à %1$s</string>
+    <string name="settings_auto_return_desc">De retour du large, la trace est enregistrée une fois le bateau resté %1$d s près du poste.</string>
+    <string name="settings_auto_water_label">Démarrer sur l\'eau</string>
+    <string name="settings_auto_water_desc">Partout ailleurs en mer, le suivi démarre quand le bateau s\'éloigne. Après un arrêt sur l\'eau, il attend que le bateau se repose puis reparte.</string>
     <string name="settings_section_stop_detection">Détection d\'arrêt</string>
     <string name="settings_stop_enable_label">Activer la détection d\'arrêt</string>
     <string name="settings_stop_enable_desc">Détecter quand le bateau est à l\'arrêt. Cela permet aussi d\'économiser la batterie sur l\'acquisition GPS.</string>
@@ -736,6 +743,8 @@
     <!-- Les lignes d'action et d'annulation de la carte (`MapSnackbarHost`) : les trois messages de
          suppression et de création, chacun nommant son élément, à côté des deux de l'abandon de route. -->
     <string name="snack_track_deleted">Trace « %1$s » supprimée</string>
+    <string name="snack_trip_auto_saved">De retour au port : « %1$s » enregistrée</string>
+    <string name="snack_action_continue">Continuer</string>
     <string name="snack_marker_deleted">Repère « %1$s » supprimé</string>
     <string name="snack_marker_created">Repère « %1$s » créé</string>
     <string name="action_undo">Annuler</string>

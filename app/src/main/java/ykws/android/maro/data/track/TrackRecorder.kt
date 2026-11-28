@@ -150,7 +150,25 @@ data class TrackRecorderConfig(
     val simplifySpeedDeltaKn: Double = 3.0,
     val idleThresholdSec: Long = 60,
     val autoMarkerMinDurationSec: Long = AppConfig.boatMarkerAutoMarkerMinDurationSec,
-    val autoMarkerDedupRadiusM: Double = AppConfig.boatMarkerAutoMarkerDedupRadiusM
+    val autoMarkerDedupRadiusM: Double = AppConfig.boatMarkerAutoMarkerDedupRadiusM,
+    // ── Automatic tracking, resolved for the current mode by [from]. The bare defaults here are the
+    // recorder's own — the leave start on, the save and the water start off — not the settings' defaults.
+    /** The exit rule may start a recording on leaving the home port. */
+    val autoStartLeave: Boolean = true,
+    /** The arrival rule may save a recording returning to the home port. */
+    val autoSaveReturn: Boolean = false,
+    /** The water rule may start a recording on water outside the home port. */
+    val autoStartWater: Boolean = false,
+    /** The arrival circle's radius around the home-port origin (m) — `tracking.homePort.arrivalRadiusM`. */
+    val arrivalRadiusM: Double = AppConfig.trackingArrivalRadiusM,
+    /** How long a returning boat stays in the arrival circle before the save (ms) — `tracking.homePort.arrivalHoldSec`. */
+    val arrivalHoldMs: Long = AppConfig.trackingArrivalHoldSec * 1_000L,
+    /** The water rule's start distance from where the boat rested (m) — `tracking.waterStart.distanceM`. */
+    val waterStartDistanceM: Double = AppConfig.trackingWaterStartDistanceM,
+    /** The idle detection's time setting (s) — the water rule's rest window. */
+    val stopDetectionTimeSec: Int = 45,
+    /** The idle detection's distance setting (m) — the water rule's rest distance. */
+    val stopDetectionDistanceM: Int = 15
 ) {
     companion object {
         /** The snapshot a settings value maps to — the one place the two shapes meet. */
@@ -166,7 +184,12 @@ data class TrackRecorderConfig(
             simplifySpeedDeltaKn = s.trackSimplifySpeedDeltaKn,
             idleThresholdSec = s.boatMarkerIdleThresholdSec,
             autoMarkerMinDurationSec = s.boatMarkerAutoMarkerMinDurationSec,
-            autoMarkerDedupRadiusM = s.boatMarkerAutoMarkerDedupRadiusM
+            autoMarkerDedupRadiusM = s.boatMarkerAutoMarkerDedupRadiusM,
+            autoStartLeave = if (s.gpsMode) s.autoStartLeaveGps else s.autoStartLeaveDemo,
+            autoSaveReturn = if (s.gpsMode) s.autoSaveReturnGps else s.autoSaveReturnDemo,
+            autoStartWater = if (s.gpsMode) s.autoStartWaterGps else s.autoStartWaterDemo,
+            stopDetectionTimeSec = s.stopDetectionTimeSec,
+            stopDetectionDistanceM = s.stopDetectionDistanceM
         )
     }
 }
@@ -178,9 +201,12 @@ data class TrackRecorderConfig(
  * is gated by [isStopped] — when the boat is stationary,
  * GPS fixes are received but not saved to the track.
  *
- * Auto-start by the home-port exit rule ([AutoStartDetector]): a boat seen in the home circle that leaves
- * it on water starts a recording. Arriving never starts one.
- * Arrival at the home port idles into a three-door prompt rather than a silent auto-stop.
+ * Automatic tracking, each rule gated per mode by the user's toggles: the home-port exit rule
+ * ([AutoStartDetector]) starts a recording when a boat seen in the home circle leaves it on water; the water
+ * rule ([WaterStartDetector]) starts one on a positive move on water anywhere else; the arrival rule
+ * ([ArrivalDetector]) saves a trip back from open sea that holds in the arrival circle. An automatic start
+ * saves any pending recovery first. Arriving never starts a recording, and an arrival the save does not own
+ * idles into the three-door prompt.
  *
  * **Threading.** Every mutation of the recorder's state runs on one serial dispatcher
  * ([dispatcher] limited to a parallelism of one): the sample collector, the timers, the idle
@@ -219,10 +245,8 @@ class TrackRecorder(
     private val gapDistanceThresholdM: Double = 200.0,
     private val gapTimeThresholdSec: Long = 120L,
     private val autoMarkerManager: AutoMarkerManager? = null,
-    /** Water at a position — `true` water, `false` land, `null` cannot say; the exit rule starts only on `true`. */
-    private val waterAt: (LatLng) -> Boolean? = { null },
-    /** Whether a recoverable checkpoint awaits; the rule never starts over one. */
-    private val orphansPending: suspend () -> Boolean = { false }
+    /** Water at a position — `true` water, `false` land, `null` cannot say; every automatic start needs `true`. */
+    private val waterAt: (LatLng) -> Boolean? = { null }
 ) {
     /** The live tunables — an immutable snapshot swapped whole, so a reader never sees a half-applied change. */
     @Volatile
@@ -296,6 +320,12 @@ class TrackRecorder(
     private var speedCount: Int = 0
     /** The home-port exit rule; it sees every fix, so an arrival while recording arms the next departure. */
     private val autoStart = AutoStartDetector(maxSpeedMps = Units.knotsToMps(boatMaxSpeedKn))
+    /** The auto-save on return; reset whenever a recording starts or ends, so a save needs a fresh exit. */
+    private val arrival = ArrivalDetector(maxSpeedMps = Units.knotsToMps(boatMaxSpeedKn))
+    /** The start on water anywhere outside the home port. */
+    private val waterStart = WaterStartDetector(maxSpeedMps = Units.knotsToMps(boatMaxSpeedKn))
+    /** The arrival hold's timer — its own, not the idle timer, which a docking manoeuvre's wake cancels. */
+    private var arrivalJob: Job? = null
     /** Tracks whether the previous fix was inside the geofence, for the exit re-arm of the arrival prompt. */
     private var wasInsideGeofence: Boolean = false
     /** The boat's latest inside-geofence reading, across both recorder states (home-port line). */
@@ -514,7 +544,9 @@ class TrackRecorder(
         idleStartMs = 0L
         wasStopped = false
         endedAtHomePort = false
-        arrivalPromptArmed = true
+        // A trip resumed inside the home circle — Continue at the berth — asks again only after it has left:
+        // the user just chose to carry on there. One resumed outside asks on its next arrival.
+        arrivalPromptArmed = !lastInsideGeofence
         cancelIdleTimer()
         activeSession = null
         isResuming = lastPoint != null
@@ -677,23 +709,34 @@ class TrackRecorder(
         val home = autoStartHome()
         when (state) {
             TrackRecorderState.OFF -> {
-                // The exit rule decides on this fix alone, with no timer: a miss while armed is retried on
-                // the next fix. Manual toggle is the other start trigger (via startManual()).
-                if (autoStart.onSample(fix, home, orphansPending, waterAt)) {
-                    beginRecording(isManual = false, startedAtHomePort = true, startSample = sample)
+                // Two automatic starts, each deciding on this fix alone: the exit rule first (leaving the
+                // home port), the water rule otherwise (anywhere else at sea). Both fold every fix whatever
+                // the toggles, so a rule switched on acts on the next fix. Manual toggle is the third trigger.
+                val leaving = autoStart.onSample(fix, home, config.autoStartLeave, waterAt)
+                val onWater = !leaving &&
+                    waterStart.onSample(fix, home, waterStartParams(), config.autoStartWater, waterAt)
+                if (leaving || onWater) {
+                    saveRecoveries()
+                    beginRecording(isManual = false, startedAtHomePort = leaving, startSample = sample)
                 }
             }
 
             TrackRecorderState.ON -> {
                 Log.v(TAG, "processSample(ON): speed=${sample.speedMps} pos=(${sample.position.latitude},${sample.position.longitude})")
-                // A recording's fixes keep the rule current: an arrival arms the next departure.
+                // A recording's fixes keep the start rules current: an arrival arms the next departure.
                 autoStart.observe(fix, home)
+                waterStart.observe(fix, waterStartParams())
                 markDemoIfSimulated(sample)
                 addPoint(sample)
 
                 // The silent 15 s auto-stop is gone; the arrival prompt re-arms on a re-exit.
                 if (wasInsideGeofence && !insideGeofence) {
                     arrivalPromptArmed = true
+                }
+                when (arrival.onFix(fix, home, config.arrivalRadiusM, config.autoSaveReturn)) {
+                    ArrivalDetector.Signal.ENTERED -> startArrivalHold()
+                    ArrivalDetector.Signal.LEFT -> cancelArrivalHold()
+                    ArrivalDetector.Signal.NONE -> Unit
                 }
             }
         }
@@ -709,6 +752,49 @@ class TrackRecorder(
         hasLock = sample.hasLock,
         isDemo = sample.isDemo
     )
+
+    private fun waterStartParams() = WaterStartDetector.Params(
+        distanceM = config.waterStartDistanceM,
+        restWindowMs = config.stopDetectionTimeSec * 1_000L,
+        restDistanceM = config.stopDetectionDistanceM.toDouble()
+    )
+
+    /**
+     * An automatic start finds a pending recovery: each live checkpoint is saved as a finished track first,
+     * so the new trip starts at once and the two are merged by hand if they belong together.
+     */
+    private suspend fun saveRecoveries() {
+        // The repository saves what it can and skips a checkpoint that fails, so the event names every saved one.
+        val saved = repository.finalizeLiveCheckpoints()
+        if (saved.isNotEmpty()) _events.tryEmit(RecoveriesSaved(saved.map { it.id }))
+    }
+
+    /** The boat came back inside the arrival circle: save the trip once it has stayed there the hold. */
+    private fun startArrivalHold() {
+        arrivalJob?.cancel()
+        arrivalJob = scope.launch {
+            delay(config.arrivalHoldMs)
+            lifecycleMutex.withLock {
+                if (state != TrackRecorderState.ON || isFinalizing || !arrival.isHolding) return@withLock
+                arrivalJob = null
+                if (!config.autoSaveReturn) {
+                    // Switched off during the hold: the hold ends, so the arrival prompt can ask instead.
+                    arrival.abandonHold()
+                    return@withLock
+                }
+                // The arrival is spent before the save, so a save that fails leaves the prompt free to ask.
+                // Detached above: the finalize's own transition cancels the hold, which is this coroutine.
+                arrival.reset()
+                Log.d(TAG, "arrival hold elapsed → auto-save")
+                finalizeTrack(auto = true)
+            }
+        }
+    }
+
+    private fun cancelArrivalHold() {
+        arrivalJob?.cancel()
+        arrivalJob = null
+    }
 
     /** The home circle, or null when the geofence is off — which switches the rule off with it. */
     private fun autoStartHome(): AutoStartDetector.Home? =
@@ -1206,6 +1292,15 @@ class TrackRecorder(
     }
 
     private fun transitionTo(newState: TrackRecorderState) {
+        // Every start and every end spends the arrival: a save needs a fresh exit from the home circle.
+        cancelArrivalHold()
+        arrival.reset()
+        if (newState == TrackRecorderState.ON) {
+            waterStart.onRecordingStarted()
+        } else {
+            // A stop on water outside the home port keeps the water rule off until the boat rests.
+            waterStart.onRecordingStopped(outsideHome = !lastInsideGeofence)
+        }
         state = newState
         _uiState.update { it.copy(state = newState) }
     }
@@ -1245,8 +1340,10 @@ class TrackRecorder(
      * Finalize the current track on the lane: simplify, title, then persist on IO and only then
      * leave ON. A save that fails keeps the checkpoint on disk and reports through [TrackRecorderUiState.infoError],
      * so the next launch offers the recording for recovery instead of the recorder claiming it saved.
+     *
+     * @param auto true when the auto-save on return ended the trip — carried on [Finalized] for the UI.
      */
-    private suspend fun finalizeTrack() {
+    private suspend fun finalizeTrack(auto: Boolean = false) {
         isFinalizing = true
         val track = currentTrack ?: run { isFinalizing = false; return }
         stopCheckpointJob()
@@ -1384,7 +1481,7 @@ class TrackRecorder(
             return
         }
 
-        _events.tryEmit(Finalized(finalizedTrack.id, finalizedTrack.name))
+        _events.tryEmit(Finalized(finalizedTrack.id, finalizedTrack.name, auto = auto))
         _events.tryEmit(Stopped)
 
         transitionTo(TrackRecorderState.OFF)
@@ -1454,7 +1551,8 @@ class TrackRecorder(
             // The home-port arrival owns the same threshold: the latest fix decides, not the
             // idle-entry position, so a boat already stopped that drifts in still asks — with
             // the checkpoint persisted so a crash after the prompt still has the trip.
-            if (arrivalPromptArmed && lastInsideGeofence) {
+            // A hold in the arrival circle owns the arrival: the auto-save answers it, the prompt stands aside.
+            if (arrivalPromptArmed && lastInsideGeofence && !arrival.isHolding) {
                 arrivalPromptArmed = false
                 checkpointQuietly()
                 _events.tryEmit(HomePortArrivalPrompt)

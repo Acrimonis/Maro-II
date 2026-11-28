@@ -70,8 +70,10 @@ internal fun MapSnackbarHost(
             activeSnacks.forEach { snack ->
                 key(snack.uid) {
                     val routeEnd = snack as? ActiveSnack.RouteEnd
+                    val autoSaved = snack as? ActiveSnack.TripAutoSaved
                     SnackRow(
                         message = when (snack) {
+                            is ActiveSnack.TripAutoSaved -> stringResource(R.string.snack_trip_auto_saved, snack.name)
                             is ActiveSnack.TrackDelete -> stringResource(R.string.snack_track_deleted, snack.name)
                             is ActiveSnack.MarkerDelete -> stringResource(R.string.snack_marker_deleted, snack.name)
                             is ActiveSnack.CreateUndo -> stringResource(R.string.snack_marker_created, snack.name)
@@ -87,11 +89,14 @@ internal fun MapSnackbarHost(
                         onUndo = { onUndo(snack) },
                         onTimeout = { onTimeout(snack) },
                         tagsDrawn = tagsDrawn,
-                        showUndo = true,
-                        secondActionLabel = if (routeEnd != null) {
-                            stringResource(R.string.route_action_new)
-                        } else null,
-                        onSecondAction = if (routeEnd != null) {
+                        // An auto-saved trip has nothing to undo: Continue is its one command.
+                        showUndo = autoSaved == null,
+                        secondActionLabel = when {
+                            routeEnd != null -> stringResource(R.string.route_action_new)
+                            autoSaved != null -> stringResource(R.string.snack_action_continue)
+                            else -> null
+                        },
+                        onSecondAction = if (routeEnd != null || autoSaved != null) {
                             { onSecondAction(snack) }
                         } else null
                     )

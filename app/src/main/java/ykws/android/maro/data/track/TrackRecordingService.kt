@@ -296,8 +296,7 @@ class TrackRecordingService : Service() {
             gapTimeThresholdSec = AppConfig.trackingGapTimeThresholdSec,
             autoMarkerManager = autoMarkerManager,
             // Read at the moment of each fix, so the UI registering after the service started is seen.
-            waterAt = { pos -> WhereAmIProvider.isWaterAt?.invoke(pos) },
-            orphansPending = { repository.hasRecoverableCheckpoint() }
+            waterAt = { pos -> WhereAmIProvider.isWaterAt?.invoke(pos) }
         )
         recorder = rec
         rec.start(_sampleInput)
@@ -307,7 +306,13 @@ class TrackRecordingService : Service() {
                 _isRecording.value = state.state == TrackRecorderState.ON
             }
         }
-        serviceScope.launch { rec.events.collect { _events.tryEmit(it) } }
+        serviceScope.launch {
+            rec.events.collect { event ->
+                // An automatic start saved the pending recoveries: the notification stops offering one.
+                if (event is TrackEvent.RecoveriesSaved) hasOrphans = repository.hasCheckpointFiles()
+                _events.tryEmit(event)
+            }
+        }
         serviceScope.launch { rec.newPoint.collect { _newPoint.tryEmit(it) } }
         startGpsSampling()
     }

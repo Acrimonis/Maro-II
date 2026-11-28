@@ -331,6 +331,27 @@ open class TrackRepository(
             }
         }
 
+    /**
+     * Save every live checkpoint as a finished track — an automatic start's way past a pending recovery.
+     * Stale checkpoints (a finalize already covers them) are left to [recoverOrphanedCheckpoints]. One that
+     * fails to save is logged and stays on disk for the recovery offer; the others are saved all the same.
+     * Returns the tracks saved, empty when there was nothing to recover.
+     */
+    suspend fun finalizeLiveCheckpoints(): List<Track> = withContext(Dispatchers.IO) {
+        if (!hasCheckpointFiles()) return@withContext emptyList()
+        val live = writeMutex.withLock { liveCheckpointsLocked(deleteStale = false) }
+        live.mapNotNull { checkpoint ->
+            try {
+                finalizeOrphanedCheckpoint(checkpoint)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "finalizeLiveCheckpoints: ${checkpoint.id} could not be saved", e)
+                null
+            }
+        }
+    }
+
     /** Finalize an orphaned checkpoint into a complete track. */
     suspend fun finalizeOrphanedCheckpoint(track: Track): Track = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()

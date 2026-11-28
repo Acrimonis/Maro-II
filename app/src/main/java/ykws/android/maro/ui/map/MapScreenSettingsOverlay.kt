@@ -1215,6 +1215,31 @@ private fun LayersSettings(
 
 // ── Navigation tab ────────────────────────────────────────────────────────
 
+/**
+ * One automatic-tracking rule: its title and line of explanation, then the two modes it may act in as
+ * independent toggles — both off switches the rule off (`docs/ui-component-guidelines.md` §2.7b).
+ * [onToggle] receives `true` for the GPS toggle, `false` for the Demo one.
+ */
+@Composable
+private fun AutoTrackingRow(
+    title: String,
+    description: String,
+    gps: Boolean,
+    demo: Boolean,
+    onToggle: (gpsAxis: Boolean) -> Unit
+) {
+    SubSectionHeader(title = title, description = description)
+    Spacer(Modifier.height(8.dp))
+    MultiSelectRow(
+        options = listOf(
+            true to stringResource(R.string.state_gps),
+            false to stringResource(R.string.state_demo)
+        ),
+        isOn = { gpsAxis -> if (gpsAxis) gps else demo },
+        onToggle = onToggle
+    )
+}
+
 @Composable
 private fun NavigationSettings(
     settings: AppSettings,
@@ -1227,6 +1252,53 @@ private fun NavigationSettings(
             .fillMaxSize()
             .verticalScroll(scrollState)
     ) {
+        // ── Automatic tracking: one row per rule, each a GPS and a Demo toggle ──
+        SectionHeader(title = stringResource(R.string.settings_section_auto_tracking))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
+        CardArea {
+            val port = ykws.android.maro.BuildConfig.TRACK_DISPLAY_NAME
+            AutoTrackingRow(
+                title = stringResource(R.string.settings_auto_leave_label, port),
+                description = stringResource(R.string.settings_auto_leave_desc),
+                gps = settings.autoStartLeaveGps,
+                demo = settings.autoStartLeaveDemo,
+                onToggle = { gpsAxis ->
+                    onUpdateSettings {
+                        if (gpsAxis) it.copy(autoStartLeaveGps = !it.autoStartLeaveGps)
+                        else it.copy(autoStartLeaveDemo = !it.autoStartLeaveDemo)
+                    }
+                }
+            )
+            SectionDivider()
+            AutoTrackingRow(
+                title = stringResource(R.string.settings_auto_return_label, port),
+                description = stringResource(R.string.settings_auto_return_desc, AppConfig.trackingArrivalHoldSec),
+                gps = settings.autoSaveReturnGps,
+                demo = settings.autoSaveReturnDemo,
+                onToggle = { gpsAxis ->
+                    onUpdateSettings {
+                        if (gpsAxis) it.copy(autoSaveReturnGps = !it.autoSaveReturnGps)
+                        else it.copy(autoSaveReturnDemo = !it.autoSaveReturnDemo)
+                    }
+                }
+            )
+            SectionDivider()
+            AutoTrackingRow(
+                title = stringResource(R.string.settings_auto_water_label),
+                description = stringResource(R.string.settings_auto_water_desc),
+                gps = settings.autoStartWaterGps,
+                demo = settings.autoStartWaterDemo,
+                onToggle = { gpsAxis ->
+                    onUpdateSettings {
+                        if (gpsAxis) it.copy(autoStartWaterGps = !it.autoStartWaterGps)
+                        else it.copy(autoStartWaterDemo = !it.autoStartWaterDemo)
+                    }
+                }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
+
         // ── Stop detection ──────────────────────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_section_stop_detection))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
